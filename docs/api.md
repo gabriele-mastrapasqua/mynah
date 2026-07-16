@@ -33,6 +33,16 @@ char *mynah_transcribe(mynah_model *m, const float *samples, size_t n_samples,
 - Complessità: O(T²) nell'attention — per audio molto lunghi (>~10 min) preferire
   lo streaming, che è O(T) in tempo e O(1) in memoria.
 
+## Trascrizione batch
+
+```c
+int mynah_transcribe_batch(mynah_model *m, const float *const *samples,
+                           const size_t *n_samples, int batch, const char *const *langs,
+                           int lookahead, char **texts, char (*langs_out)[16]);
+```
+N richieste processate weight-stationary (pesi letti una volta per layer, packing a
+lunghezze variabili senza padding). Output identico a N chiamate `mynah_transcribe`.
+
 ## Streaming
 
 Vedi [streaming.md](streaming.md) per la semantica completa.

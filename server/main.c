@@ -32,6 +32,93 @@
 
 static mynah_model *g_model;
 static const char *g_model_name = "nemotron-3.5-asr-streaming-0.6b";
+static int g_max_batch = 8;          /* --batch N; 1 = disabilitato */
+
+/* --------------------------------------------------- micro-batching scheduler
+ * Le connessioni impacchettano il lavoro in job; un thread dedicato aggrega i
+ * job pendenti (finestra 25 ms o batch pieno) e chiama mynah_transcribe_batch:
+ * i pesi vengono letti una volta per layer per l'intero batch. */
+typedef struct trx_job {
+    const float *samples;
+    size_t n_samples;
+    char lang[24];
+    int lookahead;
+    char *text;                 /* risultato (malloc) */
+    char lang_out[16];
+    int done;
+    pthread_mutex_t mu;
+    pthread_cond_t cv;
+    struct trx_job *next;
+} trx_job;
+
+static trx_job *bq_head, *bq_tail;
+static int bq_len;
+static pthread_mutex_t bq_mu = PTHREAD_MUTEX_INITIALIZER;
+static pthread_cond_t bq_cv = PTHREAD_COND_INITIALIZER;
+
+static void batch_submit_and_wait(trx_job *j) {
+    pthread_mutex_lock(&bq_mu);
+    if (bq_tail) bq_tail->next = j;
+    else bq_head = j;
+    bq_tail = j;
+    bq_len++;
+    pthread_cond_broadcast(&bq_cv);
+    pthread_mutex_unlock(&bq_mu);
+
+    pthread_mutex_lock(&j->mu);
+    while (!j->done) pthread_cond_wait(&j->cv, &j->mu);
+    pthread_mutex_unlock(&j->mu);
+}
+
+static void *batch_worker(void *arg) {
+    (void)arg;
+    for (;;) {
+        pthread_mutex_lock(&bq_mu);
+        while (!bq_head) pthread_cond_wait(&bq_cv, &bq_mu);
+
+        /* finestra di aggregazione: aspetta fino a 25 ms che arrivino altri job */
+        struct timespec dl;
+        clock_gettime(CLOCK_REALTIME, &dl);
+        dl.tv_nsec += 25 * 1000000;
+        if (dl.tv_nsec >= 1000000000) { dl.tv_sec++; dl.tv_nsec -= 1000000000; }
+        while (bq_len < g_max_batch &&
+               pthread_cond_timedwait(&bq_cv, &bq_mu, &dl) == 0) {}
+
+        trx_job *jobs[64];
+        int B = 0;
+        while (bq_head && B < g_max_batch && B < 64) {
+            jobs[B++] = bq_head;
+            bq_head = bq_head->next;
+        }
+        if (!bq_head) bq_tail = NULL;
+        bq_len -= B;
+        pthread_mutex_unlock(&bq_mu);
+
+        const float *samples[64];
+        size_t ns[64];
+        const char *langs[64];
+        char *texts[64];
+        char louts[64][16];
+        int lookahead = jobs[0]->lookahead;   /* batch omogeneo sul primo */
+        for (int b = 0; b < B; b++) {
+            samples[b] = jobs[b]->samples;
+            ns[b] = jobs[b]->n_samples;
+            langs[b] = jobs[b]->lang;
+            texts[b] = NULL;
+        }
+        mynah_transcribe_batch(g_model, samples, ns, B, langs, lookahead, texts, louts);
+
+        for (int b = 0; b < B; b++) {
+            pthread_mutex_lock(&jobs[b]->mu);
+            jobs[b]->text = texts[b];
+            memcpy(jobs[b]->lang_out, louts[b], sizeof(jobs[b]->lang_out));
+            jobs[b]->done = 1;
+            pthread_cond_signal(&jobs[b]->cv);
+            pthread_mutex_unlock(&jobs[b]->mu);
+        }
+    }
+    return NULL;
+}
 
 /* ------------------------------------------------------------ coda connessioni */
 static int q_fds[QUEUE_CAP];
@@ -201,7 +288,20 @@ static void handle_transcribe(int fd, const char *headers, const uint8_t *body,
     }
 
     char lang_out[16] = "";
-    char *text = mynah_transcribe(g_model, samples, n_samples, f.language, f.lookahead, lang_out);
+    char *text;
+    if (g_max_batch > 1) {
+        trx_job j = {.samples = samples, .n_samples = n_samples, .lookahead = f.lookahead};
+        snprintf(j.lang, sizeof(j.lang), "%s", f.language);
+        pthread_mutex_init(&j.mu, NULL);
+        pthread_cond_init(&j.cv, NULL);
+        batch_submit_and_wait(&j);
+        text = j.text;
+        memcpy(lang_out, j.lang_out, sizeof(lang_out));
+        pthread_mutex_destroy(&j.mu);
+        pthread_cond_destroy(&j.cv);
+    } else {
+        text = mynah_transcribe(g_model, samples, n_samples, f.language, f.lookahead, lang_out);
+    }
     const double duration = (double)n_samples / 16000.0;
     free(samples);
     if (!text) { send_error(fd, 400, "trascrizione fallita (lingua non supportata?)"); return; }
@@ -438,15 +538,18 @@ int main(int argc, char **argv) {
         if (strcmp(argv[i], "-m") == 0 && i + 1 < argc) model_dir = argv[++i];
         else if (strcmp(argv[i], "-p") == 0 && i + 1 < argc) port = atoi(argv[++i]);
         else if (strcmp(argv[i], "--threads") == 0 && i + 1 < argc) n_threads = atoi(argv[++i]);
+        else if (strcmp(argv[i], "--batch") == 0 && i + 1 < argc) g_max_batch = atoi(argv[++i]);
         else {
-            fprintf(stderr, "uso: mynah-server -m <model_dir> [-p 8090] [--threads 4]\n");
+            fprintf(stderr, "uso: mynah-server -m <model_dir> [-p 8090] [--threads 4] [--batch 8]\n");
             return 2;
         }
     }
     if (!model_dir) {
-        fprintf(stderr, "uso: mynah-server -m <model_dir> [-p 8090] [--threads 4]\n");
+        fprintf(stderr, "uso: mynah-server -m <model_dir> [-p 8090] [--threads 4] [--batch 8]\n");
         return 2;
     }
+    if (g_max_batch < 1) g_max_batch = 1;
+    if (g_max_batch > 64) g_max_batch = 64;
 
     signal(SIGPIPE, SIG_IGN);
     g_model = mynah_load(model_dir);
@@ -467,9 +570,14 @@ int main(int argc, char **argv) {
         pthread_create(&t, NULL, worker, NULL);
         pthread_detach(t);
     }
-    fprintf(stderr, "mynah-server %s: in ascolto su :%d (%d worker)\n"
+    if (g_max_batch > 1) {
+        pthread_t t;
+        pthread_create(&t, NULL, batch_worker, NULL);
+        pthread_detach(t);
+    }
+    fprintf(stderr, "mynah-server %s: in ascolto su :%d (%d worker, batch %d)\n"
                     "  POST /v1/audio/transcriptions | GET /v1/audio/stream (WS) | /v1/models | /v1/health\n",
-            mynah_version(), port, n_threads);
+            mynah_version(), port, n_threads, g_max_batch);
 
     for (;;) {
         int fd = accept(srv, NULL, NULL);

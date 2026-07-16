@@ -135,6 +135,58 @@ int mynah_lookaheads(const mynah_model *m, int out[8]) {
     return m->n_lookaheads;
 }
 
+int mynah_transcribe_batch(mynah_model *m, const float *const *samples,
+                           const size_t *n_samples, int batch, const char *const *langs,
+                           int lookahead, char **texts, char (*langs_out)[16]) {
+    const int right = lookahead >= 0 ? lookahead : m->default_right;
+    int rc = -1;
+
+    float **feats = calloc((size_t)batch, sizeof(float *));
+    float **encs = calloc((size_t)batch, sizeof(float *));
+    int *valids = calloc((size_t)batch, sizeof(int));
+    int *prompts = calloc((size_t)batch, sizeof(int));
+    int *t_encs = calloc((size_t)batch, sizeof(int));
+    if (!feats || !encs || !valids || !prompts || !t_encs) goto done;
+
+    for (int b = 0; b < batch; b++) {
+        texts[b] = NULL;
+        prompts[b] = langs && langs[b] ? mynah_lang_id(m, langs[b]) : m->default_prompt;
+        if (prompts[b] < 0) goto done;
+        int T_mel;
+        feats[b] = mynah_log_mel(&m->feat, samples[b], n_samples[b], &T_mel, &valids[b]);
+        if (!feats[b]) goto done;
+    }
+
+    if (mynah_encoder_forward_batch(&m->enc, (const float *const *)feats, valids, batch,
+                                    m->feat.n_mels, prompts, m->left_ctx, right,
+                                    encs, t_encs) != 0)
+        goto done;
+
+    for (int b = 0; b < batch; b++) {
+        if (!encs[b]) continue;
+        mynah_dec_state *s = malloc(sizeof(*s));
+        if (!s) continue;
+        mynah_dec_state_reset(&m->dec, s);
+        const int cap = t_encs[b] * m->dec.max_symbols;
+        int *tokens = malloc((size_t)cap * sizeof(int));
+        const int n_tok = tokens ? mynah_greedy_decode(&m->dec, s, encs[b], t_encs[b],
+                                                       tokens, cap) : 0;
+        texts[b] = mynah_detokenize(&m->tok, tokens, n_tok,
+                                    langs_out ? langs_out[b] : NULL);
+        free(tokens);
+        free(s);
+    }
+    rc = 0;
+
+done:
+    for (int b = 0; b < batch; b++) {
+        if (feats) free(feats[b]);
+        if (encs) free(encs[b]);
+    }
+    free(feats); free(encs); free(valids); free(prompts); free(t_encs);
+    return rc;
+}
+
 /* ----------------------------------------------------------------- streaming */
 
 struct mynah_stream {

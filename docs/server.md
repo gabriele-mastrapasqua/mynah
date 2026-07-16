@@ -44,10 +44,17 @@ il proprio stato di decode (~12 MB per stream). `--threads N` = richieste servit
 parallelo; le eccedenze si accodano (503 oltre 128 in coda). Nessun clone del modello,
 nessun lock sul percorso caldo.
 
-**Batching cross-richiesta** (weight-stationary, stile vLLM): non ancora implementato —
-richiede il percorso kernel B>1 (backlog M4/M5). Su CPU multicore il pool di thread
-scala già quasi linearmente per richieste indipendenti (4 richieste da 5 s ≈ 1.5 s
-totali su M-series).
+**Batching cross-richiesta** (`--batch N`, default 8): le trascrizioni REST pendenti
+vengono aggregate (finestra 25 ms) e processate **weight-stationary**: packing senza
+padding dei frame di tutte le richieste, GEMM per-frame (FFN/proiezioni, >95% dei FLOP)
+su `[ΣT, d]` con i pesi letti una volta per layer; attention/conv restano per-sequenza.
+Output identico al percorso B=1 (verificato).
+
+Numeri onesti su Apple Silicon (Accelerate multithreaded): batch ≈ pool di thread per
+il throughput (la GEMM singola satura già i core) — il batch vale ~1.4× sul sequenziale
+a cache calda e riduce contesa/footprint. Il guadagno grosso è atteso su x86/OpenBLAS
+molti-core e sui futuri backend GPU (M5), dove i pesi letti una volta contano davvero.
+`--batch 1` disabilita (torna al per-richiesta nei worker).
 
 ## Test
 

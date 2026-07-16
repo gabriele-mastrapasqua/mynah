@@ -47,6 +47,15 @@ float *mynah_encoder_forward(const mynah_encoder *enc, const float *feats, int t
                              int n_mels, int prompt_id, int left_ctx, int right_ctx,
                              int *t_out);
 
+/* Forward batched weight-stationary (lunghezze variabili, packing senza padding):
+ * le GEMM per-frame (FFN, proiezioni — >95% dei FLOP) girano su [ΣT, d] leggendo i
+ * pesi UNA volta; attention e conv (per-sequenza) iterano sui segmenti.
+ * outs[b] riceve un buffer malloc [t_outs[b], d_out] (caller free). 0 = ok. */
+int mynah_encoder_forward_batch(const mynah_encoder *enc, const float *const *feats,
+                                const int *t_mel, int batch, int n_mels,
+                                const int *prompt_ids, int left_ctx, int right_ctx,
+                                float **outs, int *t_outs);
+
 /* --------------------------------------------------------- streaming cache-aware
  * Ogni chunk mel (primo: 1+8r frame, poi 8(r+1)) produce q = r+1 frame encoder,
  * che coincidono con UN chunk della griglia chunked_limited: il left context in

@@ -543,6 +543,106 @@ int mynah_enc_stream_step(mynah_enc_stream *es, const float *mel, int n_mel,
     return Q;
 }
 
+/* --------------------------------------------------------- forward batched
+ * Packing senza padding: x = concat dei frame di tutte le sequenze [ΣT, d].
+ * FFN/LN girano sull'intero packed (weight-stationary); attention e conv,
+ * che dipendono dalla causalità per-sequenza, iterano sui segmenti. */
+static int encoder_layer_batch(const mynah_encoder *enc, int li, float *x,
+                               const int *t_enc, int batch, float *const *pes,
+                               int left, int right) {
+    const mynah_enc_layer *L = &enc->layers[li];
+    const int d = enc->d_model;
+    int T_total = 0;
+    for (int b = 0; b < batch; b++) T_total += t_enc[b];
+    const size_t n = (size_t)T_total * (size_t)d;
+
+    float *tmp = malloc(n * sizeof(float));
+    float *tmp2 = malloc((size_t)T_total * (size_t)enc->ffn_dim * sizeof(float));
+    float *xn = malloc(n * sizeof(float));
+    if (!tmp || !tmp2 || !xn) { free(tmp); free(tmp2); free(xn); return -1; }
+
+    /* ½ FFN1 — packed */
+    layer_norm_f(x, L->ln_ff1_w, L->ln_ff1_b, tmp, T_total, d);
+    matmul_wt(tmp, L->ff1_w1, tmp2, T_total, enc->ffn_dim, d);
+    silu_inplace(tmp2, (size_t)T_total * (size_t)enc->ffn_dim);
+    matmul_wt(tmp2, L->ff1_w2, tmp, T_total, d, enc->ffn_dim);
+    for (size_t i = 0; i < n; i++) x[i] += 0.5f * tmp[i];
+
+    /* MHSA — per segmento */
+    layer_norm_f(x, L->ln_att_w, L->ln_att_b, xn, T_total, d);
+    for (int b = 0, off = 0; b < batch; off += t_enc[b], b++)
+        attention(enc, L, xn + (size_t)off * (size_t)d, tmp + (size_t)off * (size_t)d,
+                  t_enc[b], pes[b], left, right);
+    for (size_t i = 0; i < n; i++) x[i] += tmp[i];
+
+    /* Conv — per segmento (causale) */
+    layer_norm_f(x, L->ln_conv_w, L->ln_conv_b, xn, T_total, d);
+    for (int b = 0, off = 0; b < batch; off += t_enc[b], b++)
+        conv_module(enc, L, xn + (size_t)off * (size_t)d, tmp + (size_t)off * (size_t)d,
+                    t_enc[b]);
+    for (size_t i = 0; i < n; i++) x[i] += tmp[i];
+
+    /* ½ FFN2 + LN out — packed */
+    layer_norm_f(x, L->ln_ff2_w, L->ln_ff2_b, tmp, T_total, d);
+    matmul_wt(tmp, L->ff2_w1, tmp2, T_total, enc->ffn_dim, d);
+    silu_inplace(tmp2, (size_t)T_total * (size_t)enc->ffn_dim);
+    matmul_wt(tmp2, L->ff2_w2, tmp, T_total, d, enc->ffn_dim);
+    for (size_t i = 0; i < n; i++) x[i] += 0.5f * tmp[i];
+    layer_norm_f(x, L->ln_out_w, L->ln_out_b, xn, T_total, d);
+    memcpy(x, xn, n * sizeof(float));
+
+    free(tmp); free(tmp2); free(xn);
+    return 0;
+}
+
+int mynah_encoder_forward_batch(const mynah_encoder *enc, const float *const *feats,
+                                const int *t_mel, int batch, int n_mels,
+                                const int *prompt_ids, int left_ctx, int right_ctx,
+                                float **outs, int *t_outs) {
+    const int d = enc->d_model;
+    float **seq = calloc((size_t)batch, sizeof(float *));
+    float **pes = calloc((size_t)batch, sizeof(float *));
+    if (!seq || !pes) { free(seq); free(pes); return -1; }
+
+    int T_total = 0, rc = -1;
+    for (int b = 0; b < batch; b++) {
+        seq[b] = mynah_subsampling_forward(&enc->ss, feats[b], t_mel[b], n_mels, &t_outs[b]);
+        if (!seq[b]) goto done;
+        pes[b] = malloc((size_t)(2 * t_outs[b] - 1) * (size_t)d * sizeof(float));
+        if (!pes[b]) goto done;
+        mynah_pos_emb(enc, t_outs[b], pes[b]);
+        T_total += t_outs[b];
+    }
+
+    float *x = malloc((size_t)T_total * (size_t)d * sizeof(float));
+    if (!x) goto done;
+    for (int b = 0, off = 0; b < batch; off += t_outs[b], b++) {
+        memcpy(x + (size_t)off * (size_t)d, seq[b],
+               (size_t)t_outs[b] * (size_t)d * sizeof(float));
+        free(seq[b]);
+        seq[b] = NULL;
+    }
+
+    for (int li = 0; li < enc->n_layers; li++)
+        if (encoder_layer_batch(enc, li, x, t_outs, batch, pes, left_ctx, right_ctx) != 0) {
+            free(x);
+            goto done;
+        }
+
+    rc = 0;
+    for (int b = 0, off = 0; b < batch; off += t_outs[b], b++) {
+        outs[b] = malloc((size_t)t_outs[b] * (size_t)enc->d_out * sizeof(float));
+        if (!outs[b]) { rc = -1; continue; }
+        mynah_encoder_post(enc, x + (size_t)off * (size_t)d, t_outs[b], prompt_ids[b], outs[b]);
+    }
+    free(x);
+
+done:
+    for (int b = 0; b < batch; b++) { free(seq[b]); free(pes[b]); }
+    free(seq); free(pes);
+    return rc;
+}
+
 /* ---------------------------------------------------------------- forward */
 float *mynah_encoder_forward(const mynah_encoder *enc, const float *feats, int t_mel,
                              int n_mels, int prompt_id, int left_ctx, int right_ctx,

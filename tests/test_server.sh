@@ -5,7 +5,7 @@ MODEL_DIR="${1:-models/nemotron-3.5-asr-streaming-0.6b}"
 PORT="${2:-8199}"
 [ -f "$MODEL_DIR/mynah.json" ] || exit 77
 
-./mynah-server -m "$MODEL_DIR" -p "$PORT" --threads 4 2>/dev/null &
+./mynah-server -m "$MODEL_DIR" -p "$PORT" --threads 4 --batch 4 2>/dev/null &
 SRV_PID=$!
 trap 'kill $SRV_PID 2>/dev/null' EXIT
 

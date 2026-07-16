@@ -52,6 +52,14 @@ int mynah_lookaheads(const mynah_model *m, int out[8]);
 char *mynah_transcribe(mynah_model *m, const float *samples, size_t n_samples,
                        const char *lang, int lookahead, char *lang_out);
 
+/* Trascrizione BATCH weight-stationary: N richieste processate insieme — i pesi
+ * (2.5 GB) vengono letti una volta per layer invece di N. Lunghezze variabili,
+ * nessun padding. texts[i] riceve il testo (malloc, caller free; NULL su errore
+ * del singolo item); langs_out[i] (>= 16 byte l'uno) opzionale. 0 = ok. */
+int mynah_transcribe_batch(mynah_model *m, const float *const *samples,
+                           const size_t *n_samples, int batch, const char *const *langs,
+                           int lookahead, char **texts, char (*langs_out)[16]);
+
 /* --------------------------------------------------------------- streaming
  * Cache-aware, latenza = (lookahead+1) * 80 ms. Il testo emesso via callback è
  * SEMPRE definitivo (greedy monotono, mai ritrattato): is_final = true. */

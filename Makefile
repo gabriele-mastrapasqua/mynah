@@ -31,7 +31,7 @@ mynah-server: $(OBJ) server/main.o server/http_util.o
 %.o: %.c $(HDR)
 	$(CC) $(CFLAGS) -c $< -o $@
 
-TESTS := tests/test_features tests/test_subsampling tests/test_encoder tests/test_streaming
+TESTS := tests/test_features tests/test_subsampling tests/test_encoder tests/test_streaming tests/test_batch
 
 tests/%: tests/%.o tests/npy.o $(OBJ)
 	$(CC) $(CFLAGS) -o $@ $^ $(LDFLAGS)
