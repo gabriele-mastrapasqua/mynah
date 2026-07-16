@@ -12,21 +12,34 @@ else
   CFLAGS  += -DMYNAH_BLAS_OPENBLAS
 endif
 
-SRC := $(wildcard src/*.c)
+SRC := $(wildcard src/*.c) vendor/cJSON.c
 OBJ := $(SRC:.c=.o)
+HDR := $(wildcard src/*.h)
+
+MODEL_DIR ?= models/nemotron-3.5-asr-streaming-0.6b
 
 all: mynah
 
 mynah: $(OBJ) cli/main.o
 	$(CC) $(CFLAGS) -o $@ $^ $(LDFLAGS)
 
-%.o: %.c src/mynah.h
+%.o: %.c $(HDR)
 	$(CC) $(CFLAGS) -c $< -o $@
 
+tests/test_features: tests/test_features.o $(OBJ)
+	$(CC) $(CFLAGS) -o $@ $^ $(LDFLAGS)
+
+# Parità C vs oracolo. Skip (exit 77) se mancano modello o dump golden.
+# Rigenera i dump con: make golden-dump
+test: tests/test_features
+	@tests/test_features $(MODEL_DIR) tests/audio/test_it.wav tests/golden/test_it || \
+	  ( [ $$? -eq 77 ] && echo "SKIP: modello o golden assenti (make golden-dump)" )
+
+golden-dump:
+	cd tools && uv run python -m oracle.transcribe ../$(MODEL_DIR) ../tests/audio/test_it.wav \
+	  --lang it-IT --dump-dir ../tests/golden/test_it
+
 clean:
-	rm -f mynah $(OBJ) cli/main.o
+	rm -f mynah $(OBJ) cli/main.o tests/test_features tests/test_features.o
 
-# test: unit test C (arrivano con M0.5+)
-# test-golden: WER vs trascrizioni NeMo (arriva con M1.2)
-
-.PHONY: all clean
+.PHONY: all clean test golden-dump

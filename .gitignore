@@ -23,3 +23,6 @@ tools/.venv/
 
 # fixture audio dei test: tracciate
 !tests/audio/*.wav
+
+# golden dumps: derivati da modello+wav, rigenerabili con make golden-dump
+tests/golden/
