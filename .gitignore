@@ -20,3 +20,6 @@ tools/.venv/
 
 # PDF di riferimento: restano locali
 *.pdf
+
+# fixture audio dei test: tracciate
+!tests/audio/*.wav
