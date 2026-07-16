@@ -24,4 +24,22 @@ int mynah_subsampling_init(mynah_subsampling *ss, const mynah_safetensors *st);
 float *mynah_subsampling_forward(const mynah_subsampling *ss, const float *feats,
                                  int T, int n_mels, int *t_out);
 
+/* ------------------------------------------------------- streaming (cache-aware)
+ * Cache per stadio: l'ultimo time-frame dell'input (left_pad = k - stride = 1);
+ * al primo chunk si antepone 1 zero extra (init_pad) => left effettivo 2, come
+ * l'offline. Vedi docs/nemotron-arch.md (reference HF CausalConv2dCacheLayer). */
+typedef struct {
+    float *cache[3];        /* [C_in, F] ultimo frame input dello stadio */
+    int cin[3], fdim[3];
+    int first;
+} mynah_ss_stream;
+
+int mynah_ss_stream_init(mynah_ss_stream *sst, const mynah_subsampling *ss, int n_mels);
+void mynah_ss_stream_free(mynah_ss_stream *sst);
+
+/* mel chunk [n_mel, n_mels] (size ESATTA: primo = 1+8r, poi 8(r+1)) ->
+ * out [q, d_model] con q = r+1 (buffer del caller). Ritorna q, -1 su errore. */
+int mynah_ss_stream_step(const mynah_subsampling *ss, mynah_ss_stream *sst,
+                         const float *mel, int n_mel, int n_mels, int is_last, float *out);
+
 #endif

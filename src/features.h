@@ -25,4 +25,31 @@ typedef struct {
 float *mynah_log_mel(const mynah_feat_cfg *cfg, const float *audio, size_t n_samples,
                      int *n_frames, int *valid_frames);
 
+/* ------------------------------------------------------------- mel streaming
+ * Incrementale, identico bit-a-bit all'offline sui frame validi (possibile solo
+ * perché Nemotron non normalizza — vedi docs/prior-art.md §A.7).
+ * Il frame t copre i campioni [t*hop-256, t*hop+256): è pronto quando il segnale
+ * arriva a t*hop+256; a finish() si emettono i frame residui (< S/hop) leggendo
+ * gli zeri del pad destro. */
+typedef struct {
+    const mynah_feat_cfg *cfg;
+    double *samples;        /* segnale preemfatizzato accumulato (v1: cresce O(S);
+                               ring buffer in backlog) */
+    size_t n_samples, cap;
+    float last_raw;         /* carry per la preemphasis tra feed */
+    int next_frame;         /* prossimo frame mel da emettere */
+    int finished;
+} mynah_mel_stream;
+
+int mynah_mel_stream_init(mynah_mel_stream *ms, const mynah_feat_cfg *cfg);
+void mynah_mel_stream_free(mynah_mel_stream *ms);
+
+/* Aggiunge campioni; scrive in *out (capienza cap_frames righe da n_mels) i frame
+ * mel diventati pronti. Ritorna il numero di frame scritti. */
+int mynah_mel_stream_feed(mynah_mel_stream *ms, const float *audio, size_t n,
+                          float *out, int cap_frames);
+
+/* Fine stream: emette i frame residui fino a S/hop (esclusi). */
+int mynah_mel_stream_finish(mynah_mel_stream *ms, float *out, int cap_frames);
+
 #endif

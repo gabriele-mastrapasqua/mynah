@@ -65,9 +65,49 @@ static int cmd_transcribe(int argc, char **argv) {
     return 0;
 }
 
+static void print_partial(const mynah_result *res, void *ud) {
+    (void)ud;
+    fputs(res->text, stdout);
+    fflush(stdout);
+}
+
+static int cmd_stream(int argc, char **argv) {
+    const char *model_dir = NULL, *lang = "auto";
+    int lookahead = -1;
+    for (int i = 0; i < argc; i++) {
+        if (strcmp(argv[i], "-m") == 0 && i + 1 < argc) model_dir = argv[++i];
+        else if (strcmp(argv[i], "--lang") == 0 && i + 1 < argc) lang = argv[++i];
+        else if (strcmp(argv[i], "--lookahead") == 0 && i + 1 < argc) lookahead = atoi(argv[++i]);
+        else { fprintf(stderr, "opzione ignota: %s\n", argv[i]); return 2; }
+    }
+    if (!model_dir) { usage(); return 2; }
+
+    mynah_model *m = mynah_load(model_dir);
+    if (!m) return 1;
+    mynah_stream *s = mynah_stream_open(m, lang, lookahead);
+    if (!s) { mynah_free(m); return 1; }
+    fprintf(stderr, "[stream: raw s16le 16 kHz mono da stdin, lang=%s]\n", lang);
+
+    short pcm[1600]; /* 100 ms per read */
+    float buf[1600];
+    size_t got;
+    while ((got = fread(pcm, sizeof(short), 1600, stdin)) > 0) {
+        for (size_t i = 0; i < got; i++) buf[i] = (float)pcm[i] / 32768.0f;
+        if (mynah_stream_feed(s, buf, got, print_partial, NULL) != 0) break;
+    }
+    mynah_stream_finish(s, print_partial, NULL);
+    printf("\n");
+    if (mynah_stream_lang(s)[0]) fprintf(stderr, "[lang=%s]\n", mynah_stream_lang(s));
+
+    mynah_stream_close(s);
+    mynah_free(m);
+    return 0;
+}
+
 int main(int argc, char **argv) {
     if (argc >= 2 && strcmp(argv[1], "--version") == 0) { printf("%s\n", mynah_version()); return 0; }
     if (argc >= 2 && strcmp(argv[1], "transcribe") == 0) return cmd_transcribe(argc - 2, argv + 2);
+    if (argc >= 2 && strcmp(argv[1], "stream") == 0) return cmd_stream(argc - 2, argv + 2);
     usage();
     return argc < 2 ? 0 : 1;
 }

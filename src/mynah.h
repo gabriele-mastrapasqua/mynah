@@ -52,6 +52,25 @@ int mynah_lookaheads(const mynah_model *m, int out[8]);
 char *mynah_transcribe(mynah_model *m, const float *samples, size_t n_samples,
                        const char *lang, int lookahead, char *lang_out);
 
+/* --------------------------------------------------------------- streaming
+ * Cache-aware, latenza = (lookahead+1) * 80 ms. Il testo emesso via callback è
+ * SEMPRE definitivo (greedy monotono, mai ritrattato): is_final = true. */
+typedef struct mynah_stream mynah_stream;
+
+mynah_stream *mynah_stream_open(mynah_model *m, const char *lang, int lookahead);
+
+/* Alimenta campioni float32 16 kHz mono; la callback riceve i delta di testo. */
+int mynah_stream_feed(mynah_stream *s, const float *samples, size_t n,
+                      mynah_result_cb cb, void *userdata);
+
+/* Fine stream: processa la coda (ultimo chunk paddato) ed emette il resto. */
+int mynah_stream_finish(mynah_stream *s, mynah_result_cb cb, void *userdata);
+
+/* Lingua rilevata finora ("" se non ancora emessa). */
+const char *mynah_stream_lang(const mynah_stream *s);
+
+void mynah_stream_close(mynah_stream *s);
+
 #ifdef __cplusplus
 }
 #endif

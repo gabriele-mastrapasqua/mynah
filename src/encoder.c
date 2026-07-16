@@ -320,6 +320,229 @@ void mynah_encoder_post(const mynah_encoder *enc, const float *x, int T, int pro
     free(cat); free(mid); free(fused);
 }
 
+/* --------------------------------------------------------------- streaming */
+
+int mynah_enc_stream_init(mynah_enc_stream *es, const mynah_encoder *enc,
+                          int left_ctx, int right_ctx, int n_mels) {
+    memset(es, 0, sizeof(*es));
+    es->enc = enc;
+    es->left = left_ctx;
+    es->right = right_ctx;
+    es->q = right_ctx + 1;
+    if (mynah_ss_stream_init(&es->ss, &enc->ss, n_mels) != 0) return -1;
+    const size_t kv = (size_t)enc->n_layers * (size_t)left_ctx * (size_t)enc->d_model;
+    const size_t cv = (size_t)enc->n_layers * (size_t)(enc->conv_k - 1) * (size_t)enc->d_model;
+    es->k_cache = calloc(kv, sizeof(float));
+    es->v_cache = calloc(kv, sizeof(float));
+    es->conv_cache = calloc(cv, sizeof(float));
+    return (es->k_cache && es->v_cache && es->conv_cache) ? 0 : -1;
+}
+
+void mynah_enc_stream_free(mynah_enc_stream *es) {
+    mynah_ss_stream_free(&es->ss);
+    free(es->k_cache); free(es->v_cache); free(es->conv_cache);
+    es->k_cache = es->v_cache = es->conv_cache = NULL;
+}
+
+int mynah_enc_stream_need(const mynah_enc_stream *es) {
+    const int sub = 8; /* subsampling_factor: 3 stadi stride-2 */
+    return es->cache_valid == 0 && es->ss.first ? 1 + sub * es->right
+                                                : sub * (es->right + 1);
+}
+
+/* Attention streaming: Q righe query, K/V = [cache valida ; chunk], senza mask
+ * (la cache contiene esattamente il left context ammesso dalla griglia chunked). */
+static void stream_attention(const mynah_encoder *enc, const mynah_enc_layer *L,
+                             const float *x, const float *kn, const float *vn,
+                             float *out, int Q,
+                             const float *k_cache, const float *v_cache, int valid) {
+    const int d = enc->d_model, H = enc->n_heads, dk = enc->d_head;
+    const int K = valid + Q, P = 2 * K - 1;
+    const float scaling = 1.0f / sqrtf((float)dk);
+
+    float *qkv = malloc((size_t)Q * (size_t)d * sizeof(float));
+    float *keys = malloc(2 * (size_t)K * (size_t)d * sizeof(float));
+    float *pe = malloc((size_t)P * (size_t)enc->d_model * sizeof(float));
+    float *rk = malloc((size_t)P * (size_t)d * sizeof(float));
+    float *scores = malloc((size_t)Q * (size_t)K * sizeof(float));
+    float *bd = malloc((size_t)Q * (size_t)P * sizeof(float));
+    float *qb = malloc((size_t)Q * (size_t)d * sizeof(float));
+    float *ctx = malloc((size_t)Q * (size_t)d * sizeof(float));
+    if (!qkv || !keys || !pe || !rk || !scores || !bd || !qb || !ctx) goto done;
+
+    {
+        float *q = qkv;
+        float *kk = keys, *vv = keys + (size_t)K * (size_t)d;
+        matmul_wt(x, L->q_w, q, Q, d, d);
+
+        /* keys = cache valida ++ nuove (l'update della cache lo fa il chiamante) */
+        memcpy(kk, k_cache, (size_t)valid * (size_t)d * sizeof(float));
+        memcpy(kk + (size_t)valid * (size_t)d, kn, (size_t)Q * (size_t)d * sizeof(float));
+        memcpy(vv, v_cache, (size_t)valid * (size_t)d * sizeof(float));
+        memcpy(vv + (size_t)valid * (size_t)d, vn, (size_t)Q * (size_t)d * sizeof(float));
+
+        mynah_pos_emb(enc, K, pe); /* [2K-1, d], posizioni K-1..-(K-1) */
+        matmul_wt(pe, L->relk_w, rk, P, d, d);
+
+        for (int h = 0; h < H; h++) {
+            const size_t ho = (size_t)h * (size_t)dk;
+            for (int t = 0; t < Q; t++)
+                for (int i = 0; i < dk; i++)
+                    qb[(size_t)t * (size_t)dk + (size_t)i] =
+                        q[(size_t)t * (size_t)d + ho + (size_t)i] + L->bias_v[ho + (size_t)i];
+            cblas_sgemm(CblasRowMajor, CblasNoTrans, CblasTrans, Q, P, dk,
+                        1.0f, qb, dk, rk + ho, d, 0.0f, bd, P);
+
+            for (int t = 0; t < Q; t++)
+                for (int i = 0; i < dk; i++)
+                    qb[(size_t)t * (size_t)dk + (size_t)i] =
+                        q[(size_t)t * (size_t)d + ho + (size_t)i] + L->bias_u[ho + (size_t)i];
+            cblas_sgemm(CblasRowMajor, CblasNoTrans, CblasTrans, Q, K, dk,
+                        1.0f, qb, dk, kk + ho, d, 0.0f, scores, K);
+
+            for (int t = 0; t < Q; t++) {
+                float *srow = scores + (size_t)t * (size_t)K;
+                const float *brow = bd + (size_t)t * (size_t)P;
+                /* rel_shift: p = (K-1) - (valid + t) + j, j in [0, K) */
+                const int base = K - 1 - valid - t;
+                float maxv = -3.0e38f;
+                for (int j = 0; j < K; j++) {
+                    srow[j] = (srow[j] + brow[base + j]) * scaling;
+                    if (srow[j] > maxv) maxv = srow[j];
+                }
+                float sum = 0.0f;
+                for (int j = 0; j < K; j++) { srow[j] = expf(srow[j] - maxv); sum += srow[j]; }
+                const float inv = 1.0f / sum;
+                for (int j = 0; j < K; j++) srow[j] *= inv;
+            }
+
+            cblas_sgemm(CblasRowMajor, CblasNoTrans, CblasNoTrans, Q, dk, K,
+                        1.0f, scores, K, vv + ho, d, 0.0f, qb, dk);
+            for (int t = 0; t < Q; t++)
+                memcpy(ctx + (size_t)t * (size_t)d + ho, qb + (size_t)t * (size_t)dk,
+                       (size_t)dk * sizeof(float));
+        }
+        matmul_wt(ctx, L->o_w, out, Q, d, d);
+    }
+done:
+    free(qkv); free(keys); free(pe); free(rk); free(scores); free(bd); free(qb); free(ctx);
+}
+
+/* aggiorna la cache K/V di un layer con le nuove righe k/v del chunk */
+static void update_kv_cache(float *cache, const float *fresh, int valid, int Q,
+                            int left, int d) {
+    const int total = valid + Q;
+    const int keep = total < left ? total : left;
+    const int from_old = keep - Q > 0 ? keep - Q : 0;      /* righe vecchie da tenere */
+    const int drop_old = valid - from_old;                  /* righe vecchie da scartare */
+    if (from_old > 0 && drop_old > 0)
+        memmove(cache, cache + (size_t)drop_old * (size_t)d,
+                (size_t)from_old * (size_t)d * sizeof(float));
+    const int fresh_keep = keep - from_old;                 /* righe nuove da tenere (<= Q) */
+    memcpy(cache + (size_t)from_old * (size_t)d,
+           fresh + (size_t)(Q - fresh_keep) * (size_t)d,
+           (size_t)fresh_keep * (size_t)d * sizeof(float));
+}
+
+/* Conv module streaming: cache [k-1, d] anteposta, aggiornata con le ultime k-1 righe. */
+static void stream_conv_module(const mynah_encoder *enc, const mynah_enc_layer *L,
+                               const float *x, float *out, int Q, float *cache) {
+    const int d = enc->d_model, k = enc->conv_k;
+    float *h2 = malloc((size_t)Q * 2u * (size_t)d * sizeof(float));
+    float *gp = malloc((size_t)(Q + k - 1) * (size_t)d * sizeof(float));
+    float *c = malloc((size_t)Q * (size_t)d * sizeof(float));
+    if (!h2 || !gp || !c) { free(h2); free(gp); free(c); return; }
+
+    matmul_wt(x, L->pw1_w, h2, Q, 2 * d, d);
+    memcpy(gp, cache, (size_t)(k - 1) * (size_t)d * sizeof(float));
+    for (int t = 0; t < Q; t++) {
+        const float *a = h2 + (size_t)t * 2u * (size_t)d;
+        const float *b = a + d;
+        float *o = gp + (size_t)(k - 1 + t) * (size_t)d;
+        for (int i = 0; i < d; i++) o[i] = a[i] / (1.0f + expf(-b[i]));
+    }
+    /* aggiorna cache = ultime k-1 righe di gp */
+    memcpy(cache, gp + (size_t)Q * (size_t)d, (size_t)(k - 1) * (size_t)d * sizeof(float));
+
+    for (int t = 0; t < Q; t++) {
+        float *o = c + (size_t)t * (size_t)d;
+        memset(o, 0, (size_t)d * sizeof(float));
+        for (int j = 0; j < k; j++) {
+            const float *src = gp + (size_t)(t + j) * (size_t)d;
+            for (int i = 0; i < d; i++) o[i] += L->dw_w[(size_t)i * (size_t)k + (size_t)j] * src[i];
+        }
+    }
+    float *tmp = malloc((size_t)Q * (size_t)d * sizeof(float));
+    if (tmp) {
+        layer_norm_f(c, L->cnorm_w, L->cnorm_b, tmp, Q, d);
+        silu_inplace(tmp, (size_t)Q * (size_t)d);
+        matmul_wt(tmp, L->pw2_w, out, Q, d, d);
+        free(tmp);
+    }
+    free(h2); free(gp); free(c);
+}
+
+int mynah_enc_stream_step(mynah_enc_stream *es, const float *mel, int n_mel,
+                          int n_mels, int prompt_id, int is_last, float *out) {
+    const mynah_encoder *enc = es->enc;
+    const int d = enc->d_model;
+
+    float *x = malloc((size_t)(es->q + 2) * (size_t)d * sizeof(float));
+    if (!x) return -1;
+    const int Q = mynah_ss_stream_step(&enc->ss, &es->ss, mel, n_mel, n_mels, is_last, x);
+    if (Q <= 0) { free(x); return -1; }
+
+    const size_t nd = (size_t)Q * (size_t)d;
+    float *tmp = malloc(nd * sizeof(float));
+    float *tmp2 = malloc((size_t)Q * (size_t)enc->ffn_dim * sizeof(float));
+    float *xn = malloc(nd * sizeof(float));
+    float *kn = malloc(2 * nd * sizeof(float));
+    if (!tmp || !tmp2 || !xn || !kn) { free(x); free(tmp); free(tmp2); free(xn); free(kn); return -1; }
+
+    for (int li = 0; li < enc->n_layers; li++) {
+        const mynah_enc_layer *L = &enc->layers[li];
+        float *kc = es->k_cache + (size_t)li * (size_t)es->left * (size_t)d;
+        float *vc = es->v_cache + (size_t)li * (size_t)es->left * (size_t)d;
+        float *cc = es->conv_cache + (size_t)li * (size_t)(enc->conv_k - 1) * (size_t)d;
+
+        /* ½ FFN1 */
+        layer_norm_f(x, L->ln_ff1_w, L->ln_ff1_b, tmp, Q, d);
+        matmul_wt(tmp, L->ff1_w1, tmp2, Q, enc->ffn_dim, d);
+        silu_inplace(tmp2, (size_t)Q * (size_t)enc->ffn_dim);
+        matmul_wt(tmp2, L->ff1_w2, tmp, Q, d, enc->ffn_dim);
+        for (size_t i = 0; i < nd; i++) x[i] += 0.5f * tmp[i];
+
+        /* MHSA con cache: servono k/v del chunk per aggiornare la cache DOPO */
+        layer_norm_f(x, L->ln_att_w, L->ln_att_b, xn, Q, d);
+        matmul_wt(xn, L->k_w, kn, Q, d, d);
+        matmul_wt(xn, L->v_w, kn + nd, Q, d, d);
+        stream_attention(enc, L, xn, kn, kn + nd, tmp, Q, kc, vc, es->cache_valid);
+        update_kv_cache(kc, kn, es->cache_valid, Q, es->left, d);
+        update_kv_cache(vc, kn + nd, es->cache_valid, Q, es->left, d);
+        for (size_t i = 0; i < nd; i++) x[i] += tmp[i];
+
+        /* Conv con cache */
+        layer_norm_f(x, L->ln_conv_w, L->ln_conv_b, xn, Q, d);
+        stream_conv_module(enc, L, xn, tmp, Q, cc);
+        for (size_t i = 0; i < nd; i++) x[i] += tmp[i];
+
+        /* ½ FFN2 + LN out */
+        layer_norm_f(x, L->ln_ff2_w, L->ln_ff2_b, tmp, Q, d);
+        matmul_wt(tmp, L->ff2_w1, tmp2, Q, enc->ffn_dim, d);
+        silu_inplace(tmp2, (size_t)Q * (size_t)enc->ffn_dim);
+        matmul_wt(tmp2, L->ff2_w2, tmp, Q, d, enc->ffn_dim);
+        for (size_t i = 0; i < nd; i++) x[i] += 0.5f * tmp[i];
+        layer_norm_f(x, L->ln_out_w, L->ln_out_b, xn, Q, d);
+        memcpy(x, xn, nd * sizeof(float));
+    }
+
+    es->cache_valid = (es->cache_valid + Q < es->left) ? es->cache_valid + Q : es->left;
+
+    mynah_encoder_post(enc, x, Q, prompt_id, out);
+    free(x); free(tmp); free(tmp2); free(xn); free(kn);
+    return Q;
+}
+
 /* ---------------------------------------------------------------- forward */
 float *mynah_encoder_forward(const mynah_encoder *enc, const float *feats, int t_mel,
                              int n_mels, int prompt_id, int left_ctx, int right_ctx,

@@ -34,13 +34,15 @@ int mynah_subsampling_init(mynah_subsampling *ss, const mynah_safetensors *st) {
     return 0;
 }
 
-/* pad causale (2,1) su tempo e freq, poi conv k3 s2. x [C_in, T, F] -> out [C_out, T', F'].
+/* conv k3 s2 con pad freq (2,1) via bounds e pad tempo (pl_t, pr_t) parametrico.
+ * x [C_in, T, F] -> out [C_out, T', F']. Offline: pl_t=2, pr_t=1 (causale);
+ * streaming: pl_t=pr_t=0 (l'input contiene già cache+init a sinistra).
  * depthwise: C_in == C_out, weight [C,1,3,3]. full: weight [C_out, C_in, 3, 3]. */
-static void conv2d_causal_s2(const float *x, int C_in, int T, int F,
-                             const float *w, const float *b, int C_out, int depthwise,
-                             float *out, int *To_, int *Fo_) {
-    const int k = 3, s = 2, pl = 2, pr = 1;
-    const int Tp = T + pl + pr, Fp = F + pl + pr;
+static void conv2d_s2(const float *x, int C_in, int T, int F, int pl_t, int pr_t,
+                      const float *w, const float *b, int C_out, int depthwise,
+                      float *out, int *To_, int *Fo_) {
+    const int k = 3, s = 2, pl = pl_t, pr = pr_t;
+    const int Tp = T + pl + pr, Fp = F + 2 + 1;
     const int To = (Tp - k) / s + 1, Fo = (Fp - k) / s + 1;
     *To_ = To; *Fo_ = Fo;
 
@@ -60,7 +62,7 @@ static void conv2d_causal_s2(const float *x, int C_in, int T, int F,
             for (int to = 0; to < To; to++) {
                 const int t0 = to * s - pl;
                 for (int fo = 0; fo < Fo; fo++) {
-                    const int f0 = fo * s - pl;
+                    const int f0 = fo * s - 2; /* freq pad left sempre 2 */
                     float acc = 0.0f;
                     for (int dt = 0; dt < k; dt++) {
                         const int t = t0 + dt;
@@ -95,17 +97,17 @@ float *mynah_subsampling_forward(const mynah_subsampling *ss, const float *feats
     if (!a || !bbuf) { free(a); free(bbuf); return NULL; }
 
     /* stadio 0: conv piena 1 -> C su [1, T, n_mels] */
-    conv2d_causal_s2(feats, 1, T, n_mels,
-                     (const float *)ss->conv_in_w->data, (const float *)ss->conv_in_b->data,
-                     C, 0, a, &To, &Fo);
+    conv2d_s2(feats, 1, T, n_mels, 2, 1,
+              (const float *)ss->conv_in_w->data, (const float *)ss->conv_in_b->data,
+              C, 0, a, &To, &Fo);
     relu_inplace(a, (size_t)C * (size_t)To * (size_t)Fo);
 
     /* stadi 1..2: depthwise + pointwise + ReLU */
     for (int i = 0; i < 2; i++) {
         int To2, Fo2;
-        conv2d_causal_s2(a, C, To, Fo,
-                         (const float *)ss->dw_w[i]->data, (const float *)ss->dw_b[i]->data,
-                         C, 1, bbuf, &To2, &Fo2);
+        conv2d_s2(a, C, To, Fo, 2, 1,
+                  (const float *)ss->dw_w[i]->data, (const float *)ss->dw_b[i]->data,
+                  C, 1, bbuf, &To2, &Fo2);
         /* pointwise 1x1: out[co, t, f] = sum_ci w[co, ci] * b[ci, t, f]  (GEMM [C, C] x [C, S]) */
         const size_t S = (size_t)To2 * (size_t)Fo2;
         const float *pw = (const float *)ss->pw_w[i]->data; /* [C, C, 1, 1] -> [C, C] */
@@ -141,4 +143,105 @@ float *mynah_subsampling_forward(const mynah_subsampling *ss, const float *feats
     free(a); free(bbuf); free(flat);
     *t_out = To;
     return out;
+}
+
+/* ------------------------------------------------------------------ streaming */
+
+int mynah_ss_stream_init(mynah_ss_stream *sst, const mynah_subsampling *ss, int n_mels) {
+    memset(sst, 0, sizeof(*sst));
+    sst->first = 1;
+    int F = n_mels;
+    for (int s = 0; s < 3; s++) {
+        sst->cin[s] = (s == 0) ? 1 : ss->channels;
+        sst->fdim[s] = F;
+        sst->cache[s] = calloc((size_t)sst->cin[s] * (size_t)F, sizeof(float));
+        if (!sst->cache[s]) return -1;
+        F = F / 2 + 1; /* (F + 3 - 3)/2 + 1 */
+    }
+    return 0;
+}
+
+void mynah_ss_stream_free(mynah_ss_stream *sst) {
+    for (int s = 0; s < 3; s++) { free(sst->cache[s]); sst->cache[s] = NULL; }
+}
+
+/* Antepone [init?1:0 zeri][cache 1] al chunk sull'asse tempo, conv valida s2,
+ * aggiorna cache = ultimo frame del chunk. x [C, T, F] -> out [C_out, To, Fo]. */
+static void stream_stage(const float *x, int C_in, int T, int F, int first, int last,
+                         float *cache, const float *w, const float *b, int C_out,
+                         int depthwise, float *out, int *To_, int *Fo_) {
+    const int lp = first ? 2 : 1; /* cache(1) + init_pad(1) al primo chunk */
+    const int rp = last ? 1 : 0;  /* ultimo chunk: right-pad causale come offline */
+    const int Tp = T + lp + rp;
+    float *xp = malloc((size_t)C_in * (size_t)Tp * (size_t)F * sizeof(float));
+    if (!xp) { *To_ = 0; return; }
+    for (int c = 0; c < C_in; c++) {
+        float *dst = xp + (size_t)c * (size_t)Tp * (size_t)F;
+        memset(dst, 0, (size_t)(lp - 1) * (size_t)F * sizeof(float));
+        memcpy(dst + (size_t)(lp - 1) * (size_t)F, cache + (size_t)c * (size_t)F,
+               (size_t)F * sizeof(float));
+        memcpy(dst + (size_t)lp * (size_t)F, x + (size_t)c * (size_t)T * (size_t)F,
+               (size_t)T * (size_t)F * sizeof(float));
+        if (rp) memset(dst + (size_t)(lp + T) * (size_t)F, 0, (size_t)F * sizeof(float));
+    }
+    /* aggiorna cache con l'ultimo frame del chunk */
+    for (int c = 0; c < C_in; c++)
+        memcpy(cache + (size_t)c * (size_t)F,
+               x + ((size_t)c * (size_t)T + (size_t)(T - 1)) * (size_t)F,
+               (size_t)F * sizeof(float));
+
+    conv2d_s2(xp, C_in, Tp, F, 0, 0, w, b, C_out, depthwise, out, To_, Fo_);
+    free(xp);
+}
+
+int mynah_ss_stream_step(const mynah_subsampling *ss, mynah_ss_stream *sst,
+                         const float *mel, int n_mel, int n_mels, int is_last, float *out) {
+    const int C = ss->channels;
+    int To = 0, Fo = 0;
+    const int cap_t = n_mel / 2 + 2, cap_f = n_mels / 2 + 2;
+    float *a = malloc((size_t)C * (size_t)cap_t * (size_t)cap_f * sizeof(float));
+    float *bbuf = malloc((size_t)C * (size_t)cap_t * (size_t)cap_f * sizeof(float));
+    if (!a || !bbuf) { free(a); free(bbuf); return -1; }
+
+    stream_stage(mel, 1, n_mel, n_mels, sst->first, is_last, sst->cache[0],
+                 (const float *)ss->conv_in_w->data, (const float *)ss->conv_in_b->data,
+                 C, 0, a, &To, &Fo);
+    relu_inplace(a, (size_t)C * (size_t)To * (size_t)Fo);
+
+    for (int i = 0; i < 2; i++) {
+        int To2, Fo2;
+        stream_stage(a, C, To, Fo, sst->first, is_last, sst->cache[i + 1],
+                     (const float *)ss->dw_w[i]->data, (const float *)ss->dw_b[i]->data,
+                     C, 1, bbuf, &To2, &Fo2);
+        const size_t S = (size_t)To2 * (size_t)Fo2;
+        const float *pw = (const float *)ss->pw_w[i]->data;
+        const float *pb = (const float *)ss->pw_b[i]->data;
+        cblas_sgemm(CblasRowMajor, CblasNoTrans, CblasNoTrans, C, (int)S, C,
+                    1.0f, pw, C, bbuf, (int)S, 0.0f, a, (int)S);
+        for (int co = 0; co < C; co++) {
+            float *row = a + (size_t)co * S;
+            for (size_t j = 0; j < S; j++) row[j] += pb[co];
+        }
+        relu_inplace(a, (size_t)C * S);
+        To = To2; Fo = Fo2;
+    }
+    sst->first = 0;
+
+    /* flatten channel-major + linear */
+    const int CF = C * Fo;
+    float *flat = malloc((size_t)To * (size_t)CF * sizeof(float));
+    if (!flat) { free(a); free(bbuf); return -1; }
+    for (int t = 0; t < To; t++)
+        for (int c = 0; c < C; c++)
+            for (int fq = 0; fq < Fo; fq++)
+                flat[(size_t)t * (size_t)CF + (size_t)c * (size_t)Fo + (size_t)fq] =
+                    a[(size_t)c * (size_t)To * (size_t)Fo + (size_t)t * (size_t)Fo + (size_t)fq];
+    cblas_sgemm(CblasRowMajor, CblasNoTrans, CblasTrans, To, ss->d_model, CF,
+                1.0f, flat, CF, (const float *)ss->lin_w->data, CF, 0.0f, out, ss->d_model);
+    const float *lb = (const float *)ss->lin_b->data;
+    for (int t = 0; t < To; t++)
+        for (int d = 0; d < ss->d_model; d++) out[(size_t)t * (size_t)ss->d_model + (size_t)d] += lb[d];
+
+    free(a); free(bbuf); free(flat);
+    return To;
 }

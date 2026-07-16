@@ -47,4 +47,30 @@ float *mynah_encoder_forward(const mynah_encoder *enc, const float *feats, int t
                              int n_mels, int prompt_id, int left_ctx, int right_ctx,
                              int *t_out);
 
+/* --------------------------------------------------------- streaming cache-aware
+ * Ogni chunk mel (primo: 1+8r frame, poi 8(r+1)) produce q = r+1 frame encoder,
+ * che coincidono con UN chunk della griglia chunked_limited: il left context in
+ * cache (56 frame, sempre divisibile per r+1) è ESATTAMENTE il contesto ammesso
+ * => attention piena su [cache valida + chunk], niente mask. Vedi prior-art §A. */
+typedef struct {
+    const mynah_encoder *enc;
+    mynah_ss_stream ss;
+    float *k_cache, *v_cache;   /* [n_layers, left, d_model] */
+    float *conv_cache;          /* [n_layers, conv_k-1, d_model] */
+    int left, right, q;         /* q = right+1 frame encoder per chunk */
+    int cache_valid;            /* frame validi nella cache K/V (0..left) */
+} mynah_enc_stream;
+
+int mynah_enc_stream_init(mynah_enc_stream *es, const mynah_encoder *enc,
+                          int left_ctx, int right_ctx, int n_mels);
+void mynah_enc_stream_free(mynah_enc_stream *es);
+
+/* Frame mel richiesti dal prossimo chunk (primo: 1+8r, poi 8(r+1)). */
+int mynah_enc_stream_need(const mynah_enc_stream *es);
+
+/* mel chunk [n_mel, n_mels] esatto -> out [q, d_out] (buffer caller >= q*d_out).
+ * Ritorna il numero di frame encoder prodotti, -1 su errore. */
+int mynah_enc_stream_step(mynah_enc_stream *es, const float *mel, int n_mel,
+                          int n_mels, int prompt_id, int is_last, float *out);
+
 #endif

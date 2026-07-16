@@ -135,6 +135,141 @@ int mynah_lookaheads(const mynah_model *m, int out[8]) {
     return m->n_lookaheads;
 }
 
+/* ----------------------------------------------------------------- streaming */
+
+struct mynah_stream {
+    mynah_model *m;
+    mynah_mel_stream mel;
+    mynah_enc_stream es;
+    mynah_dec_state dec;
+    int prompt;
+    float *mel_buf;             /* buffer del chunk mel corrente */
+    int mel_have;
+    float *enc_buf;             /* [q, d_out] output encoder per chunk */
+    int *tokens;
+    int n_tokens, cap_tokens;
+    size_t chars_emitted;       /* byte di testo già consegnati alla callback */
+    char lang[16];
+    size_t samples_fed;
+};
+
+mynah_stream *mynah_stream_open(mynah_model *m, const char *lang, int lookahead) {
+    const int prompt = lang ? mynah_lang_id(m, lang) : m->default_prompt;
+    if (prompt < 0) { fprintf(stderr, "mynah: lingua '%s' non supportata\n", lang); return NULL; }
+    const int right = lookahead >= 0 ? lookahead : m->default_right;
+
+    mynah_stream *s = calloc(1, sizeof(*s));
+    if (!s) return NULL;
+    s->m = m;
+    s->prompt = prompt;
+    if (mynah_mel_stream_init(&s->mel, &m->feat) != 0 ||
+        mynah_enc_stream_init(&s->es, &m->enc, m->left_ctx, right, m->feat.n_mels) != 0) {
+        mynah_stream_close(s);
+        return NULL;
+    }
+    mynah_dec_state_reset(&m->dec, &s->dec);
+    const int max_chunk = 8 * (right + 1) + 1;
+    s->mel_buf = malloc((size_t)max_chunk * (size_t)m->feat.n_mels * sizeof(float));
+    s->enc_buf = malloc((size_t)s->es.q * (size_t)m->enc.d_out * sizeof(float));
+    s->cap_tokens = 4096;
+    s->tokens = malloc((size_t)s->cap_tokens * sizeof(int));
+    if (!s->mel_buf || !s->enc_buf || !s->tokens) { mynah_stream_close(s); return NULL; }
+    return s;
+}
+
+void mynah_stream_close(mynah_stream *s) {
+    if (!s) return;
+    mynah_mel_stream_free(&s->mel);
+    mynah_enc_stream_free(&s->es);
+    free(s->mel_buf); free(s->enc_buf); free(s->tokens);
+    free(s);
+}
+
+const char *mynah_stream_lang(const mynah_stream *s) { return s->lang; }
+
+/* Encoda il chunk mel corrente, decodifica, emette il delta di testo. */
+static int stream_flush_chunk(mynah_stream *s, int n_mel, int is_last,
+                              mynah_result_cb cb, void *ud) {
+    mynah_model *m = s->m;
+    const int q = mynah_enc_stream_step(&s->es, s->mel_buf, n_mel, m->feat.n_mels,
+                                        s->prompt, is_last, s->enc_buf);
+    if (q < 0) return -1;
+
+    if (s->n_tokens + q * m->dec.max_symbols > s->cap_tokens) {
+        s->cap_tokens = (s->cap_tokens + q * m->dec.max_symbols) * 2;
+        int *nb = realloc(s->tokens, (size_t)s->cap_tokens * sizeof(int));
+        if (!nb) return -1;
+        s->tokens = nb;
+    }
+    s->n_tokens += mynah_greedy_decode(&m->dec, &s->dec, s->enc_buf, q,
+                                       s->tokens + s->n_tokens,
+                                       s->cap_tokens - s->n_tokens);
+    s->mel_have = 0;
+
+    if (cb) {
+        char lang_tmp[16] = "";
+        char *text = mynah_detokenize(&m->tok, s->tokens, s->n_tokens, lang_tmp);
+        if (!text) return -1;
+        if (lang_tmp[0]) memcpy(s->lang, lang_tmp, sizeof(s->lang));
+        const size_t total = strlen(text);
+        if (total > s->chars_emitted) {
+            const double t1 = (double)s->samples_fed / (double)m->feat.sample_rate;
+            mynah_result res = {
+                .text = text + s->chars_emitted,
+                .t0 = 0.0, .t1 = t1,
+                .is_final = true,
+                .lang = s->lang[0] ? s->lang : NULL,
+            };
+            cb(&res, ud);
+            s->chars_emitted = total;
+        }
+        free(text);
+    }
+    return 0;
+}
+
+int mynah_stream_feed(mynah_stream *s, const float *samples, size_t n,
+                      mynah_result_cb cb, void *ud) {
+    mynah_model *m = s->m;
+    s->samples_fed += n;
+    const float *src = samples;
+    size_t left = n;
+    int first_pass = 1;
+
+    for (;;) {
+        const int need = mynah_enc_stream_need(&s->es);
+        const int got = mynah_mel_stream_feed(&s->mel, first_pass ? src : NULL,
+                                              first_pass ? left : 0,
+                                              s->mel_buf + (size_t)s->mel_have * (size_t)m->feat.n_mels,
+                                              need - s->mel_have);
+        first_pass = 0;
+        s->mel_have += got;
+        if (s->mel_have < need) break;          /* servono altri campioni */
+        if (stream_flush_chunk(s, need, 0, cb, ud) != 0) return -1;
+    }
+    return 0;
+}
+
+int mynah_stream_finish(mynah_stream *s, mynah_result_cb cb, void *ud) {
+    mynah_model *m = s->m;
+    for (;;) {
+        const int need = mynah_enc_stream_need(&s->es);
+        const int got = mynah_mel_stream_finish(&s->mel,
+                                                s->mel_buf + (size_t)s->mel_have * (size_t)m->feat.n_mels,
+                                                need - s->mel_have);
+        s->mel_have += got;
+        if (s->mel_have == 0) break;
+        if (s->mel_have < need) {
+            /* coda: chunk corto con right-pad causale (is_last) — identico all'offline */
+            if (stream_flush_chunk(s, s->mel_have, 1, cb, ud) != 0) return -1;
+            break;
+        }
+        /* chunk pieno: is_last solo se il mel stream non ha più nulla dopo */
+        if (stream_flush_chunk(s, need, 0, cb, ud) != 0) return -1;
+    }
+    return 0;
+}
+
 char *mynah_transcribe(mynah_model *m, const float *samples, size_t n_samples,
                        const char *lang, int lookahead, char *lang_out) {
     const int prompt = lang ? mynah_lang_id(m, lang) : m->default_prompt;
