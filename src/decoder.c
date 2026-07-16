@@ -12,7 +12,7 @@
 #endif
 
 int mynah_decoder_init(mynah_decoder *dec, const mynah_safetensors *st,
-                       int blank, int max_symbols) {
+                       int blank, int max_symbols, int quantize) {
     memset(dec, 0, sizeof(*dec));
     const mynah_tensor *emb = mynah_st_get(st, "decoder.embedding.weight");
     const mynah_tensor *proj_w = mynah_st_get(st, "decoder.decoder_projector.weight");
@@ -24,10 +24,11 @@ int mynah_decoder_init(mynah_decoder *dec, const mynah_safetensors *st,
     dec->embedding = (const float *)emb->data;
     dec->proj_w = (const float *)proj_w->data;
     dec->proj_b = (const float *)proj_b->data;
-    dec->head_w = (const float *)head_w->data;
     dec->head_b = (const float *)head_b->data;
     dec->vocab = (int)emb->shape[0];
     dec->hidden = (int)emb->shape[1];
+    if (mynah_qmat_init(&dec->head, (const float *)head_w->data,
+                        dec->vocab, dec->hidden, quantize) != 0) return -1;
     dec->blank = blank;
     dec->max_symbols = max_symbols;
 
@@ -104,9 +105,8 @@ int mynah_greedy_decode(const mynah_decoder *dec, mynah_dec_state *s,
                 joint[i] = v > 0.0f ? v : 0.0f;            /* ReLU */
             }
             /* argmax del joint head (matvec V x H) — il costo dominante del decode */
-            memcpy(logits, dec->head_b, (size_t)V * sizeof(float));
-            cblas_sgemv(CblasRowMajor, CblasNoTrans, V, H, 1.0f, dec->head_w, H,
-                        joint, 1, 1.0f, logits, 1);
+            mynah_qmat_mul(&dec->head, joint, logits, 1);
+            for (int k = 0; k < V; k++) logits[k] += dec->head_b[k];
             int best = 0;
             for (int k = 1; k < V; k++)
                 if (logits[k] > logits[best]) best = k;

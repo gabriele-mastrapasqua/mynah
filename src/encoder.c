@@ -43,7 +43,7 @@ static void matmul_wt(const float *x, const float *w, float *out, int T, int n, 
 }
 
 /* ------------------------------------------------------------------- init */
-int mynah_encoder_init(mynah_encoder *enc, const mynah_safetensors *st) {
+int mynah_encoder_init(mynah_encoder *enc, const mynah_safetensors *st, int quantize) {
     memset(enc, 0, sizeof(*enc));
     if (mynah_subsampling_init(&enc->ss, st) != 0) return -1;
 
@@ -71,38 +71,44 @@ int mynah_encoder_init(mynah_encoder *enc, const mynah_safetensors *st) {
     enc->layers = calloc((size_t)n, sizeof(mynah_enc_layer));
     if (!enc->layers || n == 0) return -1;
 
+    const int d = enc->d_model, fdim = enc->ffn_dim;
     const char *F = "encoder.layers.%d.%s";
     for (int li = 0; li < n; li++) {
         mynah_enc_layer *L = &enc->layers[li];
         L->ln_ff1_w = T_(st, F, li, "norm_feed_forward1.weight");
         L->ln_ff1_b = T_(st, F, li, "norm_feed_forward1.bias");
-        L->ff1_w1 = T_(st, F, li, "feed_forward1.linear1.weight");
-        L->ff1_w2 = T_(st, F, li, "feed_forward1.linear2.weight");
         L->ln_att_w = T_(st, F, li, "norm_self_att.weight");
         L->ln_att_b = T_(st, F, li, "norm_self_att.bias");
-        L->q_w = T_(st, F, li, "self_attn.q_proj.weight");
-        L->k_w = T_(st, F, li, "self_attn.k_proj.weight");
-        L->v_w = T_(st, F, li, "self_attn.v_proj.weight");
-        L->o_w = T_(st, F, li, "self_attn.o_proj.weight");
         L->relk_w = T_(st, F, li, "self_attn.relative_k_proj.weight");
         L->bias_u = T_(st, F, li, "self_attn.bias_u");
         L->bias_v = T_(st, F, li, "self_attn.bias_v");
         L->ln_conv_w = T_(st, F, li, "norm_conv.weight");
         L->ln_conv_b = T_(st, F, li, "norm_conv.bias");
-        L->pw1_w = T_(st, F, li, "conv.pointwise_conv1.weight");
         L->dw_w = T_(st, F, li, "conv.depthwise_conv.weight");
         L->cnorm_w = T_(st, F, li, "conv.norm.weight");
         L->cnorm_b = T_(st, F, li, "conv.norm.bias");
-        L->pw2_w = T_(st, F, li, "conv.pointwise_conv2.weight");
         L->ln_ff2_w = T_(st, F, li, "norm_feed_forward2.weight");
         L->ln_ff2_b = T_(st, F, li, "norm_feed_forward2.bias");
-        L->ff2_w1 = T_(st, F, li, "feed_forward2.linear1.weight");
-        L->ff2_w2 = T_(st, F, li, "feed_forward2.linear2.weight");
         L->ln_out_w = T_(st, F, li, "norm_out.weight");
         L->ln_out_b = T_(st, F, li, "norm_out.bias");
-        if (!L->ln_ff1_w || !L->ff1_w1 || !L->q_w || !L->relk_w || !L->pw1_w ||
-            !L->cnorm_w || !L->ff2_w1 || !L->ln_out_w) {
+        if (!L->ln_ff1_w || !L->relk_w || !L->cnorm_w || !L->ln_out_w) {
             fprintf(stderr, "encoder: tensori mancanti al layer %d\n", li);
+            return -1;
+        }
+        /* grandi linear: qmat (int8 opzionale) */
+        int rc = 0;
+        rc |= mynah_qmat_init(&L->ff1_w1, T_(st, F, li, "feed_forward1.linear1.weight"), fdim, d, quantize);
+        rc |= mynah_qmat_init(&L->ff1_w2, T_(st, F, li, "feed_forward1.linear2.weight"), d, fdim, quantize);
+        rc |= mynah_qmat_init(&L->ff2_w1, T_(st, F, li, "feed_forward2.linear1.weight"), fdim, d, quantize);
+        rc |= mynah_qmat_init(&L->ff2_w2, T_(st, F, li, "feed_forward2.linear2.weight"), d, fdim, quantize);
+        rc |= mynah_qmat_init(&L->q_w, T_(st, F, li, "self_attn.q_proj.weight"), d, d, quantize);
+        rc |= mynah_qmat_init(&L->k_w, T_(st, F, li, "self_attn.k_proj.weight"), d, d, quantize);
+        rc |= mynah_qmat_init(&L->v_w, T_(st, F, li, "self_attn.v_proj.weight"), d, d, quantize);
+        rc |= mynah_qmat_init(&L->o_w, T_(st, F, li, "self_attn.o_proj.weight"), d, d, quantize);
+        rc |= mynah_qmat_init(&L->pw1_w, T_(st, F, li, "conv.pointwise_conv1.weight"), 2 * d, d, quantize);
+        rc |= mynah_qmat_init(&L->pw2_w, T_(st, F, li, "conv.pointwise_conv2.weight"), d, d, quantize);
+        if (rc != 0 || !L->ff1_w1.f32 || !L->q_w.f32 || !L->pw1_w.f32) {
+            fprintf(stderr, "encoder: init qmat fallita al layer %d\n", li);
             return -1;
         }
     }
@@ -116,7 +122,18 @@ int mynah_encoder_init(mynah_encoder *enc, const mynah_safetensors *st) {
     return 0;
 }
 
-void mynah_encoder_free(mynah_encoder *enc) { free(enc->layers); enc->layers = NULL; }
+void mynah_encoder_free(mynah_encoder *enc) {
+    for (int li = 0; li < enc->n_layers && enc->layers; li++) {
+        mynah_enc_layer *L = &enc->layers[li];
+        mynah_qmat_free(&L->ff1_w1); mynah_qmat_free(&L->ff1_w2);
+        mynah_qmat_free(&L->ff2_w1); mynah_qmat_free(&L->ff2_w2);
+        mynah_qmat_free(&L->q_w); mynah_qmat_free(&L->k_w);
+        mynah_qmat_free(&L->v_w); mynah_qmat_free(&L->o_w);
+        mynah_qmat_free(&L->pw1_w); mynah_qmat_free(&L->pw2_w);
+    }
+    free(enc->layers);
+    enc->layers = NULL;
+}
 
 /* --------------------------------------------------------------- pos emb */
 void mynah_pos_emb(const mynah_encoder *enc, int T, float *pe) {
@@ -148,9 +165,9 @@ static void attention(const mynah_encoder *enc, const mynah_enc_layer *L, const 
     float *ctx = malloc((size_t)T * (size_t)d * sizeof(float));
     if (!q || !rk || !scores || !bd || !qb || !ctx) { free(q); free(rk); free(scores); free(bd); free(qb); free(ctx); return; }
 
-    matmul_wt(x, L->q_w, q, T, d, d);
-    matmul_wt(x, L->k_w, k, T, d, d);
-    matmul_wt(x, L->v_w, v, T, d, d);
+    mynah_qmat_mul(&L->q_w, x, q, T);
+    mynah_qmat_mul(&L->k_w, x, k, T);
+    mynah_qmat_mul(&L->v_w, x, v, T);
     matmul_wt(pe, L->relk_w, rk, P, d, d);
 
     for (int h = 0; h < H; h++) {
@@ -207,7 +224,7 @@ static void attention(const mynah_encoder *enc, const mynah_enc_layer *L, const 
             memcpy(ctx + (size_t)t * (size_t)d + ho, qb + (size_t)t * (size_t)dk, (size_t)dk * sizeof(float));
     }
 
-    matmul_wt(ctx, L->o_w, out, T, d, d);
+    mynah_qmat_mul(&L->o_w, ctx, out, T);
     free(q); free(rk); free(scores); free(bd); free(qb); free(ctx);
 }
 
@@ -221,7 +238,7 @@ static void conv_module(const mynah_encoder *enc, const mynah_enc_layer *L, cons
     if (!h2 || !g || !c) { free(h2); free(g); free(c); return; }
 
     /* pointwise_conv1 [2d, d, 1] come linear, poi GLU sui canali */
-    matmul_wt(x, L->pw1_w, h2, T, 2 * d, d);
+    mynah_qmat_mul(&L->pw1_w, x, h2, T);
     for (int t = 0; t < T; t++) {
         const float *a = h2 + (size_t)t * 2u * (size_t)d;
         const float *b = a + d;
@@ -242,7 +259,7 @@ static void conv_module(const mynah_encoder *enc, const mynah_enc_layer *L, cons
 
     layer_norm_f(c, L->cnorm_w, L->cnorm_b, g, T, d);
     silu_inplace(g, (size_t)T * (size_t)d);
-    matmul_wt(g, L->pw2_w, out, T, d, d);
+    mynah_qmat_mul(&L->pw2_w, g, out, T);
     free(h2); free(g); free(c);
 }
 
@@ -258,9 +275,9 @@ int mynah_encoder_layer(const mynah_encoder *enc, int li, float *x, int T,
 
     /* ½ FFN1 */
     layer_norm_f(x, L->ln_ff1_w, L->ln_ff1_b, tmp, T, d);
-    matmul_wt(tmp, L->ff1_w1, tmp2, T, enc->ffn_dim, d);
+    mynah_qmat_mul(&L->ff1_w1, tmp, tmp2, T);
     silu_inplace(tmp2, (size_t)T * (size_t)enc->ffn_dim);
-    matmul_wt(tmp2, L->ff1_w2, tmp, T, d, enc->ffn_dim);
+    mynah_qmat_mul(&L->ff1_w2, tmp2, tmp, T);
     for (size_t i = 0; i < n; i++) x[i] += 0.5f * tmp[i];
 
     /* MHSA */
@@ -277,9 +294,9 @@ int mynah_encoder_layer(const mynah_encoder *enc, int li, float *x, int T,
 
     /* ½ FFN2 */
     layer_norm_f(x, L->ln_ff2_w, L->ln_ff2_b, tmp, T, d);
-    matmul_wt(tmp, L->ff2_w1, tmp2, T, enc->ffn_dim, d);
+    mynah_qmat_mul(&L->ff2_w1, tmp, tmp2, T);
     silu_inplace(tmp2, (size_t)T * (size_t)enc->ffn_dim);
-    matmul_wt(tmp2, L->ff2_w2, tmp, T, d, enc->ffn_dim);
+    mynah_qmat_mul(&L->ff2_w2, tmp2, tmp, T);
     for (size_t i = 0; i < n; i++) x[i] += 0.5f * tmp[i];
 
     /* LN out */
@@ -373,7 +390,7 @@ static void stream_attention(const mynah_encoder *enc, const mynah_enc_layer *L,
     {
         float *q = qkv;
         float *kk = keys, *vv = keys + (size_t)K * (size_t)d;
-        matmul_wt(x, L->q_w, q, Q, d, d);
+        mynah_qmat_mul(&L->q_w, x, q, Q);
 
         /* keys = cache valida ++ nuove (l'update della cache lo fa il chiamante) */
         memcpy(kk, k_cache, (size_t)valid * (size_t)d * sizeof(float));
@@ -422,7 +439,7 @@ static void stream_attention(const mynah_encoder *enc, const mynah_enc_layer *L,
                 memcpy(ctx + (size_t)t * (size_t)d + ho, qb + (size_t)t * (size_t)dk,
                        (size_t)dk * sizeof(float));
         }
-        matmul_wt(ctx, L->o_w, out, Q, d, d);
+        mynah_qmat_mul(&L->o_w, ctx, out, Q);
     }
 done:
     free(qkv); free(keys); free(pe); free(rk); free(scores); free(bd); free(qb); free(ctx);
@@ -453,7 +470,7 @@ static void stream_conv_module(const mynah_encoder *enc, const mynah_enc_layer *
     float *c = malloc((size_t)Q * (size_t)d * sizeof(float));
     if (!h2 || !gp || !c) { free(h2); free(gp); free(c); return; }
 
-    matmul_wt(x, L->pw1_w, h2, Q, 2 * d, d);
+    mynah_qmat_mul(&L->pw1_w, x, h2, Q);
     memcpy(gp, cache, (size_t)(k - 1) * (size_t)d * sizeof(float));
     for (int t = 0; t < Q; t++) {
         const float *a = h2 + (size_t)t * 2u * (size_t)d;
@@ -476,7 +493,7 @@ static void stream_conv_module(const mynah_encoder *enc, const mynah_enc_layer *
     if (tmp) {
         layer_norm_f(c, L->cnorm_w, L->cnorm_b, tmp, Q, d);
         silu_inplace(tmp, (size_t)Q * (size_t)d);
-        matmul_wt(tmp, L->pw2_w, out, Q, d, d);
+        mynah_qmat_mul(&L->pw2_w, tmp, out, Q);
         free(tmp);
     }
     free(h2); free(gp); free(c);
@@ -507,15 +524,15 @@ int mynah_enc_stream_step(mynah_enc_stream *es, const float *mel, int n_mel,
 
         /* ½ FFN1 */
         layer_norm_f(x, L->ln_ff1_w, L->ln_ff1_b, tmp, Q, d);
-        matmul_wt(tmp, L->ff1_w1, tmp2, Q, enc->ffn_dim, d);
+        mynah_qmat_mul(&L->ff1_w1, tmp, tmp2, Q);
         silu_inplace(tmp2, (size_t)Q * (size_t)enc->ffn_dim);
-        matmul_wt(tmp2, L->ff1_w2, tmp, Q, d, enc->ffn_dim);
+        mynah_qmat_mul(&L->ff1_w2, tmp2, tmp, Q);
         for (size_t i = 0; i < nd; i++) x[i] += 0.5f * tmp[i];
 
         /* MHSA con cache: servono k/v del chunk per aggiornare la cache DOPO */
         layer_norm_f(x, L->ln_att_w, L->ln_att_b, xn, Q, d);
-        matmul_wt(xn, L->k_w, kn, Q, d, d);
-        matmul_wt(xn, L->v_w, kn + nd, Q, d, d);
+        mynah_qmat_mul(&L->k_w, xn, kn, Q);
+        mynah_qmat_mul(&L->v_w, xn, kn + nd, Q);
         stream_attention(enc, L, xn, kn, kn + nd, tmp, Q, kc, vc, es->cache_valid);
         update_kv_cache(kc, kn, es->cache_valid, Q, es->left, d);
         update_kv_cache(vc, kn + nd, es->cache_valid, Q, es->left, d);
@@ -528,9 +545,9 @@ int mynah_enc_stream_step(mynah_enc_stream *es, const float *mel, int n_mel,
 
         /* ½ FFN2 + LN out */
         layer_norm_f(x, L->ln_ff2_w, L->ln_ff2_b, tmp, Q, d);
-        matmul_wt(tmp, L->ff2_w1, tmp2, Q, enc->ffn_dim, d);
+        mynah_qmat_mul(&L->ff2_w1, tmp, tmp2, Q);
         silu_inplace(tmp2, (size_t)Q * (size_t)enc->ffn_dim);
-        matmul_wt(tmp2, L->ff2_w2, tmp, Q, d, enc->ffn_dim);
+        mynah_qmat_mul(&L->ff2_w2, tmp2, tmp, Q);
         for (size_t i = 0; i < nd; i++) x[i] += 0.5f * tmp[i];
         layer_norm_f(x, L->ln_out_w, L->ln_out_b, xn, Q, d);
         memcpy(x, xn, nd * sizeof(float));
@@ -563,9 +580,9 @@ static int encoder_layer_batch(const mynah_encoder *enc, int li, float *x,
 
     /* ½ FFN1 — packed */
     layer_norm_f(x, L->ln_ff1_w, L->ln_ff1_b, tmp, T_total, d);
-    matmul_wt(tmp, L->ff1_w1, tmp2, T_total, enc->ffn_dim, d);
+    mynah_qmat_mul(&L->ff1_w1, tmp, tmp2, T_total);
     silu_inplace(tmp2, (size_t)T_total * (size_t)enc->ffn_dim);
-    matmul_wt(tmp2, L->ff1_w2, tmp, T_total, d, enc->ffn_dim);
+    mynah_qmat_mul(&L->ff1_w2, tmp2, tmp, T_total);
     for (size_t i = 0; i < n; i++) x[i] += 0.5f * tmp[i];
 
     /* MHSA — per segmento */
@@ -584,9 +601,9 @@ static int encoder_layer_batch(const mynah_encoder *enc, int li, float *x,
 
     /* ½ FFN2 + LN out — packed */
     layer_norm_f(x, L->ln_ff2_w, L->ln_ff2_b, tmp, T_total, d);
-    matmul_wt(tmp, L->ff2_w1, tmp2, T_total, enc->ffn_dim, d);
+    mynah_qmat_mul(&L->ff2_w1, tmp, tmp2, T_total);
     silu_inplace(tmp2, (size_t)T_total * (size_t)enc->ffn_dim);
-    matmul_wt(tmp2, L->ff2_w2, tmp, T_total, d, enc->ffn_dim);
+    mynah_qmat_mul(&L->ff2_w2, tmp2, tmp, T_total);
     for (size_t i = 0; i < n; i++) x[i] += 0.5f * tmp[i];
     layer_norm_f(x, L->ln_out_w, L->ln_out_b, xn, T_total, d);
     memcpy(x, xn, n * sizeof(float));

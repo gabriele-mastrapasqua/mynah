@@ -11,7 +11,7 @@ static void usage(void) {
     printf("mynah %s — native ASR runtime for NeMo speech models\n\n", mynah_version());
     printf("Uso: mynah <comando> [opzioni]\n\n");
     printf("Comandi:\n");
-    printf("  transcribe -m <model_dir> -i <file.wav> [--lang auto] [--lookahead N]\n");
+    printf("  transcribe -m <model_dir> -i <file.wav> [--lang auto] [--lookahead N] [--quant int8]\n");
     printf("             trascrizione offline (WAV PCM16 16 kHz)\n");
     printf("  stream     -m <model_dir>                 streaming da stdin     [M1.3]\n");
     printf("  --version                                 stampa la versione\n");
@@ -25,18 +25,20 @@ static double now_sec(void) {
 
 static int cmd_transcribe(int argc, char **argv) {
     const char *model_dir = NULL, *wav = NULL, *lang = "auto";
-    int lookahead = -1;
+    int lookahead = -1, quant = MYNAH_QUANT_F32;
     for (int i = 0; i < argc; i++) {
         if (strcmp(argv[i], "-m") == 0 && i + 1 < argc) model_dir = argv[++i];
         else if (strcmp(argv[i], "-i") == 0 && i + 1 < argc) wav = argv[++i];
         else if (strcmp(argv[i], "--lang") == 0 && i + 1 < argc) lang = argv[++i];
         else if (strcmp(argv[i], "--lookahead") == 0 && i + 1 < argc) lookahead = atoi(argv[++i]);
+        else if (strcmp(argv[i], "--quant") == 0 && i + 1 < argc)
+            quant = strcmp(argv[++i], "int8") == 0 ? MYNAH_QUANT_INT8 : MYNAH_QUANT_F32;
         else { fprintf(stderr, "opzione ignota: %s\n", argv[i]); return 2; }
     }
     if (!model_dir || !wav) { usage(); return 2; }
 
     double t0 = now_sec();
-    mynah_model *m = mynah_load(model_dir);
+    mynah_model *m = mynah_load_quant(model_dir, quant);
     if (!m) return 1;
     double t_load = now_sec() - t0;
 
@@ -77,16 +79,18 @@ static void print_partial(const mynah_result *res, void *ud) {
 
 static int cmd_stream(int argc, char **argv) {
     const char *model_dir = NULL, *lang = "auto";
-    int lookahead = -1;
+    int lookahead = -1, quant = MYNAH_QUANT_F32;
     for (int i = 0; i < argc; i++) {
         if (strcmp(argv[i], "-m") == 0 && i + 1 < argc) model_dir = argv[++i];
         else if (strcmp(argv[i], "--lang") == 0 && i + 1 < argc) lang = argv[++i];
         else if (strcmp(argv[i], "--lookahead") == 0 && i + 1 < argc) lookahead = atoi(argv[++i]);
+        else if (strcmp(argv[i], "--quant") == 0 && i + 1 < argc)
+            quant = strcmp(argv[++i], "int8") == 0 ? MYNAH_QUANT_INT8 : MYNAH_QUANT_F32;
         else { fprintf(stderr, "opzione ignota: %s\n", argv[i]); return 2; }
     }
     if (!model_dir) { usage(); return 2; }
 
-    mynah_model *m = mynah_load(model_dir);
+    mynah_model *m = mynah_load_quant(model_dir, quant);
     if (!m) return 1;
     mynah_stream *s = mynah_stream_open(m, lang, lookahead);
     if (!s) { mynah_free(m); return 1; }

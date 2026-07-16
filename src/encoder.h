@@ -5,15 +5,22 @@
 #ifndef MYNAH_ENCODER_H
 #define MYNAH_ENCODER_H
 
+#include "qmat.h"
 #include "subsampling.h"
 #include "weights.h"
 
 typedef struct {
-    const float *ln_ff1_w, *ln_ff1_b, *ff1_w1, *ff1_w2;
+    const float *ln_ff1_w, *ln_ff1_b;
+    mynah_qmat ff1_w1, ff1_w2;
     const float *ln_att_w, *ln_att_b;
-    const float *q_w, *k_w, *v_w, *o_w, *relk_w, *bias_u, *bias_v;
-    const float *ln_conv_w, *ln_conv_b, *pw1_w, *dw_w, *cnorm_w, *cnorm_b, *pw2_w;
-    const float *ln_ff2_w, *ln_ff2_b, *ff2_w1, *ff2_w2;
+    mynah_qmat q_w, k_w, v_w, o_w;
+    const float *relk_w;   /* f32 sempre: usato con T=2L-1 grande a ogni chunk */
+    const float *bias_u, *bias_v;
+    const float *ln_conv_w, *ln_conv_b;
+    mynah_qmat pw1_w, pw2_w;
+    const float *dw_w, *cnorm_w, *cnorm_b;
+    const float *ln_ff2_w, *ln_ff2_b;
+    mynah_qmat ff2_w1, ff2_w2;
     const float *ln_out_w, *ln_out_b;
 } mynah_enc_layer;
 
@@ -27,7 +34,9 @@ typedef struct {
     int num_prompts, prompt_inter, d_out;
 } mynah_encoder;
 
-int mynah_encoder_init(mynah_encoder *enc, const mynah_safetensors *st);
+/* quantize != 0: INT8 per-riga sui grandi linear (FFN, attn q/k/v/o, pointwise
+ * conv). Costruita al load dal f32; ~2.4x meno memoria residente. */
+int mynah_encoder_init(mynah_encoder *enc, const mynah_safetensors *st, int quantize);
 void mynah_encoder_free(mynah_encoder *enc);
 
 /* Positional embedding rel [2T-1, d_model] (interleaved sin/cos, pos T-1..-(T-1)).

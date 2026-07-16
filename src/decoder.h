@@ -5,6 +5,7 @@
 #ifndef MYNAH_DECODER_H
 #define MYNAH_DECODER_H
 
+#include "qmat.h"
 #include "weights.h"
 
 #define MYNAH_MAX_PRED_LAYERS 4
@@ -14,7 +15,8 @@ typedef struct {
     const float *w_ih[MYNAH_MAX_PRED_LAYERS], *w_hh[MYNAH_MAX_PRED_LAYERS];
     const float *b_ih[MYNAH_MAX_PRED_LAYERS], *b_hh[MYNAH_MAX_PRED_LAYERS];
     const float *proj_w, *proj_b;           /* decoder_projector [H, H] */
-    const float *head_w, *head_b;           /* joint.head [vocab, H] */
+    mynah_qmat head;                        /* joint.head [vocab, H] (int8 opz.) */
+    const float *head_b;
     int vocab, hidden, n_layers, blank, max_symbols;
 } mynah_decoder;
 
@@ -26,7 +28,7 @@ typedef struct {
 } mynah_dec_state;
 
 int mynah_decoder_init(mynah_decoder *dec, const mynah_safetensors *st,
-                       int blank, int max_symbols);
+                       int blank, int max_symbols, int quantize);
 
 void mynah_dec_state_reset(const mynah_decoder *dec, mynah_dec_state *s);
 

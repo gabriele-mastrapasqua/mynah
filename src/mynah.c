@@ -43,7 +43,9 @@ static cJSON *load_json(const char *dir, const char *file) {
     return j;
 }
 
-mynah_model *mynah_load(const char *model_dir) {
+mynah_model *mynah_load(const char *model_dir) { return mynah_load_quant(model_dir, MYNAH_QUANT_F32); }
+
+mynah_model *mynah_load_quant(const char *model_dir, int quant) {
     mynah_model *m = calloc(1, sizeof(*m));
     if (!m) return NULL;
     char path[1024];
@@ -58,7 +60,7 @@ mynah_model *mynah_load(const char *model_dir) {
     m->mel_filters = mynah_st_open(path);
     if (!m->weights || !m->mel_filters) goto fail;
 
-    if (mynah_encoder_init(&m->enc, m->weights) != 0) {
+    if (mynah_encoder_init(&m->enc, m->weights, quant == MYNAH_QUANT_INT8) != 0) {
         fprintf(stderr, "mynah: encoder init fallita\n");
         goto fail;
     }
@@ -66,7 +68,8 @@ mynah_model *mynah_load(const char *model_dir) {
     const cJSON *jdec = cJSON_GetObjectItem(m->cfg, "decoder");
     if (mynah_decoder_init(&m->dec, m->weights,
                            cJSON_GetObjectItem(jdec, "blank_id")->valueint,
-                           cJSON_GetObjectItem(jdec, "max_symbols_per_step")->valueint) != 0) {
+                           cJSON_GetObjectItem(jdec, "max_symbols_per_step")->valueint,
+                           quant == MYNAH_QUANT_INT8) != 0) {
         fprintf(stderr, "mynah: decoder init fallita\n");
         goto fail;
     }
@@ -116,6 +119,7 @@ fail:
 
 void mynah_free(mynah_model *m) {
     if (!m) return;
+    mynah_qmat_free(&m->dec.head);
     mynah_encoder_free(&m->enc);
     mynah_tokenizer_free(&m->tok);
     mynah_st_close(m->weights);

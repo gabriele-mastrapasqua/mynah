@@ -33,6 +33,7 @@
 static mynah_model *g_model;
 static const char *g_model_name = "nemotron-3.5-asr-streaming-0.6b";
 static int g_max_batch = 8;          /* --batch N; 1 = disabilitato */
+static int g_quant = MYNAH_QUANT_F32;
 
 /* --------------------------------------------------- micro-batching scheduler
  * Le connessioni impacchettano il lavoro in job; un thread dedicato aggrega i
@@ -539,6 +540,8 @@ int main(int argc, char **argv) {
         else if (strcmp(argv[i], "-p") == 0 && i + 1 < argc) port = atoi(argv[++i]);
         else if (strcmp(argv[i], "--threads") == 0 && i + 1 < argc) n_threads = atoi(argv[++i]);
         else if (strcmp(argv[i], "--batch") == 0 && i + 1 < argc) g_max_batch = atoi(argv[++i]);
+        else if (strcmp(argv[i], "--quant") == 0 && i + 1 < argc)
+            g_quant = strcmp(argv[++i], "int8") == 0 ? MYNAH_QUANT_INT8 : MYNAH_QUANT_F32;
         else {
             fprintf(stderr, "uso: mynah-server -m <model_dir> [-p 8090] [--threads 4] [--batch 8]\n");
             return 2;
@@ -552,7 +555,7 @@ int main(int argc, char **argv) {
     if (g_max_batch > 64) g_max_batch = 64;
 
     signal(SIGPIPE, SIG_IGN);
-    g_model = mynah_load(model_dir);
+    g_model = mynah_load_quant(model_dir, g_quant);
     if (!g_model) return 1;
 
     int srv = socket(AF_INET, SOCK_STREAM, 0);

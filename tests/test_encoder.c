@@ -68,7 +68,7 @@ int main(int argc, char **argv) {
     float *feats = mynah_log_mel(&fcfg, audio, n_samples, &T_mel, &valid);
 
     mynah_encoder enc;
-    if (mynah_encoder_init(&enc, st) != 0) { fprintf(stderr, "encoder init fallita\n"); return 2; }
+    if (mynah_encoder_init(&enc, st, 0) != 0) { fprintf(stderr, "encoder init fallita\n"); return 2; }
     printf("encoder: %d layer, d=%d, heads=%d, ffn=%d, conv_k=%d, d_out=%d\n",
            enc.n_layers, enc.d_model, enc.n_heads, enc.ffn_dim, enc.conv_k, enc.d_out);
 

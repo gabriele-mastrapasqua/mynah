@@ -37,6 +37,11 @@ typedef struct mynah_model mynah_model;
 /* Carica un modello convertito (directory con mynah.json + model.safetensors
  * + tokens.json + mel_filters.safetensors). NULL su errore. */
 mynah_model *mynah_load(const char *model_dir);
+
+/* Come mynah_load con quantizzazione: MYNAH_QUANT_INT8 costruisce al load l'INT8
+ * per-riga sui grandi linear (~2.4x meno RAM, qualita' quasi identica). */
+enum { MYNAH_QUANT_F32 = 0, MYNAH_QUANT_INT8 = 1 };
+mynah_model *mynah_load_quant(const char *model_dir, int quant);
 void mynah_free(mynah_model *m);
 
 /* Risolve un tag lingua ("it-IT", "auto", ...) nel prompt id. -1 se ignoto. */
