@@ -76,9 +76,32 @@ char *mynah_detokenize(const mynah_tokenizer *tk, const int *tokens, int n,
     }
     out[len] = '\0';
 
+    /* Il tag lingua può arrivare anche "spelled-out" in pezzi BPE normali quando
+     * il token singolo non esiste nel vocab (es. <sl-SI> vs token <sl-SL>):
+     * rimuovi i pattern <xx-XX> inline e usali come lang se non già rilevata. */
+    for (char *p = out; (p = strchr(p, '<')) != NULL;) {
+        char *close = strchr(p, '>');
+        if (!close || (size_t)(close - p) > 12 || !memchr(p, '-', (size_t)(close - p))) {
+            p++;
+            continue;
+        }
+        if (lang_out && !lang_out[0] && (size_t)(close - p - 1) < 16) {
+            memcpy(lang_out, p + 1, (size_t)(close - p - 1));
+            lang_out[close - p - 1] = '\0';
+        }
+        memmove(p, close + 1, strlen(close + 1) + 1);
+        /* comprimi l'eventuale doppio spazio risultante */
+        if (p > out && p[-1] == ' ' && p[0] == ' ')
+            memmove(p, p + 1, strlen(p + 1) + 1);
+    }
+    len = strlen(out);
+
     /* strip degli spazi iniziali (come l'oracolo: lstrip) */
     size_t skip = 0;
     while (out[skip] == ' ') skip++;
     if (skip) memmove(out, out + skip, len - skip + 1);
+    /* strip degli spazi finali */
+    len = strlen(out);
+    while (len > 0 && out[len - 1] == ' ') out[--len] = '\0';
     return out;
 }
