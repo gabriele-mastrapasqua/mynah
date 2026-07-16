@@ -2,3 +2,4 @@
 -Isrc
 -Wall
 -Wextra
+-DMYNAH_BLAS_ACCELERATE

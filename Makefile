@@ -6,7 +6,7 @@ LDFLAGS ?=
 UNAME_S := $(shell uname -s)
 ifeq ($(UNAME_S),Darwin)
   LDFLAGS += -framework Accelerate
-  CFLAGS  += -DMYNAH_BLAS_ACCELERATE
+  CFLAGS  += -DMYNAH_BLAS_ACCELERATE -DACCELERATE_NEW_LAPACK
 else
   LDFLAGS += -lopenblas -lm -lpthread
   CFLAGS  += -DMYNAH_BLAS_OPENBLAS
@@ -26,20 +26,25 @@ mynah: $(OBJ) cli/main.o
 %.o: %.c $(HDR)
 	$(CC) $(CFLAGS) -c $< -o $@
 
-tests/test_features: tests/test_features.o $(OBJ)
+TESTS := tests/test_features tests/test_subsampling
+
+tests/%: tests/%.o tests/npy.o $(OBJ)
 	$(CC) $(CFLAGS) -o $@ $^ $(LDFLAGS)
 
 # Parità C vs oracolo. Skip (exit 77) se mancano modello o dump golden.
 # Rigenera i dump con: make golden-dump
-test: tests/test_features
-	@tests/test_features $(MODEL_DIR) tests/audio/test_it.wav tests/golden/test_it || \
-	  ( [ $$? -eq 77 ] && echo "SKIP: modello o golden assenti (make golden-dump)" )
+test: $(TESTS)
+	@for t in $(TESTS); do \
+	  $$t $(MODEL_DIR) tests/audio/test_it.wav tests/golden/test_it; rc=$$?; \
+	  if [ $$rc -eq 77 ]; then echo "SKIP $$t: modello o golden assenti (make golden-dump)"; \
+	  elif [ $$rc -ne 0 ]; then exit $$rc; fi; \
+	done
 
 golden-dump:
 	cd tools && uv run python -m oracle.transcribe ../$(MODEL_DIR) ../tests/audio/test_it.wav \
 	  --lang it-IT --dump-dir ../tests/golden/test_it
 
 clean:
-	rm -f mynah $(OBJ) cli/main.o tests/test_features tests/test_features.o
+	rm -f mynah $(OBJ) cli/main.o tests/*.o $(TESTS)
 
 .PHONY: all clean test golden-dump
