@@ -1,0 +1,26872 @@
+sample_rate: 16000
+compute_eval_loss: false
+log_prediction: true
+skip_nan_grad: true
+model_defaults:
+  enc_hidden: 1024
+  pred_hidden: 640
+  joint_hidden: 640
+  initialize_prompt_feature: true
+  num_prompts: 128
+  norm: None
+  prompt_dictionary:
+    en-US: 0
+    en: 0
+    en-GB: 1
+    enGB: 1
+    es-ES: 2
+    esES: 2
+    es-US: 3
+    es: 3
+    zh-CN: 4
+    zh-ZH: 4
+    zh-TW: 5
+    hi-IN: 6
+    hi: 6
+    hi-HI: 6
+    ar-AR: 7
+    ar: 7
+    fr-FR: 8
+    fr: 8
+    de-DE: 9
+    de: 9
+    ja-JP: 10
+    ja-JA: 10
+    ru-RU: 11
+    ru: 11
+    pt-BR: 12
+    pt-PT: 13
+    pt: 13
+    ko-KR: 14
+    ko: 14
+    ko-KO: 14
+    it-IT: 15
+    it: 15
+    nl-NL: 16
+    nl: 16
+    pl-PL: 17
+    pl: 17
+    tr-TR: 18
+    tr: 18
+    uk-UA: 19
+    uk: 19
+    ro-RO: 20
+    ro: 20
+    el-GR: 21
+    el: 21
+    cs-CZ: 22
+    cs: 22
+    hu-HU: 23
+    hu: 23
+    sv-SE: 24
+    sv: 24
+    da-DK: 25
+    da: 25
+    fi-FI: 26
+    fi: 26
+    no-NO: 27
+    'no': 27
+    nb-NO: 103
+    nb: 103
+    nn-NO: 104
+    nn: 104
+    sk-SK: 28
+    sk: 28
+    hr-HR: 29
+    hr: 29
+    bg-BG: 30
+    bg: 30
+    lt-LT: 31
+    lt: 31
+    et-EE: 60
+    et: 60
+    lv-LV: 61
+    lv: 61
+    sl-SI: 62
+    sl: 62
+    th-TH: 32
+    vi-VN: 33
+    id-ID: 34
+    ms-MY: 35
+    bn-IN: 36
+    ur-PK: 37
+    fa-IR: 38
+    ta-IN: 39
+    te-IN: 40
+    mr-IN: 41
+    gu-IN: 42
+    kn-IN: 43
+    ml-IN: 44
+    si-LK: 45
+    ne-NP: 46
+    km-KH: 47
+    sw-KE: 48
+    am-ET: 49
+    ha-NG: 50
+    zu-ZA: 51
+    yo-NG: 52
+    ig-NG: 53
+    af-ZA: 54
+    rw-RW: 55
+    so-SO: 56
+    ny-MW: 57
+    ln-CD: 58
+    or-KE: 59
+    he-IL: 64
+    ku-TR: 65
+    az-AZ: 66
+    ka-GE: 67
+    hy-AM: 68
+    uz-UZ: 69
+    tg-TJ: 70
+    ky-KG: 71
+    qu-PE: 80
+    ay-BO: 81
+    gn-PY: 82
+    nah-MX: 83
+    mi-NZ: 96
+    haw-US: 97
+    sm-WS: 98
+    to-TO: 99
+    fr-CA: 100
+    mt-MT: 102
+    auto: 101
+train_ds:
+  manifest_filepath: null
+  sample_rate: 16000
+  use_lhotse: true
+  shard_manifests: true
+  batch_duration: 200
+  quadratic_duration: 15
+  num_buckets: 30
+  shuffle: true
+  num_workers: 8
+  pin_memory: true
+  max_duration: 20
+  min_duration: 0.1
+  is_tarred: true
+  tarred_audio_filepaths: null
+  shuffle_n: 2048
+  slice_length: 100
+  bucketing_strategy: fully_randomized
+  bucketing_batch_size: null
+  bucket_buffer_size: 10000
+  shuffle_buffer_size: 10000
+  prompt_field: target_lang
+  prompt_dictionary:
+    en-US: 0
+    en: 0
+    en-GB: 1
+    enGB: 1
+    es-ES: 2
+    esES: 2
+    es-US: 3
+    es: 3
+    zh-CN: 4
+    zh-ZH: 4
+    zh-TW: 5
+    hi-IN: 6
+    hi: 6
+    hi-HI: 6
+    ar-AR: 7
+    ar: 7
+    fr-FR: 8
+    fr: 8
+    de-DE: 9
+    de: 9
+    ja-JP: 10
+    ja-JA: 10
+    ru-RU: 11
+    ru: 11
+    pt-BR: 12
+    pt-PT: 13
+    pt: 13
+    ko-KR: 14
+    ko: 14
+    ko-KO: 14
+    it-IT: 15
+    it: 15
+    nl-NL: 16
+    nl: 16
+    pl-PL: 17
+    pl: 17
+    tr-TR: 18
+    tr: 18
+    uk-UA: 19
+    uk: 19
+    ro-RO: 20
+    ro: 20
+    el-GR: 21
+    el: 21
+    cs-CZ: 22
+    cs: 22
+    hu-HU: 23
+    hu: 23
+    sv-SE: 24
+    sv: 24
+    da-DK: 25
+    da: 25
+    fi-FI: 26
+    fi: 26
+    no-NO: 27
+    'no': 27
+    nb-NO: 103
+    nb: 103
+    nn-NO: 104
+    nn: 104
+    sk-SK: 28
+    sk: 28
+    hr-HR: 29
+    hr: 29
+    bg-BG: 30
+    bg: 30
+    lt-LT: 31
+    lt: 31
+    et-EE: 60
+    et: 60
+    lv-LV: 61
+    lv: 61
+    sl-SI: 62
+    sl: 62
+    th-TH: 32
+    vi-VN: 33
+    id-ID: 34
+    ms-MY: 35
+    bn-IN: 36
+    ur-PK: 37
+    fa-IR: 38
+    ta-IN: 39
+    te-IN: 40
+    mr-IN: 41
+    gu-IN: 42
+    kn-IN: 43
+    ml-IN: 44
+    si-LK: 45
+    ne-NP: 46
+    km-KH: 47
+    sw-KE: 48
+    am-ET: 49
+    ha-NG: 50
+    zu-ZA: 51
+    yo-NG: 52
+    ig-NG: 53
+    af-ZA: 54
+    rw-RW: 55
+    so-SO: 56
+    ny-MW: 57
+    ln-CD: 58
+    or-KE: 59
+    he-IL: 64
+    ku-TR: 65
+    az-AZ: 66
+    ka-GE: 67
+    hy-AM: 68
+    uz-UZ: 69
+    tg-TJ: 70
+    ky-KG: 71
+    qu-PE: 80
+    ay-BO: 81
+    gn-PY: 82
+    nah-MX: 83
+    mi-NZ: 96
+    haw-US: 97
+    sm-WS: 98
+    to-TO: 99
+    fr-CA: 100
+    mt-MT: 102
+    auto: 101
+  num_prompts: 128
+  subsampling_factor: 8
+  lang_field: target_lang
+  training_mode: true
+  input_cfg: null
+  use_bucketing: true
+  defer_setup: true
+validation_ds:
+  manifest_filepath: null
+  sample_rate: 16000
+  batch_size: 2
+  shuffle: false
+  use_start_end_token: false
+  num_workers: 2
+  pin_memory: true
+  batch_duration: null
+  use_lhotse: true
+  use_bucketing: false
+  max_cuts: 8
+  prompt_field: target_lang
+  prompt_dictionary:
+    en-US: 0
+    en: 0
+    en-GB: 1
+    enGB: 1
+    es-ES: 2
+    esES: 2
+    es-US: 3
+    es: 3
+    zh-CN: 4
+    zh-ZH: 4
+    zh-TW: 5
+    hi-IN: 6
+    hi: 6
+    hi-HI: 6
+    ar-AR: 7
+    ar: 7
+    fr-FR: 8
+    fr: 8
+    de-DE: 9
+    de: 9
+    ja-JP: 10
+    ja-JA: 10
+    ru-RU: 11
+    ru: 11
+    pt-BR: 12
+    pt-PT: 13
+    pt: 13
+    ko-KR: 14
+    ko: 14
+    ko-KO: 14
+    it-IT: 15
+    it: 15
+    nl-NL: 16
+    nl: 16
+    pl-PL: 17
+    pl: 17
+    tr-TR: 18
+    tr: 18
+    uk-UA: 19
+    uk: 19
+    ro-RO: 20
+    ro: 20
+    el-GR: 21
+    el: 21
+    cs-CZ: 22
+    cs: 22
+    hu-HU: 23
+    hu: 23
+    sv-SE: 24
+    sv: 24
+    da-DK: 25
+    da: 25
+    fi-FI: 26
+    fi: 26
+    no-NO: 27
+    'no': 27
+    nb-NO: 103
+    nb: 103
+    nn-NO: 104
+    nn: 104
+    sk-SK: 28
+    sk: 28
+    hr-HR: 29
+    hr: 29
+    bg-BG: 30
+    bg: 30
+    lt-LT: 31
+    lt: 31
+    et-EE: 60
+    et: 60
+    lv-LV: 61
+    lv: 61
+    sl-SI: 62
+    sl: 62
+    th-TH: 32
+    vi-VN: 33
+    id-ID: 34
+    ms-MY: 35
+    bn-IN: 36
+    ur-PK: 37
+    fa-IR: 38
+    ta-IN: 39
+    te-IN: 40
+    mr-IN: 41
+    gu-IN: 42
+    kn-IN: 43
+    ml-IN: 44
+    si-LK: 45
+    ne-NP: 46
+    km-KH: 47
+    sw-KE: 48
+    am-ET: 49
+    ha-NG: 50
+    zu-ZA: 51
+    yo-NG: 52
+    ig-NG: 53
+    af-ZA: 54
+    rw-RW: 55
+    so-SO: 56
+    ny-MW: 57
+    ln-CD: 58
+    or-KE: 59
+    he-IL: 64
+    ku-TR: 65
+    az-AZ: 66
+    ka-GE: 67
+    hy-AM: 68
+    uz-UZ: 69
+    tg-TJ: 70
+    ky-KG: 71
+    qu-PE: 80
+    ay-BO: 81
+    gn-PY: 82
+    nah-MX: 83
+    mi-NZ: 96
+    haw-US: 97
+    sm-WS: 98
+    to-TO: 99
+    fr-CA: 100
+    mt-MT: 102
+    auto: 101
+  num_prompts: 128
+  subsampling_factor: 8
+  training_mode: true
+  name: null
+test_ds:
+  manifest_filepath: null
+  sample_rate: 16000
+  batch_size: 16
+  shuffle: false
+  use_start_end_token: false
+  num_workers: 8
+  pin_memory: true
+  use_lhotse: true
+  use_bucketing: false
+  prompt_field: target_lang
+  prompt_dictionary:
+    en-US: 0
+    en: 0
+    en-GB: 1
+    enGB: 1
+    es-ES: 2
+    esES: 2
+    es-US: 3
+    es: 3
+    zh-CN: 4
+    zh-ZH: 4
+    zh-TW: 5
+    hi-IN: 6
+    hi: 6
+    hi-HI: 6
+    ar-AR: 7
+    ar: 7
+    fr-FR: 8
+    fr: 8
+    de-DE: 9
+    de: 9
+    ja-JP: 10
+    ja-JA: 10
+    ru-RU: 11
+    ru: 11
+    pt-BR: 12
+    pt-PT: 13
+    pt: 13
+    ko-KR: 14
+    ko: 14
+    ko-KO: 14
+    it-IT: 15
+    it: 15
+    nl-NL: 16
+    nl: 16
+    pl-PL: 17
+    pl: 17
+    tr-TR: 18
+    tr: 18
+    uk-UA: 19
+    uk: 19
+    ro-RO: 20
+    ro: 20
+    el-GR: 21
+    el: 21
+    cs-CZ: 22
+    cs: 22
+    hu-HU: 23
+    hu: 23
+    sv-SE: 24
+    sv: 24
+    da-DK: 25
+    da: 25
+    fi-FI: 26
+    fi: 26
+    no-NO: 27
+    'no': 27
+    nb-NO: 103
+    nb: 103
+    nn-NO: 104
+    nn: 104
+    sk-SK: 28
+    sk: 28
+    hr-HR: 29
+    hr: 29
+    bg-BG: 30
+    bg: 30
+    lt-LT: 31
+    lt: 31
+    et-EE: 60
+    et: 60
+    lv-LV: 61
+    lv: 61
+    sl-SI: 62
+    sl: 62
+    th-TH: 32
+    vi-VN: 33
+    id-ID: 34
+    ms-MY: 35
+    bn-IN: 36
+    ur-PK: 37
+    fa-IR: 38
+    ta-IN: 39
+    te-IN: 40
+    mr-IN: 41
+    gu-IN: 42
+    kn-IN: 43
+    ml-IN: 44
+    si-LK: 45
+    ne-NP: 46
+    km-KH: 47
+    sw-KE: 48
+    am-ET: 49
+    ha-NG: 50
+    zu-ZA: 51
+    yo-NG: 52
+    ig-NG: 53
+    af-ZA: 54
+    rw-RW: 55
+    so-SO: 56
+    ny-MW: 57
+    ln-CD: 58
+    or-KE: 59
+    he-IL: 64
+    ku-TR: 65
+    az-AZ: 66
+    ka-GE: 67
+    hy-AM: 68
+    uz-UZ: 69
+    tg-TJ: 70
+    ky-KG: 71
+    qu-PE: 80
+    ay-BO: 81
+    gn-PY: 82
+    nah-MX: 83
+    mi-NZ: 96
+    haw-US: 97
+    sm-WS: 98
+    to-TO: 99
+    fr-CA: 100
+    mt-MT: 102
+    auto: 101
+  num_prompts: 128
+  subsampling_factor: 8
+  training_mode: false
+tokenizer:
+  dir: universal_merged_tokenizer_latest_40
+  type: bpe
+  model_path: nemo:427ad33c6285472cb01c3eb843d2309d_tokenizer.model
+  vocab_path: nemo:c8ead90c911846569df4738620acfc0f_vocab.txt
+preprocessor:
+  _target_: nemo.collections.asr.modules.AudioToMelSpectrogramPreprocessor
+  sample_rate: 16000
+  normalize: NA
+  window_size: 0.025
+  window_stride: 0.01
+  window: hann
+  features: 128
+  n_fft: 512
+  log: true
+  frame_splicing: 1
+  dither: 1.0e-05
+  pad_to: 0
+  pad_value: 0.0
+spec_augment:
+  _target_: nemo.collections.asr.modules.SpectrogramAugmentation
+  freq_masks: 2
+  time_masks: 10
+  freq_width: 27
+  time_width: 0.05
+encoder:
+  _target_: nemo.collections.asr.modules.ConformerEncoder
+  feat_in: 128
+  feat_out: -1
+  n_layers: 24
+  d_model: 1024
+  use_bias: false
+  subsampling: dw_striding
+  subsampling_factor: 8
+  subsampling_conv_channels: 256
+  causal_downsampling: true
+  reduction: null
+  reduction_position: null
+  reduction_factor: 1
+  ff_expansion_factor: 4
+  self_attention_model: rel_pos
+  n_heads: 8
+  att_context_size:
+  - - 56
+    - 3
+  - - 56
+    - 0
+  - - 56
+    - 6
+  - - 56
+    - 13
+  att_context_style: chunked_limited
+  xscaling: false
+  untie_biases: true
+  pos_emb_max_len: 5000
+  conv_kernel_size: 9
+  conv_norm_type: layer_norm
+  conv_context_size: causal
+  dropout: 0.1
+  dropout_pre_encoder: 0.1
+  dropout_emb: 0.0
+  dropout_att: 0.1
+  stochastic_depth_drop_prob: 0.0
+  stochastic_depth_mode: linear
+  stochastic_depth_start_layer: 1
+decoder:
+  _target_: nemo.collections.asr.modules.RNNTDecoder
+  normalization_mode: null
+  random_state_sampling: false
+  blank_as_pad: true
+  prednet:
+    pred_hidden: 640
+    pred_rnn_layers: 2
+    t_max: null
+    dropout: 0.2
+  vocab_size: 13087
+joint:
+  _target_: nemo.collections.asr.modules.RNNTJoint
+  log_softmax: null
+  preserve_memory: false
+  fuse_loss_wer: true
+  fused_batch_size: 2
+  jointnet:
+    joint_hidden: 640
+    activation: relu
+    dropout: 0.2
+    encoder_hidden: 1024
+    pred_hidden: 640
+  num_classes: 13087
+  vocabulary:
+  - <unk>
+  - <bg-BG>
+  - ▁
+  - и
+  - .
+  - е
+  - ','
+  - а
+  - с
+  - о
+  - н
+  - т
+  - та
+  - я
+  - к
+  - ▁на
+  - л
+  - у
+  - з
+  - р
+  - то
+  - на
+  - ▁да
+  - ва
+  - ра
+  - д
+  - e
+  - ка
+  - ▁за
+  - но
+  - м
+  - ни
+  - ъ
+  - ме
+  - t
+  - ст
+  - п
+  - ▁по
+  - a
+  - не
+  - s
+  - ▁се
+  - ре
+  - в
+  - ко
+  - ▁в
+  - o
+  - i
+  - ▁с
+  - г
+  - те
+  - ли
+  - че
+  - б
+  - ▁и
+  - ти
+  - ж
+  - ▁от
+  - ч
+  - r
+  - ите
+  - ма
+  - х
+  - ве
+  - ви
+  - ри
+  - l
+  - ш
+  - u
+  - во
+  - ▁е
+  - d
+  - ди
+  - c
+  - га
+  - ми
+  - ла
+  - по
+  - ▁съ
+  - й
+  - ще
+  - ле
+  - ро
+  - де
+  - го
+  - h
+  - m
+  - ци
+  - щ
+  - ▁про
+  - ▁из
+  - да
+  - мо
+  - си
+  - И
+  - ▁това
+  - ния
+  - p
+  - ните
+  - ение
+  - ло
+  - Н
+  - ф
+  - ▁до
+  - П
+  - ▁пред
+  - ▁при
+  - прав
+  - С
+  - ▁са
+  - ▁раз
+  - що
+  - ▁об
+  - 'n'
+  - ▁има
+  - па
+  - ста
+  - В
+  - ▁трябва
+  - g
+  - ност
+  - f
+  - би
+  - ча
+  - en
+  - in
+  - ция
+  - вър
+  - 'on'
+  - 'y'
+  - er
+  - an
+  - Т
+  - w
+  - ване
+  - К
+  - ▁които
+  - ▁много
+  - ▁пре
+  - '0'
+  - b
+  - v
+  - държа
+  - це
+  - А
+  - жда
+  - ▁Благодаря
+  - '2'
+  - М
+  - '1'
+  - ▁the
+  - О
+  - ▁може
+  - Д
+  - след
+  - говор
+  - работ
+  - ▁въпрос
+  - доб
+  - З
+  - ц
+  - k
+  - ▁Това
+  - '?'
+  - ▁бъде
+  - ▁комисия
+  - Е
+  - ▁този
+  - ▁тези
+  - ▁господин
+  - ▁въз
+  - ▁Европейския
+  - Б
+  - Г
+  - Р
+  - ю
+  - '3'
+  - '5'
+  - q
+  - I
+  - é
+  - '4'
+  - z
+  - A
+  - '6'
+  - j
+  - E
+  - '7'
+  - Щ
+  - T
+  - '8'
+  - '9'
+  - Л
+  - S
+  - Ф
+  - x
+  - C
+  - Х
+  - ь
+  - M
+  - P
+  - У
+  - D
+  - B
+  - Ч
+  - U
+  - W
+  - Ш
+  - Ц
+  - 'N'
+  - O
+  - G
+  - à
+  - F
+  - L
+  - è
+  - V
+  - R
+  - ا
+  - Ю
+  - ó
+  - Я
+  - H
+  - α
+  - ü
+  - ä
+  - ل
+  - Ж
+  - J
+  - í
+  - τ
+  - ι
+  - á
+  - ο
+  - K
+  - ε
+  - ي
+  - ê
+  - 'Y'
+  - ν
+  - ن
+  - ö
+  - م
+  - ç
+  - ρ
+  - Й
+  - و
+  - σ
+  - π
+  - ę
+  - υ
+  - ت
+  - η
+  - ر
+  - μ
+  - κ
+  - <cs-CZ>
+  - st
+  - ch
+  - ní
+  - ▁s
+  - le
+  - li
+  - ▁po
+  - ▁v
+  - ž
+  - č
+  - ▁to
+  - 'no'
+  - to
+  - ▁z
+  - me
+  - ▁se
+  - ▁a
+  - te
+  - ▁je
+  - ho
+  - ▁pro
+  - ů
+  - ně
+  - ro
+  - ▁na
+  - ce
+  - ▁o
+  - la
+  - š
+  - ▁ne
+  - ni
+  - ra
+  - ti
+  - lo
+  - ko
+  - ▁že
+  - ná
+  - po
+  - je
+  - ě
+  - de
+  - na
+  - mi
+  - ▁do
+  - ci
+  - ▁k
+  - ku
+  - ře
+  - ▁by
+  - ve
+  - ▁za
+  - mě
+  - ▁A
+  - ý
+  - re
+  - vá
+  - ou
+  - vo
+  - né
+  - va
+  - že
+  - mo
+  - vě
+  - jí
+  - tě
+  - vý
+  - ▁tak
+  - ze
+  - ří
+  - ne
+  - še
+  - ▁vy
+  - ka
+  - ji
+  - ky
+  - rá
+  - ovat
+  - ▁ob
+  - cí
+  - ▁jak
+  - ▁pře
+  - ny
+  - ví
+  - ný
+  - vi
+  - ▁in
+  - práv
+  - ú
+  - ▁co
+  - ▁také
+  - ent
+  - ▁pan
+  - ▁Děkuji
+  - ▁které
+  - ři
+  - ▁aby
+  - ▁pří
+  - ▁při
+  - prav
+  - ř
+  - vrop
+  - ▁bude
+  - ▁roz
+  - ▁jsou
+  - ové
+  - ▁jsme
+  - ské
+  - ování
+  - ▁tady
+  - ský
+  - děl
+  - ▁musí
+  - Z
+  - klad
+  - ▁tedy
+  - dob
+  - ▁To
+  - ální
+  - ▁Je
+  - ▁stát
+  - ň
+  - oval
+  - ▁protože
+  - ▁jsem
+  - ▁který
+  - předsed
+  - ▁být
+  - ď
+  - Č
+  - ť
+  - Š
+  - Ř
+  - Ž
+  - ă
+  - ł
+  - ż
+  - ą
+  - X
+  - Ú
+  - ś
+  - <da-DK>
+  - ▁for
+  - ▁det
+  - ▁at
+  - æ
+  - et
+  - ▁og
+  - ▁vi
+  - al
+  - ▁de
+  - ▁der
+  - ▁til
+  - or
+  - ▁er
+  - om
+  - å
+  - ø
+  - and
+  - ▁har
+  - at
+  - ▁f
+  - ▁i
+  - ▁så
+  - ▁af
+  - ge
+  - ar
+  - is
+  - ing
+  - ▁med
+  - ▁på
+  - ▁be
+  - un
+  - lig
+  - ▁ikke
+  - ▁man
+  - ig
+  - ▁som
+  - ør
+  - ▁Og
+  - el
+  - ag
+  - ▁skal
+  - erne
+  - ▁Det
+  - ▁den
+  - ste
+  - ning
+  - ▁jeg
+  - id
+  - ▁kan
+  - ▁også
+  - ▁vil
+  - ske
+  - iv
+  - ▁ud
+  - ▁her
+  - ion
+  - am
+  - ur
+  - for
+  - ▁pr
+  - else
+  - ▁sig
+  - ▁men
+  - ▁ind
+  - ▁jo
+  - ende
+  - ▁være
+  - ▁Vi
+  - ation
+  - ▁må
+  - mme
+  - ighed
+  - tage
+  - ▁op
+  - ▁Jeg
+  - ▁hvor
+  - ▁ved
+  - ▁få
+  - ▁fra
+  - ▁over
+  - ▁have
+  - kke
+  - ▁meget
+  - ▁Så
+  - ▁Tak
+  - ▁noget
+  - ▁alle
+  - brug
+  - ▁komme
+  - ▁Men
+  - ▁var
+  - hold
+  - arbejde
+  - ▁eller
+  - ▁vores
+  - ▁frem
+  - ▁altså
+  - ▁vigtig
+  - vær
+  - ▁EU
+  - ▁gøre
+  - ▁nogle
+  - skab
+  - ▁spørgsmål
+  - ▁kunne
+  - ▁kommissionen
+  - ▁hvis
+  - Ø
+  - Æ
+  - ς
+  - λ
+  - ί
+  - ό
+  - ı
+  - έ
+  - ά
+  - ω
+  - γ
+  - δ
+  - ή
+  - <de-DE>
+  - ▁die
+  - ▁und
+  - ▁das
+  - sch
+  - ▁ist
+  - ▁ich
+  - ▁ein
+  - ▁ge
+  - ung
+  - it
+  - ▁wir
+  - ▁zu
+  - ▁so
+  - ▁da
+  - ▁S
+  - ▁auch
+  - gen
+  - ▁nicht
+  - ▁W
+  - ▁B
+  - ▁E
+  - ▁F
+  - ll
+  - ▁es
+  - ▁K
+  - ie
+  - au
+  - ▁P
+  - ich
+  - ▁eine
+  - lich
+  - ck
+  - ten
+  - mal
+  - ein
+  - ▁T
+  - ▁dann
+  - ▁Und
+  - ▁mit
+  - ▁auf
+  - hr
+  - ter
+  - tz
+  - ▁dass
+  - ▁G
+  - ben
+  - um
+  - us
+  - cht
+  - il
+  - ▁Das
+  - ▁diese
+  - ▁noch
+  - ▁jetzt
+  - ut
+  - ▁ver
+  - kt
+  - ▁Ich
+  - ▁hier
+  - ▁hat
+  - ▁haben
+  - ▁von
+  - ri
+  - ach
+  - ol
+  - ▁Da
+  - ▁als
+  - sp
+  - ▁für
+  - ell
+  - ▁sich
+  - ▁was
+  - ▁ja
+  - uch
+  - ▁kann
+  - ▁sind
+  - wi
+  - ▁aus
+  - rei
+  - ▁wie
+  - ▁Ge
+  - und
+  - ▁St
+  - isch
+  - ▁sie
+  - ▁Ja
+  - ▁du
+  - ▁war
+  - ▁im
+  - ▁dem
+  - ▁aber
+  - ▁oder
+  - ß
+  - ▁Sch
+  - ▁uns
+  - ▁habe
+  - ▁wenn
+  - ▁wo
+  - ▁bei
+  - ▁ihr
+  - ▁Ma
+  - zu
+  - ▁schon
+  - ▁De
+  - ▁Sie
+  - ▁über
+  - ▁vor
+  - ▁Die
+  - ▁ganz
+  - iert
+  - ▁Le
+  - ▁viel
+  - ▁In
+  - ▁Also
+  - ▁Ver
+  - ▁sehr
+  - ▁Re
+  - halt
+  - ▁einfach
+  - ▁werden
+  - ▁sein
+  - ▁Wir
+  - ▁nur
+  - ▁immer
+  - ieren
+  - ▁muss
+  - ▁wieder
+  - ▁mir
+  - ▁gut
+  - ▁mehr
+  - ▁Mi
+  - ▁nach
+  - ▁Ha
+  - ▁weil
+  - ▁Aber
+  - kommen
+  - ▁gibt
+  - ▁meine
+  - ▁andere
+  - ▁können
+  - ▁machen
+  - ▁natürlich
+  - ▁bisschen
+  - ▁durch
+  - sehen
+  - ▁weiter
+  - ▁keine
+  - ▁sagen
+  - ▁wirklich
+  - ▁eigentlich
+  - ▁jede
+  - schaft
+  - ▁glaube
+  - Ü
+  - <el-GR>
+  - χ
+  - τα
+  - ▁να
+  - ει
+  - ▁και
+  - μα
+  - β
+  - ση
+  - τε
+  - ώ
+  - θ
+  - φ
+  - πο
+  - ύ
+  - ▁το
+  - ία
+  - τι
+  - αν
+  - ου
+  - ρα
+  - ▁για
+  - εί
+  - τη
+  - ξ
+  - κα
+  - ▁την
+  - ▁τη
+  - με
+  - το
+  - ού
+  - ▁του
+  - ▁προ
+  - ▁με
+  - ζ
+  - ▁θα
+  - ▁είναι
+  - ρο
+  - ων
+  - μέ
+  - ▁που
+  - ια
+  - νο
+  - ική
+  - ών
+  - ρι
+  - θε
+  - Ε
+  - ρί
+  - ▁ότι
+  - ουμε
+  - ▁από
+  - λο
+  - ρά
+  - ιο
+  - ▁των
+  - ευ
+  - λη
+  - ουν
+  - Α
+  - ▁σε
+  - Π
+  - ▁συν
+  - φορ
+  - ▁δεν
+  - Σ
+  - ▁στο
+  - ▁δι
+  - τά
+  - ▁αυτό
+  - ▁δια
+  - ιστ
+  - ▁πολύ
+  - ▁πρέπει
+  - ▁στην
+  - σουμε
+  - ικά
+  - Τ
+  - ▁επ
+  - Κ
+  - ψ
+  - ▁απο
+  - ▁οι
+  - εται
+  - ▁επι
+  - ▁Υπότιτλοι
+  - ▁AUTHORWAVE
+  - ούμε
+  - ικό
+  - ▁Και
+  - πρό
+  - ▁Ευχαριστώ
+  - ▁μια
+  - ▁ένα
+  - ▁συμ
+  - Μ
+  - ▁περι
+  - ▁αυτή
+  - ήσει
+  - Ο
+  - ικέ
+  - ▁κατά
+  - Γ
+  - Θ
+  - ▁Ευρωπαϊκή
+  - ▁έχουμε
+  - ▁αλλά
+  - εργ
+  - Η
+  - ▁θέμα
+  - ολογ
+  - ότητα
+  - ▁έχει
+  - πολιτ
+  - Δ
+  - ▁λοιπόν
+  - ονται
+  - Ν
+  - φέρ
+  - ▁Επιτροπή
+  - ▁αυτά
+  - ▁Ένωση
+  - Υ
+  - ϊ
+  - ▁Δεν
+  - ▁έχουν
+  - ▁υπάρχει
+  - Β
+  - Ι
+  - Λ
+  - Φ
+  - Ρ
+  - Χ
+  - Ξ
+  - Ω
+  - Ζ
+  - Ψ
+  - Ή
+  - Ά
+  - Ό
+  - Έ
+  - <et-EE>
+  - ma
+  - ta
+  - se
+  - da
+  - si
+  - ▁on
+  - õ
+  - ks
+  - ga
+  - ▁et
+  - ▁ka
+  - he
+  - mu
+  - tu
+  - ha
+  - ja
+  - gi
+  - ▁selle
+  - ▁ole
+  - nd
+  - oo
+  - gu
+  - ju
+  - est
+  - ▁ei
+  - ▁pa
+  - nud
+  - ▁väga
+  - ▁see
+  - tud
+  - ▁pea
+  - nda
+  - är
+  - ▁Euroopa
+  - ▁kui
+  - vad
+  - ke
+  - sta
+  - sed
+  - ▁või
+  - di
+  - ▁saa
+  - mise
+  - ▁siis
+  - ▁su
+  - ide
+  - pool
+  - val
+  - tus
+  - ▁seda
+  - ▁Me
+  - ▁vastu
+  - ▁jä
+  - ▁tule
+  - selt
+  - ment
+  - ▁kes
+  - ndus
+  - ▁töö
+  - ▁kõik
+  - dus
+  - ▁mõ
+  - eeri
+  - ▁meie
+  - ▁meil
+  - ▁ning
+  - võt
+  - ▁mida
+  - ▁arv
+  - ▁See
+  - takse
+  - ▁vaja
+  - ▁osa
+  - õigus
+  - ▁nende
+  - ▁nüüd
+  - ▁aasta
+  - tsiooni
+  - ▁inim
+  - ▁need
+  - tsus
+  - riigi
+  - ▁täh
+  - ▁Liidu
+  - ▁välja
+  - Ä
+  - Õ
+  - ã
+  - Q
+  - ć
+  - ع
+  - ñ
+  - <fi-FI>
+  - tä
+  - ssa
+  - lla
+  - ▁että
+  - ksi
+  - ty
+  - ki
+  - vä
+  - pa
+  - lle
+  - lu
+  - tta
+  - stä
+  - isi
+  - ise
+  - llä
+  - kin
+  - nä
+  - ään
+  - kse
+  - tte
+  - jä
+  - ttä
+  - ssä
+  - ista
+  - inen
+  - kä
+  - llis
+  - tö
+  - ▁myös
+  - vu
+  - taan
+  - ▁tämä
+  - ▁voi
+  - utta
+  - iden
+  - nyt
+  - ▁niin
+  - ▁Kiitos
+  - ▁ovat
+  - hän
+  - suu
+  - ▁toimi
+  - aika
+  - ▁Tämä
+  - ▁pää
+  - ▁mutta
+  - ▁käy
+  - ▁tässä
+  - ▁asia
+  - ▁Tä
+  - ▁jotka
+  - ▁työ
+  - neet
+  - ▁täytyy
+  - ▁sitten
+  - ▁Euroopan
+  - ▁puolesta
+  - ▁halua
+  - ▁siitä
+  - ▁komissio
+  - ▁hyvä
+  - ▁hyvin
+  - ▁puhu
+  - ▁meidän
+  - ▁vastaan
+  - ▁tärkeä
+  - ▁kaikki
+  - ▁Kiitoksia
+  - ▁vielä
+  - ▁muut
+  - ▁paljon
+  - mahdollis
+  - parlament
+  - ▁pitäisi
+  - ▁hyväksy
+  - ▁puheenjohtaja
+  - ▁liitty
+  - ā
+  - ა
+  - ი
+  - ī
+  - ē
+  - ë
+  - ე
+  - <fr-FR>
+  - ▁est
+  - ▁c
+  - ▁d
+  - ▁la
+  - ▁p
+  - ▁que
+  - ▁en
+  - ▁le
+  - ▁à
+  - es
+  - ▁l
+  - ▁un
+  - ▁pas
+  - ▁les
+  - ▁qui
+  - ▁il
+  - ▁vous
+  - ▁des
+  - ▁ce
+  - ▁qu
+  - ▁pour
+  - ▁n
+  - ▁par
+  - ▁ça
+  - ▁une
+  - ▁b
+  - ant
+  - ▁j
+  - ais
+  - ez
+  - ▁dans
+  - ▁va
+  - ▁C
+  - tre
+  - ir
+  - elle
+  - eur
+  - ▁sur
+  - ▁re
+  - ▁con
+  - ▁ma
+  - ▁Et
+  - ▁au
+  - ement
+  - tion
+  - té
+  - ▁tout
+  - mp
+  - ique
+  - ▁plus
+  - eux
+  - ▁dé
+  - ▁fait
+  - qu
+  - ▁ai
+  - ▁comme
+  - ens
+  - ac
+  - ▁là
+  - ▁si
+  - ait
+  - che
+  - ▁mais
+  - que
+  - ul
+  - ▁avec
+  - ▁bien
+  - ▁tu
+  - age
+  - ▁mon
+  - ▁Donc
+  - end
+  - ▁faire
+  - ▁être
+  - ver
+  - ▁peu
+  - ▁même
+  - tra
+  - cha
+  - ▁nous
+  - ▁donc
+  - ▁sont
+  - ▁moi
+  - ille
+  - ff
+  - ▁ex
+  - ien
+  - ▁Il
+  - ▁très
+  - ▁cette
+  - im
+  - ité
+  - ▁dire
+  - ▁peut
+  - ance
+  - aire
+  - mé
+  - ▁app
+  - ▁aussi
+  - ▁petit
+  - aux
+  - ▁parce
+  - onne
+  - mb
+  - man
+  - ▁On
+  - ▁quand
+  - ▁autre
+  - ô
+  - ▁chose
+  - ▁puis
+  - ▁était
+  - ndre
+  - port
+  - ▁vraiment
+  - ence
+  - ▁Mais
+  - î
+  - ▁avoir
+  - form
+  - ▁faut
+  - ▁Alors
+  - ign
+  - ▁où
+  - près
+  - ▁beaucoup
+  - ture
+  - û
+  - Ç
+  - â
+  - ù
+  - <hu-HU>
+  - sz
+  - ▁az
+  - ▁hogy
+  - ő
+  - ás
+  - ok
+  - gy
+  - ek
+  - ál
+  - és
+  - em
+  - ár
+  - ▁meg
+  - ▁és
+  - ▁is
+  - ▁ez
+  - ▁egy
+  - os
+  - ak
+  - ban
+  - nak
+  - ít
+  - ik
+  - unk
+  - ▁nem
+  - oz
+  - ül
+  - án
+  - át
+  - cs
+  - él
+  - ér
+  - nek
+  - ▁mi
+  - szer
+  - bb
+  - ▁Köszönöm
+  - ség
+  - ▁kell
+  - én
+  - hat
+  - ▁ha
+  - ság
+  - ▁szépen
+  - ért
+  - ék
+  - ott
+  - ön
+  - ép
+  - elő
+  - ünk
+  - ▁van
+  - ▁ki
+  - ▁fel
+  - ény
+  - vé
+  - leg
+  - eket
+  - ▁Az
+  - juk
+  - ▁köz
+  - ű
+  - ▁nagyon
+  - ▁tud
+  - ▁jelen
+  - ▁amely
+  - ▁lehet
+  - ▁ami
+  - ▁kérdés
+  - ▁ellen
+  - tart
+  - ről
+  - É
+  - ország
+  - rend
+  - ról
+  - ▁vagy
+  - ▁fontos
+  - ▁Európai
+  - ▁akkor
+  - ▁jog
+  - ▁fog
+  - fogad
+  - kapcsol
+  - ▁rész
+  - áció
+  - ▁volt
+  - ▁elnök
+  - ▁bizottság
+  - ▁gondol
+  - ▁olyan
+  - ▁illetve
+  - ▁tagállam
+  - ▁pedig
+  - ▁Tehát
+  - ▁európai
+  - ▁szükség
+  - szavaz
+  - ▁tehát
+  - következ
+  - ▁össze
+  - ▁biztos
+  - Ö
+  - Á
+  - Í
+  - Ő
+  - <hr-HR>
+  - ▁u
+  - ▁bi
+  - ▁sa
+  - će
+  - ▁od
+  - ru
+  - ▁iz
+  - go
+  - nje
+  - sti
+  - đ
+  - ▁pri
+  - ima
+  - nu
+  - ▁pre
+  - ▁Hvala
+  - lje
+  - ▁što
+  - či
+  - nja
+  - zi
+  - vr
+  - ći
+  - če
+  - ca
+  - ▁koji
+  - ba
+  - ▁raz
+  - י
+  - ו
+  - ה
+  - د
+  - ל
+  - ة
+  - ب
+  - ه
+  - أ
+  - א
+  - س
+  - ك
+  - ת
+  - ר
+  - ț
+  - מ
+  - ق
+  - ש
+  - <it-IT>
+  - ▁di
+  - ▁e
+  - ▁che
+  - ▁è
+  - co
+  - ▁per
+  - ▁al
+  - ▁non
+  - do
+  - gli
+  - so
+  - amo
+  - sa
+  - ndo
+  - ▁una
+  - fi
+  - pi
+  - nti
+  - tto
+  - tro
+  - ▁fa
+  - chi
+  - ▁qua
+  - zione
+  - bi
+  - ▁del
+  - mente
+  - pe
+  - ssi
+  - ▁ri
+  - ▁sono
+  - ▁me
+  - ▁questo
+  - nte
+  - tti
+  - tà
+  - ▁nel
+  - ▁anche
+  - sso
+  - ▁perché
+  - ▁più
+  - nta
+  - ▁come
+  - cu
+  - ▁quindi
+  - ggi
+  - nza
+  - sto
+  - ▁ho
+  - ò
+  - ▁della
+  - gra
+  - ▁fare
+  - spe
+  - cco
+  - nde
+  - mento
+  - fe
+  - gio
+  - pu
+  - ▁questa
+  - ▁tra
+  - zza
+  - sci
+  - ▁ba
+  - ▁dei
+  - ▁poi
+  - sco
+  - stra
+  - ▁quel
+  - qui
+  - ▁delle
+  - ▁cosa
+  - ▁molto
+  - sse
+  - zioni
+  - ▁vol
+  - ▁inter
+  - sce
+  - ▁fatto
+  - ▁com
+  - ▁quello
+  - ▁essere
+  - ▁due
+  - ▁abbiamo
+  - ▁comp
+  - ▁tutti
+  - ì
+  - ▁prima
+  - ▁parte
+  - ▁così
+  - ▁sempre
+  - ▁tutto
+  - ▁video
+  - ▁maglia
+  - ▁imp
+  - ▁cui
+  - ▁dove
+  - ▁col
+  - ▁Quindi
+  - sione
+  - rebbe
+  - scri
+  - <lt-LT>
+  - ė
+  - ai
+  - ų
+  - ▁ir
+  - as
+  - į
+  - ▁kad
+  - ės
+  - ▁tai
+  - ū
+  - tų
+  - ▁yra
+  - ių
+  - uo
+  - ▁ko
+  - ▁iš
+  - tin
+  - ▁vis
+  - čia
+  - ▁kuri
+  - dė
+  - ly
+  - gal
+  - ▁ši
+  - iau
+  - jo
+  - tar
+  - yb
+  - ▁Ir
+  - ▁tik
+  - ijos
+  - sak
+  - ▁turi
+  - oje
+  - ▁Tai
+  - jų
+  - ▁apie
+  - ▁nu
+  - ▁mes
+  - ▁už
+  - išk
+  - ▁gali
+  - ▁dėl
+  - ▁labai
+  - imas
+  - klaus
+  - laik
+  - ▁Europos
+  - ▁aš
+  - veik
+  - ▁būtų
+  - darb
+  - ▁kaip
+  - ▁teis
+  - ▁daug
+  - ▁tikrai
+  - ▁pra
+  - reik
+  - ▁buvo
+  - turė
+  - ▁valstyb
+  - ▁reikia
+  - ▁būti
+  - ▁Aš
+  - ▁mūsų
+  - ▁jūs
+  - vyk
+  - ▁Ačiū
+  - cija
+  - Į
+  - ņ
+  - <lv-LV>
+  - ▁no
+  - jā
+  - iem
+  - tā
+  - āk
+  - ▁ar
+  - ām
+  - ▁pie
+  - ies
+  - ot
+  - kā
+  - ļ
+  - tr
+  - ▁tā
+  - īt
+  - nā
+  - ▁uz
+  - ▁tas
+  - ēt
+  - dz
+  - ▁arī
+  - ▁vien
+  - ▁jau
+  - ▁kā
+  - ▁ie
+  - gad
+  - ▁kur
+  - ▁kas
+  - ▁Un
+  - ▁mēs
+  - iet
+  - dā
+  - īg
+  - ▁Ta
+  - ▁kād
+  - kaut
+  - ēm
+  - ▁lie
+  - umu
+  - ties
+  - dar
+  - lē
+  - ▁vai
+  - ▁bija
+  - ▁mums
+  - ▁tad
+  - ▁bet
+  - ība
+  - ▁ga
+  - ▁Latvijas
+  - ija
+  - kr
+  - vē
+  - sim
+  - ▁šo
+  - dien
+  - gan
+  - īgi
+  - ▁ap
+  - ģ
+  - ▁būt
+  - domā
+  - ▁tev
+  - mēr
+  - ▁daudz
+  - ▁aiz
+  - ▁Tā
+  - ▁tād
+  - ▁tur
+  - ▁monēt
+  - ▁vēl
+  - ▁laik
+  - ▁cilvē
+  - ▁nav
+  - ▁lab
+  - ▁ļoti
+  - aug
+  - ▁līdz
+  - ▁lai
+  - šana
+  - ▁Nu
+  - ▁viņa
+  - ▁savu
+  - ▁cit
+  - teik
+  - ▁darb
+  - ▁Ne
+  - zin
+  - ▁pirm
+  - ▁Latvi
+  - ▁tieš
+  - ▁viņi
+  - ēja
+  - dzīvo
+  - ▁viņš
+  - ▁pilsē
+  - ināt
+  - ▁viņu
+  - ▁tagad
+  - kārt
+  - ▁pats
+  - ▁vairāk
+  - reiz
+  - ▁tikai
+  - sakta
+  - ▁bij
+  - ▁Viņ
+  - ▁sev
+  - ▁māj
+  - vērt
+  - ▁20
+  - ▁ceļ
+  - tiek
+  - iski
+  - ▁dzīv
+  - ▁kāpēc
+  - ▁Bet
+  - ▁pēc
+  - ▁nozīmē
+  - niek
+  - ībā
+  - ▁palīdz
+  - ▁protams
+  - ▁stils
+  - ▁vajadz
+  - ▁attīstī
+  - ▁svarīg
+  - ▁sievie
+  - ▁grib
+  - ▁dažād
+  - ▁valst
+  - ▁banka
+  - ▁iespēja
+  - ▁bez
+  - prāt
+  - vērtīb
+  - ▁person
+  - pasaules
+  - ▁varbūt
+  - ▁vienkārši
+  - ▁nauda
+  - meklē
+  - brauc
+  - ▁nevar
+  - ācijas
+  - spēj
+  - ķ
+  - <nl-NL>
+  - ▁een
+  - ▁het
+  - ▁dat
+  - ▁we
+  - ▁ik
+  - ij
+  - ▁En
+  - ▁te
+  - ▁ook
+  - ▁niet
+  - ▁dan
+  - ▁zo
+  - ▁voor
+  - ▁met
+  - ▁aan
+  - ▁zijn
+  - ▁Ik
+  - ▁wel
+  - ▁wat
+  - aar
+  - ▁ze
+  - ken
+  - ▁heb
+  - der
+  - ui
+  - den
+  - ▁daar
+  - ▁maar
+  - op
+  - ▁heel
+  - ▁nog
+  - ▁Dus
+  - oor
+  - ▁hebben
+  - ▁uit
+  - ▁of
+  - ven
+  - ▁Maar
+  - ▁Dat
+  - ▁gaan
+  - elijk
+  - ▁naar
+  - ▁moet
+  - acht
+  - ▁waar
+  - ▁dus
+  - ▁ben
+  - ▁goed
+  - ▁Het
+  - ▁even
+  - ond
+  - eld
+  - ▁dit
+  - ▁wil
+  - rij
+  - ▁echt
+  - ▁doen
+  - ▁gewoon
+  - lijk
+  - tijd
+  - ▁meer
+  - ▁mijn
+  - ▁We
+  - ▁gaat
+  - werk
+  - ▁hoe
+  - uw
+  - ▁eigenlijk
+  - ▁deze
+  - zelf
+  - vol
+  - ▁veel
+  - atie
+  - ▁kunnen
+  - ▁door
+  - llen
+  - ▁mee
+  - ▁onder
+  - ▁toe
+  - ▁zit
+  - ▁mensen
+  - ▁hij
+  - ▁denk
+  - ▁zie
+  - ▁heeft
+  - ▁kl
+  - nnen
+  - ▁zien
+  - komen
+  - ▁natuurlijk
+  - heid
+  - ▁Dan
+  - ▁vind
+  - ▁wordt
+  - ▁iets
+  - ▁maken
+  - ▁doe
+  - ▁Wat
+  - ▁wij
+  - ▁beetje
+  - ▁worden
+  - ▁Want
+  - ▁twee
+  - ▁hem
+  - ▁had
+  - ▁jullie
+  - ▁Als
+  - ▁kijken
+  - ▁toch
+  - ▁tot
+  - nieuw
+  - lang
+  - ▁Nou
+  - ▁krijg
+  - houd
+  - ▁hele
+  - ▁allemaal
+  - ▁want
+  - ▁zeggen
+  - ▁leuk
+  - <pl-PL>
+  - nie
+  - ▁w
+  - cz
+  - wa
+  - ▁się
+  - ▁jest
+  - my
+  - ła
+  - cie
+  - czy
+  - ▁nie
+  - wie
+  - ▁wy
+  - nia
+  - wo
+  - rze
+  - ło
+  - ▁że
+  - dzi
+  - ej
+  - ów
+  - dzie
+  - ▁prze
+  - ści
+  - by
+  - za
+  - dy
+  - ry
+  - ń
+  - ją
+  - we
+  - cze
+  - owa
+  - ego
+  - że
+  - cy
+  - rzy
+  - mie
+  - ▁przy
+  - ły
+  - rz
+  - szy
+  - sze
+  - ść
+  - wia
+  - zy
+  - ży
+  - ▁tutaj
+  - ję
+  - pie
+  - nych
+  - ▁tym
+  - ▁może
+  - cji
+  - ▁pod
+  - ▁ale
+  - ▁tego
+  - owy
+  - uje
+  - ▁bo
+  - ▁był
+  - ną
+  - bie
+  - sy
+  - ▁też
+  - ▁bardzo
+  - ▁są
+  - ▁będzie
+  - ▁Po
+  - ski
+  - ▁które
+  - ź
+  - ▁już
+  - ▁dla
+  - łem
+  - nego
+  - ▁Nie
+  - ▁No
+  - ▁praw
+  - cja
+  - ▁ten
+  - ▁takie
+  - ować
+  - ▁który
+  - ▁właśnie
+  - ▁jeszcze
+  - ▁tam
+  - ▁żeby
+  - ▁być
+  - ▁więc
+  - ▁czyli
+  - ▁sobie
+  - ▁sam
+  - ▁tylko
+  - ▁tej
+  - ▁spraw
+  - ▁Na
+  - ▁mówi
+  - ▁osob
+  - ▁czas
+  - ▁prac
+  - ▁Czy
+  - ▁prostu
+  - ▁teraz
+  - stęp
+  - ▁Was
+  - ▁myśl
+  - ▁powiedz
+  - ▁zrobi
+  - liśmy
+  - ▁jakieś
+  - ając
+  - ▁widz
+  - ▁kart
+  - ▁musi
+  - ▁pyta
+  - <pt-BR>
+  - pt
+  - PT
+  - <
+  - '>'
+  - '-'
+  - ▁é
+  - ▁não
+  - ▁eu
+  - ▁um
+  - ▁você
+  - ▁para
+  - ão
+  - ▁aqui
+  - ▁uma
+  - ção
+  - ▁ca
+  - ▁pe
+  - ▁tem
+  - ▁em
+  - ▁gente
+  - ▁O
+  - ▁ele
+  - pre
+  - ria
+  - ▁fo
+  - mos
+  - nho
+  - ▁Então
+  - bo
+  - io
+  - nha
+  - ▁isso
+  - ▁por
+  - ▁muito
+  - nto
+  - ▁Eu
+  - ▁está
+  - idade
+  - ▁aí
+  - be
+  - ▁esse
+  - ▁pode
+  - ▁como
+  - ente
+  - ▁também
+  - ▁essa
+  - lha
+  - ▁já
+  - ▁mas
+  - ▁pessoa
+  - qua
+  - ▁né
+  - ▁fazer
+  - ▁tá
+  - lho
+  - ▁lá
+  - fica
+  - ▁vou
+  - ▁porque
+  - ▁Se
+  - ▁fala
+  - ▁coisa
+  - ▁Não
+  - '...'
+  - ▁só
+  - ▁nós
+  - ço
+  - ▁Por
+  - ▁assim
+  - ▁Co
+  - iza
+  - ▁bem
+  - ▁todo
+  - eira
+  - ▁sua
+  - ência
+  - ções
+  - ▁Você
+  - ▁tudo
+  - ▁agora
+  - eiro
+  - ário
+  - ▁até
+  - ▁mesmo
+  - ▁vamos
+  - ▁quando
+  - ciona
+  - <ro-RO>
+  - ▁în
+  - ți
+  - ▁să
+  - ▁și
+  - ▁cu
+  - ▁că
+  - ▁care
+  - ▁mai
+  - ră
+  - sc
+  - că
+  - ▁am
+  - are
+  - ▁din
+  - ▁fi
+  - ▁este
+  - tă
+  - ▁pentru
+  - rea
+  - ști
+  - ș
+  - ele
+  - du
+  - ▁M
+  - ▁fac
+  - ân
+  - ▁sunt
+  - ▁I
+  - ▁acest
+  - ului
+  - lor
+  - ▁mult
+  - și
+  - ▁mo
+  - ▁fost
+  - per
+  - ▁foarte
+  - ▁Și
+  - ▁mă
+  - să
+  - cur
+  - tor
+  - ▁cum
+  - inte
+  - ată
+  - ște
+  - ▁dacă
+  - ând
+  - ▁subliniere
+  - ▁dar
+  - ▁sau
+  - tat
+  - ori
+  - ▁vă
+  - ▁asta
+  - nă
+  - ▁prim
+  - ▁așa
+  - ează
+  - ▁într
+  - ▁spun
+  - ▁lui
+  - ▁sub
+  - itate
+  - ▁aici
+  - ▁bine
+  - ▁când
+  - ▁prin
+  - ▁alt
+  - ▁nici
+  - stru
+  - ▁cât
+  - ▁vede
+  - fer
+  - ▁după
+  - ▁ju
+  - ▁despre
+  - ▁timp
+  - ▁acum
+  - ▁poate
+  - ▁spus
+  - ▁lucru
+  - ▁făcut
+  - păr
+  - ▁urmă
+  - ▁atunci
+  - ▁fr
+  - ▁chiar
+  - ▁încep
+  - Ș
+  - Î
+  - <ru-RU>
+  - ▁не
+  - ы
+  - ть
+  - ▁это
+  - же
+  - ▁что
+  - ▁то
+  - ль
+  - ▁о
+  - ▁у
+  - ать
+  - ▁так
+  - ▁как
+  - ки
+  - ся
+  - ем
+  - ▁вы
+  - ▁бы
+  - ▁все
+  - ру
+  - бо
+  - ▁И
+  - ▁вот
+  - ку
+  - ▁В
+  - чи
+  - ой
+  - му
+  - ▁со
+  - ты
+  - ну
+  - сь
+  - ▁есть
+  - ту
+  - ны
+  - ше
+  - ▁мы
+  - ду
+  - ить
+  - э
+  - дел
+  - ля
+  - мен
+  - жи
+  - сто
+  - хо
+  - ств
+  - вы
+  - вер
+  - зна
+  - сти
+  - ши
+  - ется
+  - ую
+  - ры
+  - ход
+  - ает
+  - ный
+  - пер
+  - ▁По
+  - луч
+  - ные
+  - тор
+  - ▁там
+  - ▁будет
+  - ▁сам
+  - ▁для
+  - ▁очень
+  - ения
+  - ают
+  - ▁Ну
+  - ▁Это
+  - ▁Да
+  - ▁меня
+  - ▁если
+  - ▁То
+  - ень
+  - ных
+  - ▁еще
+  - ▁вам
+  - ▁пере
+  - ▁здесь
+  - ▁просто
+  - ▁Вот
+  - ▁Но
+  - ▁чтобы
+  - смотр
+  - ▁сейчас
+  - ▁может
+  - ▁эти
+  - ально
+  - дол
+  - ▁На
+  - ▁Так
+  - ▁когда
+  - ё
+  - айте
+  - пис
+  - тельно
+  - ешь
+  - ▁друг
+  - Э
+  - <sk-SK>
+  - ov
+  - ľ
+  - sk
+  - ▁aj
+  - ob
+  - tá
+  - ať
+  - ▁bol
+  - ▁sú
+  - ▁ako
+  - ži
+  - ▁sme
+  - ▁V
+  - ali
+  - ▁alebo
+  - ▁čo
+  - iť
+  - ▁má
+  - ých
+  - ▁zá
+  - ▁tie
+  - ▁nejak
+  - ▁vý
+  - čas
+  - nov
+  - rov
+  - ▁ktoré
+  - ajú
+  - ovať
+  - ▁keď
+  - ▁str
+  - ▁škol
+  - nú
+  - ▁ktor
+  - ▁vlastne
+  - ▁prí
+  - nej
+  - ▁veľmi
+  - šie
+  - rob
+  - ▁tr
+  - ných
+  - enie
+  - ▁spo
+  - ▁rok
+  - osti
+  - ▁tým
+  - ▁môže
+  - ▁ktorý
+  - osť
+  - ▁projekt
+  - ▁kon
+  - ▁vzdeláva
+  - ▁Takže
+  - ▁ešte
+  - ▁tých
+  - ▁mal
+  - ▁cel
+  - ▁potom
+  - ▁svoj
+  - enia
+  - álne
+  - ieť
+  - ▁teda
+  - jedn
+  - sled
+  - ▁možno
+  - ▁vám
+  - chod
+  - ujú
+  - tvor
+  - ▁druh
+  - ▁Slovensk
+  - hľad
+  - stup
+  - ▁ľudí
+  - ▁napríklad
+  - ▁veľk
+  - ▁niečo
+  - Ď
+  - <sl-SL>
+  - sl
+  - lj
+  - kot
+  - ih
+  - ▁svet
+  - ▁ta
+  - ▁tako
+  - ▁kar
+  - ▁nek
+  - jih
+  - udi
+  - ▁vse
+  - ▁drug
+  - ▁ima
+  - kaj
+  - ▁smo
+  - del
+  - ▁sem
+  - ▁lahko
+  - ▁samo
+  - ▁več
+  - nih
+  - ▁držav
+  - ▁zelo
+  - ▁zdaj
+  - ▁razum
+  - ▁še
+  - ▁tega
+  - ▁ljudi
+  - ▁pred
+  - ▁sta
+  - nost
+  - ▁ampak
+  - ▁novinar
+  - ▁naprej
+  - ▁mora
+  - ▁Vs
+  - krat
+  - ▁Ampak
+  - ▁vedno
+  - ▁velik
+  - ▁kako
+  - ▁najbolj
+  - ziroma
+  - ▁vsi
+  - ▁nekaj
+  - ▁kater
+  - ▁res
+  - ▁tukaj
+  - ▁dogaja
+  - ▁svoje
+  - ▁let
+  - daj
+  - ▁pripriča
+  - ▁človek
+  - ▁hoče
+  - ▁vojn
+  - ▁Pre
+  - ▁dobr
+  - ljan
+  - ▁moj
+  - ▁dejansko
+  - ▁ljudje
+  - ▁mediji
+  - ▁prot
+  - ▁narav
+  - bilo
+  - ▁Afrik
+  - ▁vzhod
+  - ▁človeštva
+  - ▁kriz
+  - ▁pogled
+  - ▁medije
+  - poved
+  - ▁začel
+  - ▁večin
+  - imajo
+  - ▁Ljudje
+  - ▁družb
+  - ▁govorim
+  - ▁informacij
+  - ▁kultur
+  - ▁bližnj
+  - ▁podobno
+  - ▁njihov
+  - ▁konc
+  - ▁pisa
+  - ▁zaveda
+  - ▁vsak
+  - živel
+  - ▁funkcionira
+  - ▁internet
+  - ▁islamsk
+  - ▁film
+  - ▁otroci
+  - ▁prihaja
+  - ▁političn
+  - ▁popoln
+  - ▁Velik
+  - ▁drugačen
+  - ▁recimo
+  - ▁resnic
+  - solutno
+  - ▁Bližn
+  - ▁Evropsk
+  - ▁muslimani
+  - ▁nadzoruje
+  - ▁socialne
+  - ▁zgodovin
+  - ▁človešk
+  - ▁življenj
+  - ▁prijatelj
+  - ▁vendar
+  - ▁ljudem
+  - ▁števil
+  - ▁Sirij
+  - <sv-SE>
+  - ▁att
+  - ▁och
+  - ▁är
+  - ▁för
+  - ▁här
+  - ▁jag
+  - än
+  - ▁till
+  - ▁h
+  - ▁inte
+  - ▁Och
+  - ▁av
+  - ▁om
+  - ▁ska
+  - ▁ut
+  - ▁ett
+  - all
+  - ▁också
+  - ▁Jag
+  - era
+  - pp
+  - ▁upp
+  - ▁då
+  - ▁där
+  - ▁lite
+  - år
+  - sam
+  - isk
+  - het
+  - för
+  - ▁kommer
+  - ▁vill
+  - ör
+  - erna
+  - ande
+  - sätt
+  - ▁finns
+  - ▁när
+  - ▁vara
+  - ade
+  - sök
+  - ▁hur
+  - ▁vad
+  - bil
+  - ▁göra
+  - ▁får
+  - verk
+  - ▁mycket
+  - ▁väl
+  - kom
+  - ▁gör
+  - ▁ni
+  - ▁bara
+  - ▁från
+  - ställ
+  - ▁väldigt
+  - ▁min
+  - ▁olika
+  - ▁alla
+  - lev
+  - ▁fram
+  - ▁kanske
+  - ▁vår
+  - ▁tid
+  - skap
+  - håll
+  - ▁För
+  - ▁går
+  - ▁blir
+  - ▁under
+  - ▁lär
+  - ▁ny
+  - ▁Då
+  - ▁börja
+  - rätt
+  - ▁över
+  - ▁oss
+  - ▁exempel
+  - ▁skulle
+  - gång
+  - ▁kunna
+  - ▁andra
+  - ▁någon
+  - ▁jobba
+  - land
+  - ▁något
+  - ▁behöver
+  - ▁säga
+  - klar
+  - ▁många
+  - ▁skriv
+  - ▁använda
+  - ▁själv
+  - ▁samma
+  - lägg
+  - ▁måste
+  - ▁efter
+  - text
+  - ▁prata
+  - ▁klicka
+  - ▁hitta
+  - ▁tror
+  - ▁någonting
+  - fråga
+  - ▁titta
+  - ▁tycker
+  - ▁ganska
+  - ▁jätte
+  - ▁Vad
+  - ▁genom
+  - ▁även
+  - ▁tänker
+  - arbete
+  - ▁faktiskt
+  - person
+  - ▁komma
+  - bygg
+  - <uk-UA>
+  - і
+  - ні
+  - є
+  - ї
+  - ▁з
+  - ▁що
+  - ві
+  - рі
+  - ці
+  - ▁і
+  - лі
+  - мі
+  - бу
+  - ді
+  - ого
+  - ▁ви
+  - ▁це
+  - ер
+  - сі
+  - ▁як
+  - ому
+  - ▁від
+  - до
+  - ті
+  - ін
+  - ба
+  - ▁І
+  - пі
+  - пе
+  - ення
+  - нь
+  - кі
+  - за
+  - них
+  - ▁під
+  - ний
+  - раз
+  - ня
+  - лю
+  - пи
+  - со
+  - бі
+  - ться
+  - ▁роз
+  - сті
+  - ▁які
+  - увати
+  - ▁нас
+  - ання
+  - ного
+  - ▁вони
+  - ають
+  - ▁дуже
+  - ▁За
+  - лу
+  - ків
+  - ▁Ми
+  - ▁тому
+  - ▁буде
+  - ▁вже
+  - ▁Це
+  - ць
+  - ▁час
+  - ість
+  - ця
+  - ▁було
+  - ▁але
+  - більш
+  - прац
+  - трим
+  - аємо
+  - ається
+  - ▁тут
+  - ують
+  - ації
+  - ▁який
+  - мент
+  - ▁люди
+  - ування
+  - ▁якщо
+  - фор
+  - ▁без
+  - україн
+  - ували
+  - розумі
+  - Є
+  - Ї
+  - І
+  - <ar-AR>
+  - ف
+  - ح
+  - ِ
+  - ُ
+  - ج
+  - ▁ال
+  - ص
+  - ▁و
+  - ْ
+  - ط
+  - ش
+  - َ
+  - خ
+  - ز
+  - ان
+  - ▁أ
+  - ض
+  - ال
+  - ▁ب
+  - ▁الم
+  - ▁في
+  - ▁من
+  - ى
+  - ات
+  - َّ
+  - ين
+  - ها
+  - ية
+  - ث
+  - غ
+  - ▁م
+  - ار
+  - ▁وَ
+  - لا
+  - ذ
+  - ول
+  - ئ
+  - َا
+  - ام
+  - ون
+  - وا
+  - ▁على
+  - ▁وال
+  - ▁الْ
+  - نا
+  - ▁الأ
+  - ما
+  - ير
+  - لِ
+  - ظ
+  - اء
+  - لَ
+  - ور
+  - ▁الت
+  - ▁أن
+  - اب
+  - مَ
+  - كَ
+  - تَ
+  - ّ
+  - هم
+  - عَ
+  - اد
+  - ▁إ
+  - نْ
+  - ▁أَ
+  - اس
+  - ▁الس
+  - ُو
+  - بِ
+  - ▁الع
+  - آ
+  - يه
+  - ِّ
+  - ▁لل
+  - ٍ
+  - ▁الح
+  - نَ
+  - يا
+  - ▁فى
+  - ▁بال
+  - وم
+  - ▁عن
+  - ▁الن
+  - مَا
+  - يد
+  - ▁ما
+  - اع
+  - َيْ
+  - اً
+  - ًا
+  - ▁مع
+  - ست
+  - مُ
+  - ▁الش
+  - شر
+  - ▁كان
+  - إ
+  - إِ
+  - اف
+  - اح
+  - ٌ
+  - حَ
+  - ذا
+  - ▁فِي
+  - رب
+  - ▁يعني
+  - ▁يَ
+  - َةِ
+  - ▁الق
+  - قَ
+  - نَا
+  - ُّ
+  - ▁الج
+  - سَ
+  - ▁الب
+  - ▁الد
+  - مْ
+  - مر
+  - ُونَ
+  - ؤ
+  - ▁الا
+  - مِ
+  - َوْ
+  - بر
+  - ▁بي
+  - ▁الر
+  - بَ
+  - هَا
+  - هُ
+  - وق
+  - اج
+  - ▁فَ
+  - ▁آه
+  - ▁الف
+  - ْتَ
+  - ▁كل
+  - ▁الص
+  - ▁إلى
+  - ▁هو
+  - ▁مِنْ
+  - ود
+  - وب
+  - ▁وأ
+  - خل
+  - رَ
+  - حد
+  - يم
+  - ▁الإ
+  - دَ
+  - فَ
+  - هُمْ
+  - نِ
+  - جَ
+  - ُوا
+  - فر
+  - َعْ
+  - ▁أو
+  - ▁إن
+  - وس
+  - لَا
+  - جم
+  - ِينَ
+  - َّا
+  - وف
+  - وج
+  - ▁الخ
+  - عمل
+  - ▁لم
+  - َاتِ
+  - ▁هذا
+  - ▁أَنْ
+  - ▁مش
+  - ▁بعد
+  - ▁الْمُ
+  - ▁الط
+  - ِهِ
+  - ▁اللى
+  - ء
+  - ▁اللي
+  - ▁عَلَى
+  - ْتِ
+  - ▁الْأَ
+  - ذَا
+  - َرَ
+  - ▁أنا
+  - كُمْ
+  - ▁الْمَ
+  - ▁إِنَّ
+  - ْرَ
+  - ▁هذه
+  - َلَ
+  - َرْ
+  - ▁است
+  - ▁مصر
+  - ِيَ
+  - ْرِ
+  - َحْ
+  - رِي
+  - َدْ
+  - ▁مِنَ
+  - ▁وَلَ
+  - ▁وَالْ
+  - ▁كما
+  - بقى
+  - دِي
+  - ▁الله
+  - ▁الَّذِي
+  - ▁الذي
+  - عرف
+  - ▁الْعَ
+  - َهُ
+  - شعر
+  - ▁لكن
+  - علم
+  - َةُ
+  - ً
+  - ▁نفس
+  - ِيَّةِ
+  - َتْ
+  - ▁وَأَ
+  - َةٍ
+  - مثل
+  - ▁غير
+  - ائي
+  - ▁إِلَى
+  - ▁واحد
+  - ▁أَنَّ
+  - ▁هَذَا
+  - ▁ذلك
+  - َةَ
+  - ▁حتى
+  - ▁هَلْ
+  - ؟
+  - ،
+  - vy
+  - ▁byl
+  - Ň
+  - Ť
+  - Ó
+  - ær
+  - ▁blev
+  - ft
+  - lige
+  - ved
+  - ''''
+  - Å
+  - ▁H
+  - ▁D
+  - aus
+  - ▁N
+  - ▁Be
+  - mm
+  - ab
+  - ▁Er
+  - ssen
+  - hl
+  - hn
+  - ischen
+  - ▁wurde
+  - rie
+  - lei
+  - ▁An
+  - ▁Ein
+  - etz
+  - rau
+  - ische
+  - äh
+  - ▁mein
+  - ▁So
+  - ▁hatte
+  - ▁unter
+  - ▁Zu
+  - ▁ihn
+  - ▁Jahr
+  - ▁zwei
+  - keit
+  - ▁ihm
+  - ▁Aus
+  - <en-GB>
+  - ▁you
+  - ▁that
+  - ▁and
+  - ▁can
+  - ▁it
+  - ▁your
+  - ed
+  - ▁Okay
+  - ▁just
+  - ay
+  - ▁Yeah
+  - ▁with
+  - th
+  - ▁Thank
+  - ▁thank
+  - ▁help
+  - ▁please
+  - ▁one
+  - ▁there
+  - ic
+  - ▁much
+  - ▁what
+  - ▁my
+  - hi
+  - ▁will
+  - ▁would
+  - ▁if
+  - ▁two
+  - ▁this
+  - ▁he
+  - ▁go
+  - ▁all
+  - ▁Oh
+  - ▁like
+  - ▁very
+  - ▁The
+  - ▁today
+  - ▁not
+  - ▁yeah
+  - ▁take
+  - ight
+  - ex
+  - ▁Ok
+  - ▁seven
+  - ▁number
+  - ▁know
+  - ▁about
+  - ▁four
+  - ▁okay
+  - ▁name
+  - ▁And
+  - ▁five
+  - ▁How
+  - ▁account
+  - ▁any
+  - ▁three
+  - ▁could
+  - ▁up
+  - ▁get
+  - ▁phone
+  - ▁great
+  - ▁six
+  - ▁eight
+  - ▁now
+  - ▁nine
+  - ▁That
+  - ▁address
+  - ▁look
+  - ▁call
+  - ill
+  - ▁You
+  - ▁but
+  - ▁got
+  - ▁don
+  - ▁email
+  - ▁calling
+  - ▁problem
+  - ▁right
+  - ▁good
+  - ▁well
+  - ▁out
+  - ▁What
+  - ▁how
+  - ▁really
+  - ▁anything
+  - ▁actually
+  - ▁from
+  - ▁think
+  - ▁time
+  - ▁some
+  - ▁ask
+  - ▁else
+  - other
+  - ▁fine
+  - able
+  - ▁Good
+  - ▁when
+  - ▁full
+  - ▁confirm
+  - ▁give
+  - ▁more
+  - ever
+  - ▁month
+  - ▁information
+  - ▁sure
+  - ▁survey
+  - ▁sorry
+  - ▁send
+  - ▁through
+  - ▁check
+  - ▁long
+  - ▁birth
+  - ▁should
+  - ▁twenty
+  - ▁make
+  - ▁zero
+  - ful
+  - ▁store
+  - ▁policy
+  - ▁back
+  - ▁again
+  - ▁first
+  - ▁Could
+  - ▁work
+  - ▁afternoon
+  - ▁after
+  - ▁insurance
+  - ▁customer
+  - ▁payment
+  - ▁question
+  - ▁receive
+  - ▁possible
+  - ▁moment
+  - ▁system
+  - ▁change
+  - ▁hundred
+  - ▁nineteen
+  - <en-US>
+  - ▁.
+  - ▁,
+  - ▁st
+  - ▁are
+  - ow
+  - ive
+  - ate
+  - ad
+  - ect
+  - ▁they
+  - ▁as
+  - ng
+  - ity
+  - ther
+  - act
+  - ist
+  - ▁our
+  - ▁sp
+  - ally
+  - ▁his
+  - ▁But
+  - ▁has
+  - ▁also
+  - ▁which
+  - ▁He
+  - ▁uh
+  - day
+  - ▁people
+  - ▁who
+  - ▁thing
+  - ▁because
+  - ▁other
+  - ough
+  - ▁part
+  - ▁say
+  - ▁year
+  - side
+  - '"'
+  - <es-ES>
+  - ▁y
+  - ▁el
+  - ción
+  - ▁Es
+  - res
+  - ▁los
+  - ▁La
+  - dos
+  - ía
+  - ▁El
+  - ▁las
+  - ▁más
+  - men
+  - ño
+  - ▁esta
+  - idad
+  - par
+  - ¿
+  - ría
+  - ▁fue
+  - rio
+  - enta
+  - ón
+  - cho
+  - ciones
+  - ble
+  - ▁Ca
+  - ▁muy
+  - ▁también
+  - ▁tiene
+  - ña
+  - ▁Su
+  - ▁pero
+  - ▁son
+  - encia
+  - sión
+  - ▁hay
+  - ▁puede
+  - ncia
+  - ▁mucho
+  - ▁Si
+  - ▁pues
+  - miento
+  - ▁Con
+  - ones
+  - ecto
+  - iendo
+  - ▁día
+  - ▁sobre
+  - ▁primer
+  - ▁qué
+  - ▁gusta
+  - ▁San
+  - ▁hacer
+  - cional
+  - ▁verdad
+  - ▁persona
+  - ▁pasa
+  - ▁mejor
+  - quí
+  - ▁Fue
+  - ▁Com
+  - ▁ciudad
+  - Ñ
+  - <es-US>
+  - cia
+  - ▁lo
+  - ▁Y
+  - ron
+  - les
+  - ▁mu
+  - cio
+  - ▁yo
+  - bu
+  - ▁sí
+  - ▁Pero
+  - ▁así
+  - <fr-CA>
+  - ré
+  - ée
+  - ▁Les
+  - nt
+  - our
+  - ▁Ce
+  - com
+  - ▁Elle
+  - ▁Cet
+  - ux
+  - ale
+  - ier
+  - ction
+  - ▁cha
+  - ▁pré
+  - ▁deux
+  - if
+  - lé
+  - ère
+  - ière
+  - iste
+  - ▁parti
+  - ▁été
+  - cette
+  - avec
+  - ▁tou
+  - jour
+  - app
+  - cul
+  - ▁égale
+  - aine
+  - gue
+  - ▁trè
+  - ▁nombre
+  - ▁étai
+  - tout
+  - ▁grand
+  - ▁commun
+  - Une
+  - œ
+  - ï
+  - À
+  - Œ
+  - È
+  - ō
+  - ÿ
+  - Ō
+  - Ô
+  - Ê
+  - Â
+  - ▁m
+  - av
+  - ouv
+  - êt
+  - ois
+  - pri
+  - voir
+  - sion
+  - ix
+  - ang
+  - était
+  - ard
+  - aient
+  - Ć
+  - İ
+  - Ù
+  - Û
+  - Ë
+  - Ï
+  - <he-IL>
+  - ב
+  - ע
+  - ק
+  - ח
+  - כ
+  - ד
+  - נ
+  - ▁ב
+  - ים
+  - ג
+  - ▁מ
+  - ס
+  - ם
+  - ות
+  - צ
+  - פ
+  - ט
+  - ור
+  - ז
+  - ▁ל
+  - ני
+  - ▁של
+  - ▁המ
+  - ן
+  - ך
+  - מו
+  - בי
+  - נו
+  - ול
+  - לי
+  - בר
+  - די
+  - ▁את
+  - ▁על
+  - שי
+  - מש
+  - ון
+  - יר
+  - נה
+  - ית
+  - פר
+  - ף
+  - כל
+  - ▁הוא
+  - מי
+  - וב
+  - רו
+  - ▁במ
+  - פי
+  - אי
+  - ▁הש
+  - חי
+  - חו
+  - לו
+  - בע
+  - ▁הא
+  - קר
+  - ▁לא
+  - נים
+  - סי
+  - רי
+  - ▁לה
+  - שר
+  - וד
+  - ין
+  - ופ
+  - אל
+  - ▁הח
+  - דר
+  - נות
+  - ▁הע
+  - רים
+  - פו
+  - צי
+  - ▁למ
+  - אר
+  - אות
+  - טי
+  - ▁הס
+  - יות
+  - כי
+  - ץ
+  - ▁או
+  - ▁וה
+  - ▁זה
+  - ▁היא
+  - ▁הצ
+  - מר
+  - פע
+  - ▁הפ
+  - כן
+  - ▁היה
+  - טר
+  - זר
+  - ▁שנ
+  - אחר
+  - ▁רב
+  - ▁זו
+  - ▁הר
+  - מים
+  - ▁ומ
+  - ראש
+  - ▁לאחר
+  - חלק
+  - מן
+  - ▁היו
+  - מספר
+  - ▁יותר
+  - אחד
+  - ▁היית
+  - עצמ
+  - מקום
+  - <hi-IN>
+  - ा
+  - र
+  - न
+  - क
+  - स
+  - ।
+  - ि
+  - म
+  - ी
+  - ल
+  - े
+  - प
+  - ▁है
+  - ्
+  - ह
+  - ज
+  - व
+  - त
+  - ं
+  - ट
+  - ो
+  - ु
+  - ग
+  - ▁के
+  - ▁ब
+  - ▁में
+  - श
+  - ने
+  - ू
+  - य
+  - ना
+  - ता
+  - द
+  - च
+  - ▁आ
+  - ब
+  - ▁कर
+  - ▁की
+  - ▁अ
+  - र्
+  - ▁हो
+  - ▁और
+  - ए
+  - ख
+  - ▁तो
+  - ▁हैं
+  - ▁से
+  - ▁का
+  - ों
+  - ▁को
+  - ▁कि
+  - ते
+  - फ
+  - ध
+  - रा
+  - वा
+  - ▁जा
+  - ड
+  - ै
+  - ▁नहीं
+  - उ
+  - ्य
+  - ई
+  - ▁भी
+  - का
+  - ▁द
+  - ड़
+  - के
+  - री
+  - ती
+  - इ
+  - ▁एक
+  - ्र
+  - ▁इस
+  - ▁प्र
+  - ▁उस
+  - या
+  - ▁पर
+  - मा
+  - भ
+  - ें
+  - ले
+  - ▁वो
+  - ला
+  - ौ
+  - से
+  - ▁हम
+  - ▁जो
+  - क्
+  - गा
+  - ण
+  - ▁वि
+  - हा
+  - नी
+  - ▁आप
+  - िया
+  - ▁मैं
+  - ंग
+  - स्
+  - ▁ही
+  - थ
+  - रे
+  - ▁पा
+  - ित
+  - ॉ
+  - भा
+  - सी
+  - ँ
+  - ▁ये
+  - क्ष
+  - छ
+  - ▁था
+  - ति
+  - ▁लिए
+  - ▁दे
+  - ली
+  - ▁क्या
+  - ▁सं
+  - ष
+  - ▁यह
+  - ▁हाँ
+  - ठ
+  - त्र
+  - ंद
+  - घ
+  - ▁बहुत
+  - ▁सम
+  - ्या
+  - ▁लग
+  - ▁दो
+  - ़
+  - ▁देख
+  - ओ
+  - दा
+  - ▁नि
+  - ंड
+  - दी
+  - ▁रहे
+  - ▁लोग
+  - ▁बात
+  - ▁कुछ
+  - ाइ
+  - ▁अच्छा
+  - ▁सु
+  - ▁साथ
+  - ▁कहा
+  - ▁किया
+  - स्ट
+  - ▁सब
+  - ढ़
+  - ▁रहा
+  - ▁गया
+  - ▁फिर
+  - ▁पे
+  - ▁अब
+  - स्थ
+  - ▁जी
+  - ▁चल
+  - ▁बार
+  - ▁थे
+  - स्त
+  - ▁थी
+  - ▁मिल
+  - ▁कोई
+  - ृ
+  - ▁मतलब
+  - ियों
+  - ▁हूँ
+  - ▁अभी
+  - ेंगे
+  - ▁बोल
+  - झ
+  - ▁रही
+  - चार
+  - ▁अपने
+  - ▁बाद
+  - ▁लेकिन
+  - त्त
+  - ऐ
+  - ▁मुझे
+  - ▁मेरे
+  - ऑ
+  - '!'
+  - आ
+  - ऊ
+  - ढ
+  - ञ
+  - अ
+  - ः
+  - औ
+  - ऋ
+  - ॅ
+  - ङ
+  - ऍ
+  - ॐ
+  - ॠ
+  - ऱ
+  - Ì
+  - <ja-JP>
+  - ▁い
+  - ▁。
+  - ▁、
+  - ▁の
+  - ▁う
+  - ▁ん
+  - ▁な
+  - ▁か
+  - ▁で
+  - ▁っ
+  - ▁て
+  - ▁あ
+  - ▁た
+  - ▁と
+  - ▁す
+  - ▁る
+  - ▁は
+  - ▁に
+  - ▁し
+  - ▁そ
+  - ▁も
+  - ▁ー
+  - ▁ま
+  - ▁が
+  - ▁ね
+  - ▁ら
+  - ▁れ
+  - ▁だ
+  - ▁ン
+  - ▁こ
+  - ▁よ
+  - ▁り
+  - ▁を
+  - 以
+  - 仕
+  - ▁友
+  - ▁東
+  - ▁違
+  - ▁文
+  - ▁ァ
+  - ▁ノ
+  - ▁成
+  - ▁明
+  - ▁世
+  - ▁強
+  - ▁曲
+  - ▁表
+  - ▁月
+  - ▁情
+  - ▁活
+  - ▁町
+  - ▁付
+  - ▁ふ
+  - ▁ひ
+  - ▁買
+  - ▁連
+  - ▁む
+  - ▁区
+  - ▁ペ
+  - ▁確
+  - ▁流
+  - ▁期
+  - ▁海
+  - ▁設
+  - ▁語
+  - ▁書
+  - ▁料
+  - ▁要
+  - ▁科
+  - ▁育
+  - ▁ゴ
+  - ▁安
+  - ▁六
+  - ▁有
+  - ▁ゲ
+  - ▁原
+  - ▁能
+  - ▁売
+  - ▁愛
+  - ▁京
+  - ▁制
+  - ▁ザ
+  - ▁良
+  - ▁ギ
+  - ▁ヤ
+  - ▁七
+  - ▁無
+  - ▁考
+  - ▁特
+  - ▁百
+  - ▁少
+  - ▁参
+  - ▁男
+  - ▁保
+  - ▁園
+  - 普
+  - ▁他
+  - ▁ォ
+  - ▁次
+  - ▁優
+  - ▁ぎ
+  - ▁調
+  - ▁演
+  - ▁口
+  - ▁風
+  - ▁送
+  - ▁運
+  - ▁駅
+  - ▁局
+  - 受
+  - ▁置
+  - ▁都
+  - ▁信
+  - ▁美
+  - ▁親
+  - ▁々
+  - ▁零
+  - ▁元
+  - ▁始
+  - ▁選
+  - ▁工
+  - ▁界
+  - ▁身
+  - ▁広
+  - ▁向
+  - ▁組
+  - ▁在
+  - ▁協
+  - ▁水
+  - ▁州
+  - ▁休
+  - ▁和
+  - ▁放
+  - ▁様
+  - ▁終
+  - ▁際
+  - ▁加
+  - ▁南
+  - ▁切
+  - ▁不
+  - ▁僕
+  - ▁例
+  - ▁早
+  - ▁族
+  - ▁ぇ
+  - ▁経
+  - ▁供
+  - ▁形
+  - ▁白
+  - ▁木
+  - ▁等
+  - ▁天
+  - ▁利
+  - ▁現
+  - ▁応
+  - ▁館
+  - ▁各
+  - ▁点
+  - ▁務
+  - ▁ヴ
+  - ▁真
+  - ▁指
+  - ▁朝
+  - ▁音
+  - ▁予
+  - ▁平
+  - ▁題
+  - ▁住
+  - ▁円
+  - ▁伝
+  - ▁団
+  - ▁村
+  - ▁相
+  - ▁術
+  - ▁帰
+  - ▁古
+  - ▁誰
+  - ▁可
+  - ▁夫
+  - ▁彼
+  - ▁医
+  - ▁空
+  - ▁賞
+  - ▁政
+  - ▁交
+  - ▁民
+  - ▁決
+  - 専
+  - ▁産
+  - ▁限
+  - ▁神
+  - ▁基
+  - ▁悪
+  - ▁院
+  - ▁系
+  - ▁引
+  - ▁旅
+  - ▁技
+  - ▁台
+  - ▁勝
+  - ▁ゆ
+  - ▁域
+  - ▁再
+  - ▁問
+  - ▁色
+  - ▁ヒ
+  - 企
+  - 登
+  - 総
+  - 改
+  - 探
+  - 異
+  - 完
+  - 伊
+  - 頑
+  - 深
+  - 競
+  - 推
+  - 農
+  - 昨
+  - 掛
+  - 寄
+  - 仙
+  - 危
+  - 辞
+  - 漫
+  - 埼
+  - 詳
+  - 幼
+  - 扱
+  - 余
+  - 描
+  - 採
+  - 被
+  - ヶ
+  - 俳
+  - 栃
+  - 固
+  - 副
+  - 混
+  - 救
+  - 甘
+  - 互
+  - 閉
+  - 疲
+  - 亜
+  - 借
+  - 植
+  - 責
+  - 仮
+  - 趣
+  - 辛
+  - 脱
+  - 恐
+  - 泣
+  - 契
+  - 悲
+  - 隠
+  - 昭
+  - 麻
+  - 哲
+  - 宣
+  - 沖
+  - 悩
+  - 浮
+  - 諸
+  - 巨
+  - 午
+  - 占
+  - 距
+  - 繋
+  - 渋
+  - 忙
+  - 汚
+  - 延
+  - 冒
+  - 訪
+  - 沿
+  - 唯
+  - 批
+  - 郵
+  - 依
+  - 揚
+  - 勇
+  - 誕
+  - 柔
+  - 傾
+  - 寂
+  - 誉
+  - 懸
+  - 黄
+  - 邦
+  - 臨
+  - 嬉
+  - 綺
+  - 崩
+  - 購
+  - 浅
+  - 繰
+  - 維
+  - 喫
+  - 稼
+  - 燃
+  - 既
+  - 踏
+  - 喧
+  - 憧
+  - 祝
+  - 漁
+  - 荒
+  - 緊
+  - 獲
+  - 飾
+  - 炭
+  - 搭
+  - 努
+  - 狙
+  - 訴
+  - 寅
+  - 顧
+  - 挑
+  - 懐
+  - 狭
+  - 雰
+  - 招
+  - 塗
+  - 排
+  - 阿
+  - 奪
+  - 雇
+  - 埋
+  - 履
+  - 侵
+  - 憲
+  - 該
+  - 硬
+  - 貯
+  - 胸
+  - 頻
+  - 勧
+  - 魅
+  - 忠
+  - 茨
+  - 抑
+  - 驚
+  - 痩
+  - 妖
+  - 揃
+  - 衝
+  - 哀
+  - 芝
+  - 偏
+  - 弧
+  - 仰
+  - 潰
+  - 涼
+  - 諦
+  - 飽
+  - 妊
+  - 挿
+  - 耐
+  - 賢
+  - 逮
+  - 披
+  - 浩
+  - 透
+  - 挨
+  - 促
+  - 智
+  - 偽
+  - 拓
+  - 控
+  - 撤
+  - 潜
+  - 栗
+  - 啓
+  - 羨
+  - 贈
+  - 励
+  - 伺
+  - 吐
+  - 循
+  - 需
+  - 摂
+  - 添
+  - 翻
+  - 睡
+  - 孤
+  - 笠
+  - 昆
+  - 堺
+  - 沈
+  - 俗
+  - 函
+  - 匂
+  - 遭
+  - 溶
+  - 勲
+  - 罰
+  - 誇
+  - 斜
+  - 鍛
+  - 貰
+  - 緩
+  - 抽
+  - 癒
+  - 叩
+  - 但
+  - 栽
+  - 貿
+  - 脇
+  - 倶
+  - 逢
+  - 奉
+  - 是
+  - 褒
+  - 鉱
+  - 貼
+  - 佳
+  - 疾
+  - 幡
+  - 架
+  - 呪
+  - 串
+  - 幾
+  - 沙
+  - 拒
+  - 脅
+  - 謡
+  - 挟
+  - 拍
+  - 鎌
+  - 胃
+  - 馴
+  - 遷
+  - 冗
+  - 筑
+  - 漬
+  - 恨
+  - 殴
+  - 曇
+  - 翌
+  - 軌
+  - 卸
+  - 歓
+  - 淡
+  - 漏
+  - 覆
+  - 狩
+  - 畜
+  - 蒸
+  - 蕎
+  - 泰
+  - 紛
+  - 絞
+  - 詐
+  - 椅
+  - 恒
+  - 儲
+  - 擬
+  - 叔
+  - 召
+  - 幽
+  - 肺
+  - 箇
+  - 肥
+  - 疎
+  - 陶
+  - 旨
+  - 邸
+  - 呉
+  - 准
+  - 跳
+  - 畿
+  - 廷
+  - 鈍
+  - 溜
+  - 慰
+  - 犠
+  - 繊
+  - 芳
+  - 牲
+  - 眺
+  - 郊
+  - 憎
+  - 克
+  - 猛
+  - 措
+  - 騙
+  - 浸
+  - 慈
+  - 劣
+  - 鎮
+  - 虐
+  - 蹴
+  - 苗
+  - 陥
+  - 徐
+  - 拭
+  - 壌
+  - 慌
+  - 捉
+  - 膜
+  - 傍
+  - 噛
+  - 膚
+  - 漠
+  - 恭
+  - 膨
+  - 樽
+  - 舌
+  - 愚
+  - 碁
+  - 芦
+  - 廊
+  - 噴
+  - 羊
+  - 薫
+  - 篠
+  - 妥
+  - 磯
+  - 桑
+  - 炒
+  - 拘
+  - 椎
+  - 粘
+  - 刈
+  - 聡
+  - 卿
+  - 胡
+  - 崇
+  - 蒲
+  - 剰
+  - 瑞
+  - 渓
+  - 賭
+  - 湧
+  - 烹
+  - 凝
+  - 紺
+  - 逸
+  - 牡
+  - 墨
+  - 萌
+  - 戯
+  - 萩
+  - 秩
+  - 捧
+  - 槻
+  - 腔
+  - 蝶
+  - 贅
+  - 穏
+  - 敢
+  - 擁
+  - 赴
+  - 磐
+  - 壮
+  - 誓
+  - 抹
+  - 溢
+  - 叱
+  - 叶
+  - 妨
+  - 沸
+  - 紳
+  - 阻
+  - 妄
+  - 斐
+  - 妃
+  - 巧
+  - 吊
+  - 惚
+  - 舶
+  - 勿
+  - 懇
+  - 甥
+  - 惜
+  - 笹
+  - 殆
+  - 濡
+  - 惣
+  - 怠
+  - 淀
+  - 剥
+  - 曖
+  - 此
+  - 藝
+  - 辰
+  - 挫
+  - 暫
+  - 慕
+  - 碧
+  - 嘴
+  - ぢ
+  - 洪
+  - 虜
+  - 遥
+  - 鋭
+  - 娯
+  - 腎
+  - 蜜
+  - 訂
+  - 瓦
+  - 奄
+  - 播
+  - 痕
+  - 綴
+  - 穀
+  - 隙
+  - 厄
+  - 呈
+  - 曰
+  - 崖
+  - 擦
+  - 烏
+  - 拉
+  - 衡
+  - 朱
+  - 嘆
+  - 茹
+  - 峯
+  - 濱
+  - 蒼
+  - ヱ
+  - 洒
+  - 薩
+  - 諏
+  - 嗅
+  - 條
+  - 肖
+  - 硝
+  - 詣
+  - 賑
+  - 枢
+  - 溝
+  - 稀
+  - 橘
+  - 睦
+  - 陳
+  - 釧
+  - 醸
+  - 喪
+  - 枯
+  - 梁
+  - 蛍
+  - 糧
+  - 郭
+  - 灘
+  - 爽
+  - 粗
+  - 蜂
+  - 据
+  - 儒
+  - 股
+  - 鞍
+  - 懲
+  - 孔
+  - 漆
+  - 蒙
+  - 椿
+  - 獅
+  - 珈
+  - 畔
+  - 騨
+  - 杜
+  - 禄
+  - 勃
+  - 髄
+  - 弊
+  - 矯
+  - 鷲
+  - 壬
+  - 晦
+  - 渕
+  - 藍
+  - 匿
+  - 堪
+  - 窪
+  - 劉
+  - 憂
+  - 傑
+  - 掴
+  - 后
+  - 酪
+  - 其
+  - 苫
+  - ヅ
+  - 揉
+  - 玩
+  - 胴
+  - 褐
+  - 諾
+  - 喘
+  - 喚
+  - 薔
+  - 賄
+  - 翠
+  - 倣
+  - 坪
+  - 愉
+  - 扶
+  - 朋
+  - 卑
+  - 曾
+  - 硫
+  - 冨
+  - 學
+  - 汽
+  - 荻
+  - 葡
+  - 溺
+  - 辿
+  - 云
+  - 忌
+  - 砕
+  - 朴
+  - 檎
+  - 錠
+  - 幣
+  - 肯
+  - 膵
+  - 勅
+  - 於
+  - 祇
+  - 茄
+  - 斑
+  - 僅
+  - 詠
+  - 隼
+  - 飢
+  - 稽
+  - 嶺
+  - 淵
+  - 讃
+  - 窮
+  - 篤
+  - 韻
+  - 梗
+  - 狸
+  - 槍
+  - 謗
+  - 誹
+  - 逐
+  - 叙
+  - 吠
+  - 牟
+  - 頸
+  - 勾
+  - 煽
+  - 瑠
+  - 侶
+  - 梶
+  - 覗
+  - 閤
+  - 冥
+  - 巾
+  - 弄
+  - 菩
+  - 蔦
+  - 馨
+  - 濁
+  - 煎
+  - 舘
+  - 桶
+  - 秦
+  - 遡
+  - 堆
+  - 櫻
+  - 渇
+  - 瞭
+  - 臆
+  - 俣
+  - 煩
+  - 咳
+  - 唆
+  - 惹
+  - 杵
+  - 粟
+  - 邑
+  - 唾
+  - 杖
+  - 楠
+  - 歪
+  - 焚
+  - 辱
+  - 喝
+  - 湘
+  - 盲
+  - 謹
+  - 踪
+  - 陛
+  - 墟
+  - 撰
+  - 泌
+  - 漕
+  - 詫
+  - 眞
+  - 郁
+  - 渚
+  - 舐
+  - 舵
+  - 躊
+  - 壹
+  - 屯
+  - 琵
+  - 琶
+  - 窒
+  - 芯
+  - 躇
+  - 丞
+  - 牢
+  - 茅
+  - 彗
+  - 榛
+  - 箕
+  - 芭
+  - 醍
+  - 醐
+  - 饅
+  - 堕
+  - 巫
+  - 檜
+  - 酌
+  - 雫
+  - 款
+  - 鴻
+  - 伐
+  - 礁
+  - 窃
+  - 莉
+  - 銚
+  - 憑
+  - 掟
+  - 撒
+  - 樋
+  - 猶
+  - 蚊
+  - 裾
+  - 雌
+  - 或
+  - 搾
+  - 泄
+  - 焉
+  - 祀
+  - 箋
+  - 醜
+  - 鵜
+  - 凱
+  - 尖
+  - 氣
+  - 痒
+  - 茎
+  - 瑛
+  - 怯
+  - 榎
+  - 濫
+  - 炙
+  - 鞭
+  - 魏
+  - 佛
+  - 冶
+  - 嗜
+  - 坐
+  - 慄
+  - 應
+  - 汐
+  - 珂
+  - 迅
+  - 拷
+  - 這
+  - 嫡
+  - 悼
+  - 捻
+  - 樺
+  - 藁
+  - 錬
+  - 傭
+  - 剃
+  - 嵌
+  - 牽
+  - 鍼
+  - 侮
+  - 彙
+  - 毬
+  - 亨
+  - 來
+  - 宍
+  - 訛
+  - 骸
+  - 仇
+  - 巴
+  - 氾
+  - 燦
+  - 砺
+  - 租
+  - 蕉
+  - 嘔
+  - 會
+  - 柚
+  - 槌
+  - 莫
+  - 裔
+  - 釘
+  - 冤
+  - 冴
+  - 撫
+  - 贋
+  - ヵ
+  - 些
+  - 佃
+  - 狐
+  - 嚢
+  - 鋳
+  - 嶽
+  - 齋
+  - 凹
+  - 哺
+  - 埴
+  - 旺
+  - 蛋
+  - 賜
+  - 伍
+  - 呟
+  - 夷
+  - 嶼
+  - 汎
+  - 霹
+  - 塵
+  - 愁
+  - 脆
+  - 韮
+  - 吏
+  - 套
+  - 妓
+  - 梱
+  - 洛
+  - 漱
+  - 牝
+  - 禍
+  - 紡
+  - 脊
+  - 賓
+  - 填
+  - 朽
+  - 樫
+  - 芙
+  - 蓉
+  - 錐
+  - 堵
+  - 弔
+  - 挽
+  - 楕
+  - 汲
+  - 劔
+  - 庸
+  - 楊
+  - 砦
+  - 鱗
+  - 憤
+  - 捏
+  - 洩
+  - 爾
+  - 甍
+  - 腿
+  - 鱒
+  - 桟
+  - 橿
+  - 苛
+  - 頬
+  - 嗚
+  - 坑
+  - 孵
+  - 庇
+  - 梢
+  - 欅
+  - 畠
+  - 穿
+  - 蔓
+  - 趙
+  - 鉾
+  - 佑
+  - 巌
+  - 彷
+  - 斧
+  - 棘
+  - 淘
+  - 箔
+  - 累
+  - 蜩
+  - 邊
+  - 麿
+  - 圓
+  - 暢
+  - 榮
+  - 殉
+  - 涌
+  - 竪
+  - 諮
+  - 雛
+  - 鯵
+  - 且
+  - 升
+  - 奔
+  - 峨
+  - 煉
+  - 瞑
+  - 艶
+  - 萎
+  - 蕨
+  - 薪
+  - 輌
+  - 巽
+  - 曳
+  - 沫
+  - 芥
+  - 蔑
+  - 鎧
+  - 鼠
+  - 凪
+  - 屑
+  - 崔
+  - 嵯
+  - 橙
+  - 游
+  - 稜
+  - 聲
+  - 儚
+  - 楚
+  - 耆
+  - 芹
+  - 菖
+  - 裳
+  - 逗
+  - 遜
+  - 陀
+  - 俸
+  - 娩
+  - 峙
+  - 憐
+  - 扁
+  - 扮
+  - 澪
+  - 眩
+  - 罵
+  - 耶
+  - 聘
+  - 鰻
+  - ゝ
+  - 囃
+  - 彿
+  - 慧
+  - 曝
+  - 濠
+  - 茉
+  - 靭
+  - 鶯
+  - 麒
+  - ヰ
+  - 乞
+  - 傲
+  - 哨
+  - 彬
+  - 珀
+  - 秤
+  - 蓬
+  - 躾
+  - 遵
+  - 凸
+  - 厩
+  - 慨
+  - 榊
+  - 沌
+  - 疱
+  - 迦
+  - 叡
+  - 吻
+  - 嬬
+  - 嵩
+  - 昏
+  - 腱
+  - 袈
+  - 鰹
+  - 埠
+  - 寡
+  - 峻
+  - 巷
+  - 拗
+  - 拙
+  - 揄
+  - 揶
+  - 斡
+  - 楢
+  - 淋
+  - 爬
+  - 琥
+  - 聚
+  - 胚
+  - 膠
+  - 芒
+  - 蜃
+  - 螺
+  - 餐
+  - 鷺
+  - 几
+  - 劫
+  - 匡
+  - 揖
+  - 欽
+  - 琢
+  - 砥
+  - 蝿
+  - 諜
+  - 諧
+  - 趾
+  - 僑
+  - 媚
+  - 孟
+  - 宕
+  - 寓
+  - 徊
+  - 徘
+  - 捗
+  - 曙
+  - 纂
+  - 翁
+  - 膿
+  - 藪
+  - 訊
+  - 迂
+  - 錫
+  - 俯
+  - 娼
+  - 梟
+  - 渾
+  - 濾
+  - 禿
+  - 糠
+  - 膀
+  - 苅
+  - 衷
+  - 豹
+  - 鞘
+  - 麹
+  - 黎
+  - 檻
+  - 渥
+  - 酉
+  - 鞠
+  - 噺
+  - 惰
+  - 摯
+  - 旛
+  - 毀
+  - 洸
+  - 淑
+  - 燻
+  - 瞰
+  - 竈
+  - 糾
+  - 蛙
+  - 蹄
+  - 倭
+  - 卯
+  - 囁
+  - 堰
+  - 晒
+  - 樓
+  - 狛
+  - 蓼
+  - 蛛
+  - 蜘
+  - 謳
+  - 劾
+  - 吃
+  - 咄
+  - 嘱
+  - 恰
+  - 悶
+  - 槇
+  - 猥
+  - 玖
+  - 礫
+  - 祷
+  - 站
+  - 竣
+  - 絨
+  - 縞
+  - 陪
+  - 乘
+  - 叢
+  - 尹
+  - 憾
+  - 拮
+  - 挺
+  - 斂
+  - 朔
+  - 瀞
+  - 疇
+  - 瞥
+  - 穣
+  - 罹
+  - 諫
+  - 逓
+  - 雹
+  - 頚
+  - 伽
+  - 廿
+  - 惟
+  - 掻
+  - 攣
+  - 殲
+  - 汝
+  - 浙
+  - 聯
+  - 詔
+  - 隻
+  - 頁
+  - 餓
+  - 傳
+  - 冲
+  - 斥
+  - 總
+  - 腑
+  - 鋸
+  - 隕
+  - 頒
+  - 頷
+  - 什
+  - 哭
+  - 團
+  - 塑
+  - 姦
+  - 寵
+  - 慟
+  - 欒
+  - 祓
+  - 禽
+  - 籐
+  - 蚕
+  - 賦
+  - 轢
+  - 鄭
+  - 鋒
+  - 顛
+  - 鱈
+  - 丑
+  - 嬰
+  - 宦
+  - 實
+  - 屍
+  - 柩
+  - 涛
+  - 瑳
+  - 疼
+  - 窩
+  - 緻
+  - 脛
+  - 鍬
+  - 享
+  - 厭
+  - 咽
+  - 嘲
+  - 樅
+  - 燭
+  - 痙
+  - 瘤
+  - 縣
+  - 肋
+  - 肛
+  - 虔
+  - 襟
+  - 閃
+  - 魯
+  - 喩
+  - 嗽
+  - 嚥
+  - 壕
+  - 怜
+  - 捌
+  - 筏
+  - 箪
+  - 繭
+  - 藏
+  - 蛾
+  - 訃
+  - 貪
+  - 颯
+  - 匝
+  - 咀
+  - 咎
+  - 嚼
+  - 屓
+  - 庚
+  - 愕
+  - 滸
+  - 灼
+  - 笥
+  - 蜀
+  - 訶
+  - 誅
+  - 贔
+  - 醬
+  - 鰐
+  - 俄
+  - 倦
+  - 倹
+  - 刹
+  - 嚙
+  - 塙
+  - 桝
+  - 櫛
+  - 焙
+  - 盧
+  - 竄
+  - 紘
+  - 絢
+  - 菰
+  - 葦
+  - 蒜
+  - 蕁
+  - 薙
+  - 蘆
+  - 謁
+  - 辣
+  - 靡
+  - 駕
+  - 鴎
+  - 仄
+  - 侘
+  - 倖
+  - 傀
+  - 僻
+  - 儡
+  - 剋
+  - 彅
+  - 栂
+  - 桔
+  - 梵
+  - 滲
+  - 澳
+  - 濤
+  - 獨
+  - 畷
+  - 痔
+  - 瘦
+  - 祠
+  - 禰
+  - 膣
+  - 荏
+  - 襄
+  - 訥
+  - 跨
+  - 躓
+  - 邱
+  - 鉤
+  - 鏑
+  - 闊
+  - 雉
+  - 鵬
+  - 叛
+  - 吼
+  - 姐
+  - 彌
+  - 曼
+  - 沃
+  - 漣
+  - 漸
+  - 瀋
+  - 爛
+  - 皐
+  - 簾
+  - 翡
+  - 苓
+  - 莞
+  - 蓑
+  - 蕾
+  - 蝋
+  - 蝦
+  - 褪
+  - 鄙
+  - 酋
+  - 鋤
+  - 鍾
+  - 鐵
+  - 冑
+  - 啼
+  - 嘗
+  - 屏
+  - 斯
+  - 椀
+  - 渠
+  - 熾
+  - 犀
+  - 皺
+  - 睨
+  - 磋
+  - 筧
+  - 糊
+  - 荼
+  - 莱
+  - 辨
+  - 逞
+  - 邁
+  - 鍮
+  - 隋
+  - 鞆
+  - 鞋
+  - 乖
+  - 嗟
+  - 圀
+  - 忖
+  - 惠
+  - 憺
+  - 攘
+  - 朧
+  - 杞
+  - 槙
+  - 殘
+  - 淫
+  - 瀕
+  - 炸
+  - 燐
+  - 筐
+  - 翳
+  - 脾
+  - 臀
+  - 證
+  - 錘
+  - 鴬
+  - ゎ
+  - 于
+  - 偕
+  - 咬
+  - 唖
+  - 啜
+  - 圃
+  - 壽
+  - 姚
+  - 姥
+  - 婉
+  - 嬌
+  - 孕
+  - 屠
+  - 岱
+  - 廓
+  - 憫
+  - 戟
+  - 按
+  - 捺
+  - 桓
+  - 椹
+  - 楷
+  - 櫂
+  - 灌
+  - 燗
+  - 甦
+  - 碍
+  - 祟
+  - 禮
+  - 穹
+  - 筍
+  - 簗
+  - 腋
+  - 茫
+  - 蒔
+  - 諺
+  - 貶
+  - 遙
+  - 鈑
+  - 錨
+  - 靱
+  - 飄
+  - 髷
+  - 鵠
+  - 鼎
+  - 亦
+  - 佇
+  - 偲
+  - 剪
+  - 剱
+  - 埒
+  - 姶
+  - 對
+  - 幇
+  - 徽
+  - 恫
+  - 攫
+  - 歸
+  - 狡
+  - 瞼
+  - 硯
+  - 竺
+  - 笏
+  - 篝
+  - 簀
+  - 籾
+  - 罫
+  - 聾
+  - 脹
+  - 蔡
+  - 蕗
+  - 蝮
+  - 賽
+  - 贖
+  - 辭
+  - 鋪
+  - 鮓
+  - 鰯
+  - 鰺
+  - 两
+  - 乎
+  - 儘
+  - 匍
+  - 匐
+  - 嚆
+  - 弛
+  - 徨
+  - 惡
+  - 憚
+  - 暘
+  - 棉
+  - 樂
+  - 殷
+  - 毫
+  - 汀
+  - 烙
+  - 狄
+  - 珪
+  - 琳
+  - 瓣
+  - 箏
+  - 繚
+  - 與
+  - 舫
+  - 舷
+  - 茗
+  - 蒟
+  - 蒻
+  - 蛭
+  - 袢
+  - 襖
+  - 襦
+  - 賴
+  - 贄
+  - 蹙
+  - 轍
+  - 辟
+  - 辯
+  - 醂
+  - 醇
+  - 鑽
+  - 顆
+  - 顰
+  - 鰭
+  - 凰
+  - 呵
+  - 噪
+  - 寶
+  - 懺
+  - 捲
+  - 掠
+  - 榴
+  - 營
+  - 獰
+  - 畏
+  - 畝
+  - 畦
+  - 盈
+  - 砧
+  - 穢
+  - 紆
+  - 翆
+  - 耽
+  - 舅
+  - 蕩
+  - 蛸
+  - 袂
+  - 褻
+  - 躯
+  - 迭
+  - 逅
+  - 邂
+  - 邉
+  - 鈎
+  - 銛
+  - 關
+  - 鸞
+  - 齧
+  - 亥
+  - 勸
+  - 吽
+  - 咥
+  - 奧
+  - 妍
+  - 婢
+  - 尤
+  - 屁
+  - 愴
+  - 斷
+  - 旱
+  - 暈
+  - 枷
+  - 柘
+  - 櫃
+  - 櫟
+  - 毘
+  - 汪
+  - 潴
+  - 澱
+  - 煤
+  - 熔
+  - 當
+  - 睾
+  - 碓
+  - 窄
+  - 篁
+  - 簪
+  - 繹
+  - 翹
+  - 耀
+  - 莇
+  - 菴
+  - 蘂
+  - 蜷
+  - 褄
+  - 褌
+  - 謬
+  - 賣
+  - 躰
+  - 軋
+  - 逼
+  - 鎬
+  - 靜
+  - 魃
+  - 鮟
+  - 鳶
+  - 齟
+  - 齬
+  - 〜
+  - ヮ
+  - 亟
+  - 仆
+  - 凋
+  - 咤
+  - 啄
+  - 埜
+  - 娑
+  - 娶
+  - 悉
+  - 戊
+  - 戎
+  - 撼
+  - 擲
+  - 數
+  - 朦
+  - 桿
+  - 樟
+  - 檮
+  - 沁
+  - 浣
+  - 涜
+  - 滓
+  - 瀾
+  - 燧
+  - 爲
+  - 猾
+  - 瑤
+  - 瑩
+  - 癬
+  - 睫
+  - 矮
+  - 碌
+  - 稟
+  - 穎
+  - 篥
+  - 篳
+  - 粹
+  - 緬
+  - 罷
+  - 羞
+  - 舖
+  - 葺
+  - 諍
+  - 諷
+  - 謄
+  - 趨
+  - 蹊
+  - 躁
+  - 輻
+  - 逍
+  - 霍
+  - 鬆
+  - 鮪
+  - 黴
+  - 佻
+  - 內
+  - 凉
+  - 剝
+  - 勒
+  - 厖
+  - 厶
+  - 唸
+  - 啖
+  - 墅
+  - 夭
+  - 宥
+  - 寢
+  - 已
+  - 悍
+  - 拇
+  - 捐
+  - 搦
+  - 撚
+  - 撥
+  - 擔
+  - 攪
+  - 晝
+  - 杓
+  - 杣
+  - 枇
+  - 桧
+  - 椰
+  - 橇
+  - 欣
+  - 泗
+  - 涸
+  - 淹
+  - 渭
+  - 滿
+  - 潘
+  - 濔
+  - 濘
+  - 濟
+  - 炬
+  - 煇
+  - 熨
+  - 燵
+  - 狽
+  - 玻
+  - 瘻
+  - 癇
+  - 瞞
+  - 碕
+  - 禧
+  - 禾
+  - 秉
+  - 絲
+  - 綉
+  - 縋
+  - 縷
+  - 繫
+  - 臺
+  - 艱
+  - 蕪
+  - 虻
+  - 蝸
+  - 覺
+  - 訝
+  - 誼
+  - 譯
+  - 輕
+  - 鐸
+  - 閏
+  - 驛
+  - 髙
+  - 鬘
+  - 魍
+  - 魎
+  - 鯰
+  - 鯱
+  - 鵡
+  - 鸚
+  - 黛
+  - 鼾
+  - 亞
+  - 侃
+  - 侭
+  - 俎
+  - 們
+  - 勞
+  - 匙
+  - 吞
+  - 咸
+  - 哈
+  - 噎
+  - 噤
+  - 囓
+  - 壞
+  - 媽
+  - 忸
+  - 忽
+  - 怩
+  - 恍
+  - 恣
+  - 惇
+  - 憮
+  - 截
+  - 托
+  - 撻
+  - 敲
+  - 斌
+  - 昊
+  - 椙
+  - 槎
+  - 涎
+  - 淮
+  - 淺
+  - 湛
+  - 溯
+  - 漉
+  - 潯
+  - 澹
+  - 焔
+  - 焜
+  - 煖
+  - 燔
+  - 猷
+  - 獪
+  - 珊
+  - 琿
+  - 瑚
+  - 甜
+  - 甫
+  - 畤
+  - 疆
+  - 癪
+  - 盪
+  - 瞠
+  - 砿
+  - 祗
+  - 禊
+  - 窺
+  - 笈
+  - 笙
+  - 箭
+  - 簸
+  - 胤
+  - 臍
+  - 舛
+  - 艾
+  - 茘
+  - 莪
+  - 萃
+  - 萱
+  - 蒋
+  - 薗
+  - 藹
+  - 蛎
+  - 蛯
+  - 蠕
+  - 袱
+  - 襷
+  - 覯
+  - 觀
+  - 詈
+  - 誦
+  - 諌
+  - 諤
+  - 譽
+  - 豐
+  - 賎
+  - 賤
+  - 赭
+  - 跋
+  - 蹂
+  - 躙
+  - 轆
+  - 轤
+  - 遁
+  - 鉈
+  - 鉉
+  - 錮
+  - 雙
+  - 飮
+  - 餞
+  - 饒
+  - 饗
+  - 駈
+  - 駝
+  - 驗
+  - 鵄
+  - 鷗
+  - 麴
+  - 黑
+  - 𥱋
+  - 丕
+  - 个
+  - 亙
+  - 亰
+  - 份
+  - 假
+  - 僖
+  - 僭
+  - 剌
+  - 劍
+  - 势
+  - 卷
+  - 參
+  - 咋
+  - 咫
+  - 哪
+  - 喃
+  - 單
+  - 嚴
+  - 囂
+  - 囑
+  - 垳
+  - 塒
+  - 壘
+  - 夙
+  - 头
+  - 妇
+  - 妲
+  - 姆
+  - 嫣
+  - 寥
+  - 对
+  - 將
+  - 專
+  - 嵜
+  - 师
+  - 帚
+  - 帶
+  - 庖
+  - 廬
+  - 彡
+  - 從
+  - 德
+  - 惻
+  - 愿
+  - 慇
+  - 憊
+  - 懃
+  - 懿
+  - 戈
+  - 戰
+  - 户
+  - 抉
+  - 拂
+  - 拌
+  - 拔
+  - 捩
+  - 掬
+  - 摑
+  - 撓
+  - 撹
+  - 攬
+  - 晖
+  - 枌
+  - 样
+  - 梳
+  - 槿
+  - 樱
+  - 檄
+  - 檢
+  - 檪
+  - 檬
+  - 檸
+  - 櫨
+  - 欝
+  - 沛
+  - 沽
+  - 洵
+  - 润
+  - 溌
+  - 滉
+  - 滯
+  - 滾
+  - 漑
+  - 漲
+  - 潭
+  - 煥
+  - 燼
+  - 牒
+  - 狷
+  - 瑣
+  - 甑
+  - 疋
+  - 痍
+  - 痰
+  - 癲
+  - 發
+  - 盂
+  - 睛
+  - 矜
+  - 矩
+  - 硼
+  - 碩
+  - 祁
+  - 禎
+  - 禹
+  - 笞
+  - 筅
+  - 箆
+  - 簑
+  - 粮
+  - 絅
+  - 絽
+  - 經
+  - 綠
+  - 綬
+  - 綸
+  - 緘
+  - 縒
+  - 繡
+  - 繩
+  - 繪
+  - 續
+  - 纸
+  - 终
+  - 聊
+  - 聰
+  - 肅
+  - 胄
+  - 舍
+  - 舩
+  - 艘
+  - 艸
+  - 菫
+  - 蔔
+  - 蔚
+  - 蘊
+  - 蘿
+  - 蛞
+  - 蜊
+  - 蝓
+  - 蝕
+  - 蟄
+  - 蟠
+  - 衍
+  - 裝
+  - 覽
+  - 覿
+  - 註
+  - 諄
+  - 譴
+  - 讀
+  - 讓
+  - 请
+  - 豬
+  - 貘
+  - 费
+  - 赫
+  - 跣
+  - 躉
+  - 軾
+  - 轉
+  - 迸
+  - 迹
+  - 酊
+  - 酩
+  - 醪
+  - 鈿
+  - 銜
+  - 鍍
+  - 鐺
+  - 鑚
+  - 钿
+  - 閻
+  - 问
+  - 陞
+  - 雜
+  - 霆
+  - 霰
+  - 韋
+  - 顚
+  - 馆
+  - 駁
+  - 駱
+  - 驕
+  - 魑
+  - 鎹
+  - 扈
+  - 鹼
+  - 鰤
+  - 蝗
+  - 杷
+  - 曉
+  - 鱧
+  - 鱇
+  - 鈔
+  - 溪
+  - 斤
+  - 獏
+  - 晰
+  - 盒
+  - 幟
+  - 轟
+  - 諒
+  - 箒
+  - 痣
+  - 麩
+  - 榜
+  - 鮒
+  - 厘
+  - 賂
+  - 蒡
+  - 薯
+  - 檀
+  - 踵
+  - 卦
+  - 祢
+  - 悸
+  - 筈
+  - 盃
+  - 枡
+  - 螢
+  - 魁
+  - 羹
+  - 毯
+  - 篭
+  - 瘡
+  - 噓
+  - 卜
+  - 紬
+  - 壷
+  - 嗣
+  - 胱
+  - 雁
+  - 昴
+  - 昂
+  - 摺
+  - 謂
+  - 膏
+  - 綜
+  - 蟻
+  - 臥
+  - 鮫
+  - 櫓
+  - 裟
+  - 妾
+  - 瓜
+  - 麵
+  - 蟲
+  - 鹸
+  - 兜
+  - 纏
+  - 錆
+  - 袴
+  - 瓢
+  - 丙
+  - 竿
+  - 奢
+  - 蔭
+  - 柊
+  - 喬
+  - 餡
+  - 迄
+  - 杭
+  - 粕
+  - 擢
+  - 鞄
+  - 蹟
+  - 繕
+  - 肇
+  - 靂
+  - 遽
+  - 埃
+  - 栓
+  - 甚
+  - 煌
+  - 柵
+  - 凌
+  - 蔽
+  - 燈
+  - 饉
+  - 采
+  - 董
+  - 楯
+  - 垢
+  - 渦
+  - 毅
+  - 怨
+  - 嚇
+  - 麟
+  - 柑
+  - 暉
+  - 緋
+  - 痢
+  - 梓
+  - 湊
+  - 逝
+  - 窯
+  - 址
+  - 繍
+  - 揆
+  - 惧
+  - 巳
+  - 壺
+  - 璃
+  - 肴
+  - 肘
+  - 鮎
+  - 詮
+  - 兎
+  - 髭
+  - 葱
+  - 塀
+  - 只
+  - 粥
+  - 訣
+  - 抄
+  - 弐
+  - 呆
+  - 茸
+  - 廉
+  - 灸
+  - 栞
+  - 帥
+  - 苺
+  - 楓
+  - 牌
+  - 絹
+  - 梯
+  - 戴
+  - 亘
+  - 宵
+  - 譚
+  - 廻
+  - 鯛
+  - 馳
+  - 凧
+  - 稔
+  - 罠
+  - 醒
+  - 疹
+  - 綻
+  - 墜
+  - 鉢
+  - 狗
+  - 椒
+  - 仔
+  - 糞
+  - 赦
+  - 萄
+  - 苔
+  - 瀧
+  - 蠣
+  - 姑
+  - 耗
+  - 凛
+  - 飴
+  - 棺
+  - 悦
+  - 鮭
+  - 蟹
+  - 眉
+  - 栖
+  - 鯉
+  - 薇
+  - 吟
+  - 閑
+  - 蛮
+  - 藻
+  - 窟
+  - 貌
+  - 婿
+  - 腺
+  - 痺
+  - 隈
+  - 臼
+  - 紐
+  - 綿
+  - 槽
+  - 鯨
+  - 琉
+  - 叉
+  - 俵
+  - 牙
+  - 茜
+  - 琲
+  - 帖
+  - 遮
+  - 滴
+  - 錯
+  - 遼
+  - 鯖
+  - 姜
+  - 蝉
+  - 頓
+  - 碗
+  - 猪
+  - 騰
+  - 宛
+  - 酎
+  - 燕
+  - 鳳
+  - 嫉
+  - 坦
+  - 汰
+  - 鴨
+  - 輿
+  - 顎
+  - 諭
+  - 瘍
+  - 桁
+  - 萬
+  - 遍
+  - 某
+  - 靖
+  - 壱
+  - 霞
+  - 虚
+  - 帆
+  - 穫
+  - 膳
+  - 鮨
+  - 暁
+  - 拐
+  - 宋
+  - 凡
+  - 泡
+  - 呑
+  - 鳩
+  - 喰
+  - 囚
+  - 姪
+  - 塊
+  - 妬
+  - 紗
+  - 瓶
+  - 尺
+  - 矛
+  - 廣
+  - 麓
+  - 蓋
+  - 漂
+  - 晃
+  - 径
+  - 兆
+  - 柿
+  - 侠
+  - 鬱
+  - 寸
+  - 掌
+  - 宜
+  - 賠
+  - 澄
+  - 杏
+  - 姻
+  - 厨
+  - 閥
+  - 棲
+  - 侯
+  - 猟
+  - 李
+  - 禅
+  - 謙
+  - 蛇
+  - 胆
+  - ヂ
+  - 昧
+  - 霜
+  - 葛
+  - 斬
+  - 籠
+  - 曹
+  - 惨
+  - 縫
+  - 灰
+  - 桂
+  - 辻
+  - 虎
+  - 粒
+  - 笛
+  - 唇
+  - 酵
+  - 胎
+  - 爪
+  - 珠
+  - 盾
+  - 殻
+  - 鐘
+  - 鉛
+  - 隅
+  - 舟
+  - 銅
+  - 國
+  - 錦
+  - 烈
+  - 鷹
+  - 鋼
+  - 枕
+  - 堤
+  - 訟
+  - 凶
+  - 机
+  - 庶
+  - 尼
+  - 喉
+  - 桐
+  - 膝
+  - 壇
+  - 蓄
+  - 芽
+  - 蘇
+  - 箸
+  - 峠
+  - 貞
+  - 炉
+  - 峡
+  - 絆
+  - 滋
+  - 袖
+  - 璧
+  - 嘉
+  - 缶
+  - 虹
+  - 裸
+  - 耕
+  - 悠
+  - 葵
+  - 搬
+  - 晋
+  - 弦
+  - 餌
+  - 艇
+  - 亮
+  - 腫
+  - 狼
+  - 楼
+  - 餅
+  - 爺
+  - 又
+  - 侍
+  - 棟
+  - 奮
+  - 僧
+  - 蓮
+  - 芋
+  - 畳
+  - 宴
+  - 駿
+  - 酬
+  - 棚
+  - 剖
+  - 賊
+  - 衰
+  - 塁
+  - 譜
+  - 旋
+  - 讐
+  - 肪
+  - 腸
+  - 菱
+  - 閲
+  - 筒
+  - 哉
+  - 陵
+  - 婆
+  - 欄
+  - 顕
+  - 遂
+  - 縛
+  - 軸
+  - 塞
+  - 宏
+  - 緯
+  - 琴
+  - 宰
+  - 釜
+  - 蘭
+  - 銘
+  - 潤
+  - 暦
+  - 伎
+  - 痴
+  - 玲
+  - 疫
+  - 昌
+  - 班
+  - 往
+  - 刃
+  - 潔
+  - 洲
+  - 如
+  - 岬
+  - 祐
+  - 柏
+  - 冊
+  - 雀
+  - 裂
+  - 叫
+  - 羅
+  - 粋
+  - 柱
+  - 祈
+  - 敦
+  - ヲ
+  - 尉
+  - ぅ
+  - 綱
+  - 乏
+  - 欺
+  - 曽
+  - 淳
+  - 翔
+  - 把
+  - 殖
+  - 涯
+  - 戒
+  - 媒
+  - 符
+  - 酢
+  - 酷
+  - 貝
+  - 峰
+  - 寛
+  - 隷
+  - 猿
+  - 癌
+  - 綾
+  - 泥
+  - 粛
+  - 扉
+  - 娠
+  - 輔
+  - 皿
+  - 鼓
+  - 熟
+  - 朗
+  - 駒
+  - 銭
+  - 苑
+  - 鎖
+  - 肝
+  - 垂
+  - 億
+  - 磁
+  - 洞
+  - 闇
+  - 覇
+  - 冠
+  - 墳
+  - 丼
+  - 寧
+  - 瞳
+  - 癖
+  - 剛
+  - 菊
+  - 嬢
+  - 遇
+  - 肢
+  - 敏
+  - 尋
+  - 狂
+  - 柴
+  - 彫
+  - 堅
+  - 枝
+  - 紫
+  - 拾
+  - 嶋
+  - 還
+  - 縦
+  - 胞
+  - 恩
+  - ぃ
+  - 釈
+  - 尻
+  - 庵
+  - 威
+  - 尚
+  - 拳
+  - 撲
+  - 匠
+  - 晶
+  - 憩
+  - 祥
+  - 砲
+  - 焦
+  - 尿
+  - 魂
+  - 穂
+  - 轄
+  - 拝
+  - 醤
+  - 斎
+  - 戚
+  - 巣
+  - 圭
+  - 霧
+  - 潮
+  - 培
+  - 征
+  - 弥
+  - 孝
+  - 腐
+  - 貢
+  - 没
+  - 棋
+  - 彰
+  - 帽
+  - 菌
+  - 碑
+  - 斗
+  - 揺
+  - 糸
+  - 鶏
+  - 鼻
+  - 爵
+  - 薦
+  - 肌
+  - 屈
+  - 紋
+  - 枠
+  - 垣
+  - 旬
+  - 慎
+  - 随
+  - 軒
+  - 乙
+  - 玄
+  - 刀
+  - 践
+  - 伏
+  - 噂
+  - 庄
+  - 磨
+  - 隔
+  - 隆
+  - 穴
+  - 盆
+  - 貧
+  - 鍵
+  - 岳
+  - 慮
+  - 却
+  - 拶
+  - 弓
+  - 即
+  - 姓
+  - 掘
+  - 浪
+  - 譲
+  - 斉
+  - 騎
+  - 奨
+  - 謀
+  - 塔
+  - 滑
+  - 傘
+  - 雷
+  - 俊
+  - 軟
+  - 輝
+  - 摘
+  - 慶
+  - 汗
+  - 澤
+  - 篇
+  - 謎
+  - 幻
+  - 餃
+  - 匹
+  - 吾
+  - 鏡
+  - 棒
+  - 涙
+  - 賃
+  - 茂
+  - 悟
+  - 唄
+  - 葬
+  - 摩
+  - 簿
+  - 渉
+  - 償
+  - 僚
+  - 旭
+  - 脂
+  - 序
+  - 貫
+  - ぉ
+  - 誤
+  - 翼
+  - 寮
+  - 滝
+  - 氷
+  - 針
+  - 雅
+  - 倫
+  - 藩
+  - 刷
+  - 陣
+  - 畑
+  - 媛
+  - 尽
+  - 賛
+  - 債
+  - 誠
+  - 煮
+  - 桃
+  - 勘
+  - 稲
+  - 棄
+  - 腰
+  - 菅
+  - 獄
+  - 柳
+  - 粧
+  - 弘
+  - 鶴
+  - 肩
+  - 銃
+  - 汁
+  - 灯
+  - 眼
+  - 網
+  - 封
+  - 噌
+  - 稿
+  - 附
+  - 杯
+  - 悔
+  - 麦
+  - 湿
+  - 靴
+  - ぺ
+  - 殊
+  - 抵
+  - 礎
+  - 豚
+  - 黙
+  - 締
+  - 酔
+  - 乃
+  - 燥
+  - 鍋
+  - 豪
+  - 討
+  - 濃
+  - 紅
+  - 票
+  - 炎
+  - 皮
+  - 縮
+  - 徹
+  - 杉
+  - 較
+  - 稚
+  - 堀
+  - 帳
+  - 忍
+  - 伯
+  - 託
+  - 矢
+  - 詩
+  - 迫
+  - 偶
+  - 核
+  - 儀
+  - 双
+  - 到
+  - 削
+  - 液
+  - 駆
+  - 亀
+  - 襲
+  - 衆
+  - 唐
+  - 糖
+  - 巡
+  - 繁
+  - 臭
+  - 炊
+  - 陰
+  - 腕
+  - 浄
+  - 嘩
+  - 咲
+  - 盗
+  - 脈
+  - 滞
+  - 牧
+  - 坊
+  - 包
+  - 至
+  - 枚
+  - 偉
+  - 致
+  - 訓
+  - 貨
+  - 耳
+  - 漢
+  - 旗
+  - 己
+  - 扇
+  - 梅
+  - 握
+  - 欧
+  - 薄
+  - 恥
+  - 献
+  - 預
+  - 仁
+  - 龍
+  - 詰
+  - 珍
+  - 彩
+  - 快
+  - 沼
+  - 毒
+  - 丹
+  - 句
+  - 鈴
+  - 釣
+  - 縁
+  - 微
+  - 妙
+  - 括
+  - 晩
+  - 粉
+  - 麺
+  - 卓
+  - 圏
+  - 兼
+  - 欠
+  - 踊
+  - 脳
+  - 竜
+  - 鳴
+  - 彦
+  - 嫁
+  - 騒
+  - 髪
+  - 請
+  - 卵
+  - 損
+  - 荷
+  - 梨
+  - 唱
+  - 嵐
+  - 幌
+  - 伴
+  - 才
+  - 阜
+  - 臓
+  - 獣
+  - 箱
+  - 祖
+  - 甲
+  - 浴
+  - 尊
+  - 避
+  - 昇
+  - 熊
+  - 壁
+  - 丘
+  - 析
+  - 孫
+  - 干
+  - 皇
+  - 厚
+  - 亭
+  - 霊
+  - 筆
+  - 承
+  - 均
+  - 融
+  - 律
+  - 緑
+  - 否
+  - 鬼
+  - 塾
+  - 脚
+  - 須
+  - 邪
+  - 袋
+  - 湖
+  - 乳
+  - 裕
+  - 揮
+  - 凍
+  - 滅
+  - 乾
+  - ぴ
+  - 羽
+  - 慢
+  - 候
+  - 拡
+  - 濯
+  - 貸
+  - 砂
+  - 敬
+  - 概
+  - 庁
+  - 煙
+  - 執
+  - 底
+  - 裁
+  - 喋
+  - 麗
+  - 露
+  - 雲
+  - 骨
+  - 倍
+  - 殿
+  - 奇
+  - 易
+  - 層
+  - 敷
+  - 幕
+  - 毛
+  - 爆
+  - 暇
+  - 械
+  - 貴
+  - 隣
+  - 輸
+  - ぷ
+  - 柄
+  - 姫
+  - 範
+  - 掲
+  - 嘘
+  - 塚
+  - 剤
+  - 充
+  - 併
+  - 奴
+  - 束
+  - 墓
+  - 瀬
+  - 刊
+  - 衣
+  - 択
+  - 縄
+  - 瞬
+  - 射
+  - 菓
+  - 募
+  - 乱
+  - 迎
+  - 抱
+  - 永
+  - 竹
+  - 酸
+  - 刺
+  - 閣
+  - 郷
+  - 也
+  - 憶
+  - 剣
+  - 功
+  - 鹿
+  - 牛
+  - 秘
+  - 仏
+  - 雄
+  - 虫
+  - 善
+  - 届
+  - 艦
+  - 片
+  - 複
+  - 為
+  - 泳
+  - 宝
+  - 激
+  - 幹
+  - 臣
+  - 之
+  - 暑
+  - 浦
+  - 看
+  - 疑
+  - 誘
+  - 暴
+  - 聖
+  - 捨
+  - 板
+  - 桜
+  - 破
+  - 革
+  - 希
+  - 幅
+  - 呂
+  - 折
+  - 診
+  - 伸
+  - 惑
+  - 測
+  - 駐
+  - 窓
+  - 紀
+  - 舎
+  - 署
+  - 患
+  - 岸
+  - 績
+  - 湾
+  - 岐
+  - 樹
+  - 納
+  - 秀
+  - 免
+  - 謝
+  - 池
+  - 禁
+  - 背
+  - 躍
+  - 聴
+  - 抗
+  - 豆
+  - 税
+  - 奏
+  - 草
+  - 弾
+  - 恵
+  - 老
+  - 礼
+  - 角
+  - 童
+  - 審
+  - 裏
+  - 吹
+  - 眠
+  - 歯
+  - 拠
+  - 寒
+  - 慣
+  - 触
+  - 飼
+  - 荘
+  - 群
+  - 迷
+  - 泊
+  - 宗
+  - 旦
+  - 傷
+  - 額
+  - 塩
+  - 券
+  - 床
+  - 静
+  - 留
+  - 著
+  - 油
+  - 誌
+  - 罪
+  - 純
+  - 腹
+  - 偵
+  - 則
+  - 壊
+  - 札
+  - 輪
+  - 掃
+  - 災
+  - 闘
+  - 弱
+  - 刻
+  - 航
+  - 答
+  - 栄
+  - 姿
+  - 亡
+  - 織
+  - 敗
+  - 章
+  - 吸
+  - 令
+  - 鮮
+  - 補
+  - 夕
+  - 捜
+  - 怒
+  - 模
+  - 益
+  - 喜
+  - 華
+  - 絵
+  - 申
+  - 盤
+  - 軽
+  - 積
+  - 標
+  - 階
+  - 省
+  - 密
+  - 項
+  - 猫
+  - 従
+  - 非
+  - 帝
+  - 季
+  - 捕
+  - 党
+  - 我
+  - 圧
+  - 香
+  - 筋
+  - 輩
+  - 籍
+  - 丁
+  - 押
+  - 尾
+  - 韓
+  - 操
+  - 暗
+  - 症
+  - 散
+  - 突
+  - 適
+  - 雑
+  - 跡
+  - 厳
+  - 了
+  - 鳥
+  - 逃
+  - 講
+  - 晴
+  - 徴
+  - 刑
+  - 駄
+  - 倉
+  - 困
+  - 短
+  - 婦
+  - 遣
+  - 略
+  - 齢
+  - 震
+  - 敵
+  - 蔵
+  - 博
+  - 血
+  - 満
+  - 志
+  - 舗
+  - 宙
+  - 郡
+  - 那
+  - 寿
+  - 遺
+  - 秋
+  - 極
+  - 里
+  - 廃
+  - 因
+  - 典
+  - 染
+  - 徒
+  - 巻
+  - 頂
+  - 坂
+  - 超
+  - 河
+  - 盛
+  - 犬
+  - 豊
+  - 端
+  - 紹
+  - 首
+  - 湯
+  - 陽
+  - 精
+  - 祉
+  - 歳
+  - 練
+  - 江
+  - 怪
+  - 印
+  - 算
+  - 紙
+  - 払
+  - 求
+  - 障
+  - 簡
+  - 御
+  - 途
+  - 創
+  - 賀
+  - 船
+  - 堂
+  - 菜
+  - ゥ
+  - 勤
+  - 痛
+  - 並
+  - 景
+  - 雪
+  - 節
+  - 鑑
+  - 浜
+  - 昼
+  - 清
+  - 抜
+  - 勢
+  - 暮
+  - 銀
+  - 盟
+  - 魚
+  - 率
+  - 洋
+  - 寺
+  - 弁
+  - 皆
+  - 徳
+  - 茶
+  - 笑
+  - 渡
+  - 奈
+  - 順
+  - 況
+  - 談
+  - 舞
+  - 案
+  - 岩
+  - 負
+  - 旧
+  - 財
+  - 許
+  - 故
+  - 冬
+  - 横
+  - 奥
+  - 訳
+  - 比
+  - 囲
+  - 停
+  - 築
+  - 波
+  - 妹
+  - 林
+  - 暖
+  - 索
+  - 赤
+  - 給
+  - 末
+  - 催
+  - 武
+  - 洗
+  - 遅
+  - 述
+  - 黒
+  - 犯
+  - 左
+  - 源
+  - 魔
+  - 細
+  - 久
+  - 与
+  - 減
+  - 級
+  - 費
+  - 越
+  - 差
+  - 妻
+  - 領
+  - 衛
+  - 丸
+  - 絡
+  - 隊
+  - 薬
+  - 氏
+  - 望
+  - 似
+  - 就
+  - 右
+  - 条
+  - 布
+  - 処
+  - 谷
+  - 策
+  - 効
+  - 忘
+  - 熱
+  - 復
+  - 姉
+  - ヌ
+  - 振
+  - 課
+  - 規
+  - 倒
+  - 港
+  - 注
+  - 森
+  - 防
+  - 継
+  - 退
+  - 根
+  - 火
+  - 替
+  - 陸
+  - 去
+  - 視
+  - 整
+  - 準
+  - 庭
+  - ゾ
+  - 独
+  - 撃
+  - 児
+  - 橋
+  - ぽ
+  - 換
+  - 念
+  - 識
+  - ぬ
+  - 打
+  - 津
+  - 雨
+  - 幸
+  - 含
+  - 祭
+  - 響
+  - 労
+  - 凄
+  - 将
+  - 官
+  - 苦
+  - 追
+  - 遠
+  - 未
+  - 販
+  - 娘
+  - 街
+  - 曜
+  - 程
+  - 提
+  - 玉
+  - 判
+  - 移
+  - 攻
+  - 低
+  - 装
+  - 断
+  - 及
+  - 証
+  - 象
+  - 守
+  - 青
+  - 富
+  - 戻
+  - 詞
+  - 吉
+  - 投
+  - 歴
+  - 沢
+  - 載
+  - 具
+  - 庫
+  - 除
+  - 環
+  - 展
+  - 卒
+  - 争
+  - 失
+  - 房
+  - 春
+  - 挙
+  - 潟
+  - 返
+  - 馬
+  - 欲
+  - 材
+  - 戸
+  - 図
+  - 寝
+  - 養
+  - 焼
+  - 導
+  - 夢
+  - 米
+  - 冷
+  - 息
+  - 兵
+  - 席
+  - 済
+  - 劇
+  - 援
+  - 飯
+  - 央
+  - 険
+  - 服
+  - 態
+  - 走
+  - 評
+  - 居
+  - 権
+  - 論
+  - 弟
+  - ゅ
+  - 境
+  - 察
+  - 授
+  - 頼
+  - 派
+  - 撮
+  - 素
+  - 修
+  - 第
+  - 質
+  - 告
+  - 興
+  - 秒
+  - 宇
+  - 肉
+  - 兄
+  - 像
+  - 称
+  - 値
+  - 頭
+  - 週
+  - 督
+  - 消
+  - 宅
+  - 芸
+  - 顔
+  - 読
+  - 仲
+  - 遊
+  - 試
+  - 速
+  - 酒
+  - 宿
+  - 離
+  - 松
+  - 増
+  - 殺
+  - 鉄
+  - 司
+  - 害
+  - 割
+  - 石
+  - 夏
+  - 版
+  - 佐
+  - 助
+  - 英
+  - 号
+  - 想
+  - 管
+  - 急
+  - 頃
+  - づ
+  - 若
+  - 恋
+  - 造
+  - 史
+  - 泉
+  - 量
+  - 製
+  - 府
+  - 足
+  - 怖
+  - 王
+  - 委
+  - 両
+  - 辺
+  - 残
+  - 逆
+  - 備
+  - 軍
+  - 警
+  - 査
+  - 列
+  - 編
+  - 段
+  - 反
+  - ゼ
+  - 携
+  - 歩
+  - 株
+  - 器
+  - 座
+  - 飛
+  - 丈
+  - 花
+  - 価
+  - 監
+  - 崎
+  - 藤
+  - ヘ
+  - 周
+  - 毎
+  - 統
+  - 収
+  - 落
+  - 星
+  - 降
+  - 担
+  - 側
+  - 療
+  - 師
+  - 写
+  - 類
+  - 命
+  - 介
+  - 願
+  - 護
+  - 城
+  - 死
+  - 果
+  - 阪
+  - 任
+  - 更
+  - 常
+  - 便
+  - ぜ
+  - 検
+  - 過
+  - 資
+  - 働
+  - 認
+  - 般
+  - 示
+  - 客
+  - 習
+  - 究
+  - 半
+  - 録
+  - 字
+  - 昔
+  - 康
+  - 郎
+  - 影
+  - 覚
+  - 型
+  - 声
+  - 件
+  - 義
+  - 施
+  - 福
+  - 容
+  - 路
+  - 呼
+  - 役
+  - 単
+  - 井
+  - 状
+  - 建
+  - 由
+  - 属
+  - 勉
+  - 土
+  - 葉
+  - 起
+  - 覧
+  - 配
+  - 張
+  - 接
+  - 込
+  - 待
+  - 室
+  - 病
+  - 帯
+  - 嫌
+  - 婚
+  - 光
+  - 個
+  - 職
+  - 営
+  - ぼ
+  - 研
+  - 計
+  - 直
+  - 難
+  - ぞ
+  - 絶
+  - ヨ
+  - 照
+  - 西
+  - 約
+  - 存
+  - 験
+  - 治
+  - 父
+  - 解
+  - 岡
+  - 転
+  - 商
+  - 進
+  - 係
+  - 説
+  - 観
+  - 球
+  - 乗
+  - 宮
+  - 支
+  - 得
+  - 君
+  - 議
+  - 健
+  - 門
+  - 止
+  - 重
+  - 温
+  - 緒
+  - 着
+  - 飲
+  - 母
+  - 士
+  - ざ
+  - 集
+  - 万
+  - 太
+  - 続
+  - 線
+  - 種
+  - 格
+  - 位
+  - ユ
+  - 歌
+  - 夜
+  - 共
+  - 正
+  - 必
+  - ヒ
+  - 色
+  - 問
+  - 再
+  - 域
+  - ゆ
+  - 勝
+  - 台
+  - 技
+  - 旅
+  - 引
+  - 系
+  - 院
+  - 悪
+  - 基
+  - 神
+  - 限
+  - 産
+  - 決
+  - 民
+  - 交
+  - 政
+  - 賞
+  - 空
+  - 医
+  - 彼
+  - 夫
+  - 可
+  - 誰
+  - 古
+  - 帰
+  - 術
+  - 相
+  - 村
+  - 団
+  - 伝
+  - 円
+  - 住
+  - 題
+  - 平
+  - 予
+  - 音
+  - 朝
+  - 指
+  - 真
+  - ヴ
+  - 務
+  - 点
+  - 各
+  - 館
+  - 応
+  - 現
+  - 利
+  - 天
+  - 等
+  - 木
+  - 白
+  - 形
+  - 供
+  - 経
+  - ぇ
+  - 族
+  - 早
+  - 例
+  - 僕
+  - 不
+  - 切
+  - 南
+  - 加
+  - 際
+  - 終
+  - 様
+  - 放
+  - 和
+  - 休
+  - 州
+  - 水
+  - 協
+  - 在
+  - 組
+  - 向
+  - 広
+  - 身
+  - 界
+  - 工
+  - 選
+  - 始
+  - 元
+  - 零
+  - 々
+  - 親
+  - 美
+  - 信
+  - 都
+  - 置
+  - 局
+  - 駅
+  - 運
+  - 送
+  - 風
+  - 口
+  - 演
+  - 調
+  - ぎ
+  - 優
+  - 次
+  - ォ
+  - 他
+  - 園
+  - 保
+  - 男
+  - 参
+  - 少
+  - 百
+  - 特
+  - 考
+  - 無
+  - 七
+  - ヤ
+  - ギ
+  - 良
+  - ザ
+  - 制
+  - 京
+  - 愛
+  - 売
+  - 能
+  - 原
+  - ゲ
+  - 有
+  - 六
+  - 安
+  - ゴ
+  - 育
+  - 科
+  - 要
+  - 料
+  - 書
+  - 語
+  - 設
+  - 海
+  - 期
+  - 流
+  - 確
+  - ペ
+  - 区
+  - む
+  - 連
+  - 買
+  - ひ
+  - ふ
+  - 付
+  - 町
+  - 活
+  - 情
+  - 月
+  - 表
+  - 曲
+  - 強
+  - 世
+  - 明
+  - 成
+  - ノ
+  - ァ
+  - 文
+  - 違
+  - 東
+  - 友
+  - 意
+  - 力
+  - 式
+  - 法
+  - 報
+  - 員
+  - 心
+  - 屋
+  - 品
+  - 北
+  - 先
+  - 島
+  - 味
+  - 川
+  - 開
+  - 千
+  - 関
+  - 八
+  - 電
+  - 然
+  - 度
+  - 俺
+  - 達
+  - 面
+  - 九
+  - 数
+  - 取
+  - 楽
+  - 金
+  - 性
+  - 野
+  - 別
+  - 戦
+  - 公
+  - 機
+  - 道
+  - 目
+  - 記
+  - び
+  - 発
+  - 対
+  - 立
+  - 初
+  - 化
+  - ソ
+  - 四
+  - ワ
+  - 田
+  - 持
+  - ガ
+  - 車
+  - 番
+  - ピ
+  - 聞
+  - 回
+  - ぁ
+  - ぶ
+  - ベ
+  - 五
+  - げ
+  - 実
+  - ボ
+  - 店
+  - 小
+  - 定
+  - モ
+  - 長
+  - 新
+  - ハ
+  - ケ
+  - 外
+  - ポ
+  - 近
+  - 所
+  - へ
+  - 県
+  - 同
+  - ネ
+  - 内
+  - 女
+  - ホ
+  - 体
+  - 好
+  - ツ
+  - セ
+  - 知
+  - 山
+  - 来
+  - ェ
+  - 使
+  - ョ
+  - ズ
+  - 主
+  - 動
+  - 理
+  - 物
+  - 映
+  - 者
+  - ぐ
+  - 的
+  - 代
+  - 変
+  - 教
+  - 社
+  - 用
+  - 話
+  - 名
+  - 構
+  - 高
+  - 最
+  - ず
+  - ミ
+  - 校
+  - ダ
+  - 食
+  - 後
+  - 手
+  - 三
+  - 通
+  - 感
+  - 合
+  - 多
+  - 業
+  - 入
+  - エ
+  - 場
+  - べ
+  - 上
+  - 家
+  - 私
+  - 年
+  - 間
+  - 画
+  - 前
+  - 下
+  - ャ
+  - 地
+  - 二
+  - ウ
+  - ナ
+  - ビ
+  - 自
+  - 全
+  - パ
+  - 結
+  - ブ
+  - ュ
+  - 市
+  - サ
+  - 気
+  - 方
+  - デ
+  - 十
+  - キ
+  - 当
+  - 国
+  - 作
+  - ィ
+  - 部
+  - オ
+  - ニ
+  - チ
+  - ム
+  - グ
+  - メ
+  - ご
+  - 子
+  - ば
+  - 生
+  - ほ
+  - ぱ
+  - せ
+  - 何
+  - 出
+  - 言
+  - 今
+  - バ
+  - 事
+  - 中
+  - プ
+  - 時
+  - コ
+  - 見
+  - テ
+  - 会
+  - マ
+  - カ
+  - 思
+  - ロ
+  - ジ
+  - フ
+  - シ
+  - め
+  - レ
+  - ド
+  - 分
+  - ょ
+  - ろ
+  - 学
+  - 行
+  - タ
+  - 大
+  - つ
+  - 本
+  - 日
+  - わ
+  - 一
+  - ク
+  - み
+  - リ
+  - ア
+  - ッ
+  - 人
+  - ラ
+  - ？
+  - お
+  - じ
+  - イ
+  - ル
+  - ト
+  - ゃ
+  - き
+  - さ
+  - ち
+  - や
+  - ス
+  - ど
+  - け
+  - く
+  - え
+  - を
+  - り
+  - よ
+  - こ
+  - ン
+  - だ
+  - れ
+  - ら
+  - ね
+  - が
+  - ま
+  - ー
+  - も
+  - そ
+  - し
+  - に
+  - は
+  - る
+  - す
+  - と
+  - た
+  - あ
+  - て
+  - っ
+  - で
+  - か
+  - な
+  - ん
+  - う
+  - の
+  - 、
+  - 。
+  - い
+  - <ko-KR>
+  - 이
+  - 가
+  - 을
+  - 는
+  - 에
+  - 도
+  - 고
+  - 의
+  - 지
+  - 를
+  - ▁그
+  - 다
+  - 은
+  - 기
+  - 한
+  - 어
+  - 시
+  - 자
+  - 서
+  - 로
+  - 해
+  - 리
+  - 요
+  - 사
+  - ▁뭐
+  - 인
+  - 게
+  - 에서
+  - ▁이제
+  - 정
+  - 하
+  - ▁어
+  - ▁거
+  - 하는
+  - 나
+  - 대
+  - ▁좀
+  - 하고
+  - 만
+  - ▁수
+  - ▁아
+  - 장
+  - 면
+  - 으로
+  - 원
+  - 야
+  - 주
+  - 과
+  - 상
+  - 구
+  - 스
+  - 일
+  - ▁그런
+  - 라
+  - 수
+  - 할
+  - 아
+  - 들
+  - ▁이런
+  - ▁예
+  - 거
+  - ▁지금
+  - 성
+  - ▁보
+  - ▁안
+  - 보
+  - ▁또
+  - 동
+  - 소
+  - 신
+  - ▁있는
+  - 십
+  - ▁것
+  - 간
+  - 제
+  - 는데
+  - 건
+  - ▁대
+  - 부
+  - 화
+  - 전
+  - ▁전
+  - ▁이렇게
+  - ▁일
+  - ▁근데
+  - 들이
+  - ▁그래서
+  - 데
+  - 했
+  - 치
+  - 선
+  - 드
+  - ▁많이
+  - 세
+  - 진
+  - 연
+  - 여
+  - 관
+  - 분
+  - ▁네
+  - 마
+  - 오
+  - 미
+  - 위
+  - 죠
+  - 습니다
+  - 계
+  - 식
+  - 무
+  - 있
+  - 문
+  - 당
+  - 재
+  - 년
+  - 체
+  - ▁나
+  - 와
+  - 우
+  - 라고
+  - 실
+  - ▁때
+  - 단
+  - 통
+  - 영
+  - ▁주
+  - 적
+  - 명
+  - ▁않
+  - ▁말
+  - ▁오
+  - ▁있다
+  - 해서
+  - 려
+  - ▁어떤
+  - 방
+  - 산
+  - ▁우리
+  - 차
+  - ▁저
+  - 물
+  - 니
+  - ▁아니
+  - ▁더
+  - ▁사
+  - 반
+  - 니다
+  - 점
+  - ▁비
+  - 트
+  - ▁음
+  - 용
+  - 업
+  - 경
+  - 생
+  - 적으로
+  - 공
+  - ▁내
+  - ▁그리고
+  - 국
+  - 러
+  - 안
+  - 비
+  - 까지
+  - 니까
+  - 금
+  - 운
+  - ▁이게
+  - ▁공
+  - 내
+  - 회
+  - ▁잘
+  - 하게
+  - 행
+  - 조
+  - 모
+  - 감
+  - 가지고
+  - ▁막
+  - 집
+  - 된
+  - 것
+  - 발
+  - 학
+  - 심
+  - 던
+  - 백
+  - ▁유
+  - 라는
+  - 남
+  - ▁때문에
+  - ▁그러니까
+  - 되는
+  - 입니다
+  - 타
+  - 교
+  - ▁들어
+  - ▁없
+  - 어요
+  - 법
+  - 적인
+  - 역
+  - ▁생각
+  - 매
+  - 민
+  - 한다
+  - ▁같은
+  - ▁그냥
+  - 배
+  - 르
+  - ▁되
+  - 부분
+  - 육
+  - ▁얘기
+  - 호
+  - 프
+  - 날
+  - ▁못
+  - ▁사실
+  - 거든요
+  - 천
+  - 등
+  - ▁어떻게
+  - ▁제
+  - 지만
+  - 히
+  - ▁제가
+  - ▁그렇게
+  - 더
+  - 권
+  - 하면
+  - 출
+  - 다고
+  - 달
+  - 겠
+  - 작
+  - 입
+  - ▁저는
+  - 해야
+  - ▁부
+  - ▁진짜
+  - 표
+  - 직
+  - 양
+  - ▁바
+  - 합니다
+  - 살
+  - 력
+  - 었
+  - 했다
+  - ▁너무
+  - ▁가장
+  - ▁조
+  - 팔
+  - 중
+  - 님
+  - ▁내가
+  - 유
+  - 래
+  - 버
+  - 번
+  - 개
+  - 후
+  - 잖아요
+  - 하지
+  - 피
+  - 종
+  - 네
+  - 현
+  - ▁있습니다
+  - ▁좋
+  - 맞
+  - 난
+  - 같
+  - ▁굉장히
+  - ▁중
+  - 추
+  - 월
+  - 에는
+  - 청
+  - 속
+  - ▁사람
+  - 받
+  - 질
+  - 노
+  - 형
+  - ▁걸
+  - 군
+  - 였
+  - 파
+  - 디
+  - 본
+  - 돼
+  - 너
+  - ▁그러면
+  - ▁불
+  - ▁두
+  - ▁오늘
+  - ▁개
+  - 최
+  - ▁삼
+  - 크
+  - 됐
+  - 편
+  - 쪽
+  - 판
+  - 때
+  - ▁되게
+  - ▁나는
+  - 부터
+  - 랑
+  - ▁그거
+  - ▁대해서
+  - ▁정도
+  - 레
+  - ▁김
+  - ▁이거
+  - ▁있고
+  - ▁강
+  - ▁대한
+  - 으면
+  - ▁그게
+  - ▁문제
+  - 포
+  - 목
+  - 결
+  - 준
+  - 태
+  - ▁하나
+  - 외
+  - 씨
+  - 잖아
+  - 임
+  - 칠
+  - 열
+  - 변
+  - 된다
+  - 예요
+  - 키
+  - 박
+  - ▁그렇
+  - 까
+  - ▁말씀
+  - ▁조금
+  - 터
+  - ▁우리가
+  - 약
+  - 인데
+  - 긴
+  - 많
+  - 하기
+  - 든
+  - ▁약간
+  - ▁있었
+  - ▁될
+  - 격
+  - 워
+  - 들은
+  - 하다
+  - ▁다른
+  - 먹
+  - ▁정말
+  - ▁왜
+  - 면서
+  - 술
+  - 합
+  - 증
+  - ▁계속
+  - 카
+  - ▁경우
+  - 평
+  - 냐
+  - 이다
+  - 봤
+  - 들을
+  - 석
+  - 각
+  - 보다
+  - 분들
+  - 근
+  - 린
+  - 볼
+  - 급
+  - 알
+  - 설
+  - 았
+  - 되
+  - 초
+  - 쓰
+  - 음
+  - ▁나오
+  - 으
+  - 올
+  - 져
+  - 책
+  - 확
+  - 갈
+  - 돈
+  - ▁있는데
+  - 복
+  - 응
+  - 되고
+  - 줄
+  - ▁많은
+  - 령
+  - 향
+  - 거죠
+  - ▁보면
+  - 루
+  - 언
+  - 절
+  - 에서는
+  - 티
+  - ▁한국
+  - 토
+  - 한테
+  - ▁맞아
+  - 에게
+  - ▁그런데
+  - 다는
+  - ▁상황
+  - ▁그러
+  - 이라고
+  - 료
+  - 이나
+  - ▁여기
+  - 바
+  - ▁아이
+  - 애
+  - 대로
+  - ▁거기
+  - ▁좋아
+  - 참
+  - 고요
+  - 그
+  - 면은
+  - 삼
+  - 구요
+  - 름
+  - 처럼
+  - 담
+  - ▁있을
+  - ▁좋은
+  - 품
+  - 저
+  - 승
+  - ▁미국
+  - ▁같애
+  - 하시
+  - 병
+  - 환
+  - ▁필요
+  - ▁사람들
+  - 지는
+  - 악
+  - ▁한번
+  - ▁인제
+  - 론
+  - 순
+  - 온
+  - 처
+  - 졌
+  - 셨
+  - ▁그때
+  - 두
+  - 갔
+  - 손
+  - 울
+  - 벌
+  - 코
+  - ▁그니까
+  - 취
+  - ▁있어
+  - 전에
+  - ▁것이
+  - 누
+  - ▁사람들이
+  - ▁자기
+  - 렸
+  - ▁아니라
+  - 예
+  - 투
+  - 습니까
+  - ▁일단
+  - ▁없는
+  - 큰
+  - ▁생각을
+  - 른
+  - 새
+  - 길
+  - 택
+  - 플
+  - 겁
+  - ▁요즘
+  - ▁그럼
+  - 머
+  - ▁뭔가
+  - 싶
+  - 검
+  - 메
+  - 거나
+  - 란
+  - 독
+  - 몇
+  - 왔
+  - 북
+  - 했습니다
+  - ▁그래
+  - 곳
+  - 족
+  - 겨
+  - 빠
+  - ▁보니까
+  - ▁정부
+  - 망
+  - 있는
+  - 나요
+  - 움
+  - ▁사람이
+  - ▁얘기를
+  - 놓
+  - 특
+  - ▁것도
+  - ▁이야기
+  - 광
+  - 며
+  - 강
+  - 하면서
+  - 록
+  - 말
+  - 브
+  - ▁관련
+  - ▁시작
+  - 글
+  - 했던
+  - ▁경제
+  - 완
+  - 겠다
+  - 겠습니다
+  - ▁친구
+  - ▁국민
+  - ▁그것
+  - 봐
+  - 활
+  - 높
+  - ▁있어요
+  - 이라는
+  - ▁다시
+  - ▁여러
+  - 총
+  - 잡
+  - 능
+  - 항
+  - 류
+  - 규
+  - 따
+  - 채
+  - 존
+  - 립
+  - 친
+  - 쟁
+  - 늘
+  - 범
+  - 별
+  - 측
+  - 테
+  - 철
+  - 딱
+  - 엔
+  - 억
+  - 끝
+  - 락
+  - 릴
+  - 창
+  - 극
+  - 줘
+  - 협
+  - 패
+  - 커
+  - 앞
+  - 돌
+  - 충
+  - 색
+  - 눈
+  - 셔
+  - 익
+  - 접
+  - 송
+  - 힘
+  - 났
+  - 꾸
+  - 께
+  - 싸
+  - 될
+  - 답
+  - 험
+  - 침
+  - 율
+  - 럽
+  - 페
+  - 걸
+  - 뒤
+  - 희
+  - 켜
+  - 몰
+  - 혀
+  - 써
+  - 팀
+  - 션
+  - 축
+  - 량
+  - 혼
+  - 쳐
+  - 득
+  - 밀
+  - 베
+  - 황
+  - 폭
+  - 녀
+  - 쉽
+  - 틀
+  - 효
+  - 골
+  - 불
+  - 람
+  - 례
+  - 느
+  - 즈
+  - 블
+  - 놀
+  - 함
+  - 떨
+  - 텔
+  - 허
+  - 논
+  - 궁
+  - 림
+  - 탄
+  - 럴
+  - 견
+  - 씩
+  - 런
+  - 떠
+  - 넘
+  - 풀
+  - 죽
+  - 죄
+  - 습
+  - 핵
+  - 귀
+  - 옛
+  - 윤
+  - 홍
+  - 끼
+  - 농
+  - 련
+  - 갖
+  - 첫
+  - 둘
+  - 혹
+  - 엠
+  - 징
+  - 훈
+  - 탈
+  - 케
+  - 꼭
+  - 률
+  - 혁
+  - 섯
+  - 착
+  - 휴
+  - 봉
+  - 클
+  - 염
+  - 밝
+  - 풍
+  - 슬
+  - 붙
+  - 곡
+  - 얼
+  - 찍
+  - 뿐
+  - 짜
+  - 몸
+  - 잠
+  - 넣
+  - 랜
+  - 쉬
+  - 듯
+  - 널
+  - 랐
+  - 및
+  - 왕
+  - 퍼
+  - 압
+  - 맛
+  - 낮
+  - 탁
+  - 액
+  - 줬
+  - 찬
+  - 째
+  - 필
+  - 슈
+  - 센
+  - 낙
+  - 폐
+  - 뜻
+  - 갑
+  - 욕
+  - 폰
+  - 읽
+  - 없
+  - 튼
+  - 웃
+  - 맨
+  - 층
+  - 찾
+  - 숙
+  - 퇴
+  - 굴
+  - 균
+  - 웠
+  - 흥
+  - 념
+  - 듣
+  - 옷
+  - 냈
+  - 흔
+  - 혜
+  - 암
+  - 객
+  - 엘
+  - 뉴
+  - 깨
+  - 뭘
+  - 끌
+  - 뛰
+  - 싫
+  - 끔
+  - 캐
+  - 닐
+  - 겼
+  - 앙
+  - 흐
+  - 략
+  - 벽
+  - 얘
+  - 막
+  - 꺼
+  - 짓
+  - 즐
+  - 찰
+  - 먼
+  - 쓸
+  - 덕
+  - 깐
+  - 밥
+  - 엇
+  - 뜨
+  - 춰
+  - 봅
+  - 믿
+  - 렇
+  - 칙
+  - 낸
+  - 밤
+  - 짝
+  - 얻
+  - 잔
+  - 쁘
+  - 킬
+  - 털
+  - 욱
+  - 값
+  - 링
+  - 좌
+  - 빌
+  - 컨
+  - 롭
+  - 헌
+  - 걔
+  - 쿠
+  - 팅
+  - 빼
+  - 숨
+  - 츠
+  - 엄
+  - 혔
+  - 땅
+  - 꿈
+  - 닥
+  - 낼
+  - 곱
+  - 삶
+  - 맥
+  - 즌
+  - 옆
+  - 않
+  - 괴
+  - 빈
+  - 턴
+  - 옥
+  - 웨
+  - 킨
+  - 릭
+  - 팬
+  - 헤
+  - 휘
+  - 섭
+  - 멀
+  - 칭
+  - 쁜
+  - 납
+  - 뇌
+  - 척
+  - 굳
+  - 썼
+  - 듭
+  - 껴
+  - 맡
+  - 쇼
+  - 곤
+  - 빨
+  - 쳤
+  - 앨
+  - 쯤
+  - 댓
+  - 녹
+  - 즉
+  - 콘
+  - 늦
+  - 빛
+  - 혈
+  - 뽑
+  - 깊
+  - 딸
+  - 쓴
+  - 꽃
+  - 펜
+  - 끊
+  - 펴
+  - 랍
+  - 홈
+  - 냉
+  - 픈
+  - 눠
+  - 탕
+  - 밑
+  - 깔
+  - 뢰
+  - 찌
+  - 렀
+  - 핑
+  - 흘
+  - 칼
+  - 쭉
+  - 싱
+  - 슷
+  - 덜
+  - 꿔
+  - 뭔
+  - 랙
+  - 삭
+  - 푸
+  - 롯
+  - 딩
+  - 콩
+  - 획
+  - 봇
+  - 텐
+  - 룹
+  - 맹
+  - 팝
+  - 싼
+  - 졸
+  - 벤
+  - 끄
+  - 렌
+  - 랫
+  - 뮤
+  - 혐
+  - 킹
+  - 쌓
+  - 옵
+  - 힌
+  - 켓
+  - 펀
+  - 폴
+  - 젠
+  - 벗
+  - 촉
+  - 곧
+  - 겪
+  - 넓
+  - 잃
+  - 벨
+  - 놨
+  - 봄
+  - 묻
+  - 랄
+  - 멘
+  - 컬
+  - 흡
+  - 춘
+  - 멋
+  - 촌
+  - 델
+  - 섬
+  - 챙
+  - 켰
+  - 깝
+  - 핸
+  - 홉
+  - 쵸
+  - 콜
+  - 꽤
+  - 짐
+  - 숫
+  - 즘
+  - 둔
+  - 컵
+  - 솔
+  - 긍
+  - 랬
+  - 폼
+  - 녁
+  - 떻
+  - 팩
+  - 떡
+  - 꼬
+  - 힙
+  - 샀
+  - 쩔
+  - 꼈
+  - 탐
+  - 캠
+  - 슴
+  - 뿌
+  - 짚
+  - 쇄
+  - 묘
+  - 릿
+  - 앤
+  - 홀
+  - 셋
+  - 톡
+  - 섰
+  - 잊
+  - 둥
+  - 닫
+  - 춤
+  - 빙
+  - 몬
+  - 꼼
+  - 램
+  - 빵
+  - 슨
+  - 럼
+  - 펼
+  - 셀
+  - 롤
+  - 렬
+  - 탑
+  - 쎄
+  - 넷
+  - 뒷
+  - 엑
+  - 럭
+  - 컴
+  - 똑
+  - 닝
+  - 헬
+  - 첨
+  - 뤄
+  - 딜
+  - 깜
+  - 틱
+  - 띄
+  - 샤
+  - 빅
+  - 렴
+  - 젝
+  - 쩌
+  - 쌀
+  - 밍
+  - 흑
+  - 놔
+  - 걷
+  - 멸
+  - 톤
+  - 엽
+  - 큐
+  - 촬
+  - 쭤
+  - 튜
+  - 힐
+  - 좋
+  - 륙
+  - 빚
+  - 쾌
+  - 꿀
+  - 핀
+  - 롱
+  - 닌
+  - 떼
+  - 멈
+  - 땐
+  - 퀴
+  - 김
+  - 릅
+  - 끈
+  - 눌
+  - 쌍
+  - 묵
+  - 딴
+  - 잉
+  - 므
+  - 덩
+  - 웅
+  - 엉
+  - 낫
+  - 튀
+  - 왼
+  - 냄
+  - 꼽
+  - 겸
+  - 밖
+  - 넌
+  - 셈
+  - 냥
+  - 꾼
+  - 놈
+  - 멍
+  - 몽
+  - 붕
+  - 겹
+  - 밴
+  - 쥐
+  - 낀
+  - 뭐
+  - 룰
+  - 렉
+  - 땡
+  - 뚜
+  - 룸
+  - 벼
+  - 닉
+  - 맘
+  - 템
+  - 닷
+  - 딘
+  - 낭
+  - 섞
+  - 웬
+  - 칸
+  - 잇
+  - 좁
+  - 릉
+  - 앱
+  - 맺
+  - 훼
+  - 뻔
+  - 갤
+  - 뀐
+  - 훌
+  - 낄
+  - 덮
+  - 쏘
+  - 끗
+  - 뼈
+  - 쪼
+  - 잘
+  - 묶
+  - 녔
+  - 픽
+  - 첩
+  - 컸
+  - 닭
+  - 융
+  - 쇠
+  - 틴
+  - 덴
+  - 줍
+  - 텍
+  - 뷔
+  - 웹
+  - 샵
+  - 닿
+  - 뷰
+  - 덧
+  - 믹
+  - 덤
+  - 됬
+  - 잖
+  - 곽
+  - 괄
+  - 괜
+  - 룬
+  - 릇
+  - 뵙
+  - 띠
+  - 룡
+  - 녕
+  - 듬
+  - 못
+  - 꼴
+  - 뚝
+  - 렁
+  - 찮
+  - 또
+  - 륭
+  - 셜
+  - 팟
+  - 팽
+  - 뻐
+  - 싹
+  - 탓
+  - 둑
+  - 톱
+  - 콤
+  - 뚱
+  - 긋
+  - 멤
+  - 맙
+  - 젤
+  - 윈
+  - 겐
+  - 햇
+  - 빗
+  - 곰
+  - 깥
+  - 멜
+  - 낯
+  - 옹
+  - 쿨
+  - 볶
+  - 숲
+  - 덥
+  - 밟
+  - 틸
+  - 틈
+  - 딪
+  - 깎
+  - 겉
+  - 칩
+  - 뒀
+  - 윗
+  - 삐
+  - 앵
+  - 넥
+  - 꿨
+  - 뭉
+  - 숭
+  - 팡
+  - 뱅
+  - 핫
+  - 흉
+  - 캔
+  - 둬
+  - 땀
+  - 씻
+  - 횡
+  - 쿄
+  - 밭
+  - 썩
+  - 뀔
+  - 갱
+  - 밸
+  - 픔
+  - 좀
+  - 톨
+  - 얀
+  - 빡
+  - 껏
+  - 뉘
+  - 닮
+  - 뇨
+  - 턱
+  - 댄
+  - 흠
+  - 랭
+  - 잎
+  - 렵
+  - 뺏
+  - 쫙
+  - 냅
+  - 앗
+  - 쩍
+  - 흰
+  - 굉
+  - 햄
+  - 궤
+  - 깃
+  - 줌
+  - 샘
+  - 땜
+  - 샌
+  - 췄
+  - 탱
+  - 킥
+  - 벅
+  - 쏠
+  - 읍
+  - 볍
+  - 툰
+  - 쨌
+  - 븐
+  - 돕
+  - 텀
+  - 짤
+  - 컷
+  - 삽
+  - 꽂
+  - 렷
+  - 섹
+  - 핏
+  - 헨
+  - 굽
+  - 룩
+  - 춥
+  - 닦
+  - 랩
+  - 푼
+  - 왠
+  - 돋
+  - 팍
+  - 찔
+  - 뜬
+  - 헷
+  - 몫
+  - 펙
+  - 붓
+  - 탠
+  - 뜯
+  - 셉
+  - 궐
+  - 똥
+  - 깁
+  - 탔
+  - 멕
+  - 젖
+  - 듀
+  - 퓨
+  - 맵
+  - 얇
+  - 쁨
+  - 껍
+  - 갓
+  - 넉
+  - 짱
+  - 칫
+  - 흙
+  - 꽉
+  - 씁
+  - 됨
+  - 펠
+  - 뽀
+  - 갇
+  - 쑥
+  - 헐
+  - 늙
+  - 씀
+  - 뱀
+  - 똘
+  - 썰
+  - 툼
+  - 륜
+  - 롬
+  - 뻗
+  - 팁
+  - 풋
+  - 쉴
+  - 캡
+  - 떄
+  - 샷
+  - 씹
+  - 잣
+  - 쏴
+  - 뭇
+  - 쉰
+  - 렛
+  - 왜
+  - 휩
+  - 썬
+  - 엎
+  - 헛
+  - 뿔
+  - 쉼
+  - 젓
+  - 뜩
+  - 윙
+  - 슛
+  - 셰
+  - 솟
+  - 짠
+  - 훔
+  - 웰
+  - 옴
+  - 펄
+  - 꽁
+  - 뜰
+  - 뽕
+  - 늬
+  - 찜
+  - 펑
+  - 뮬
+  - 첼
+  - 퉁
+  - 떴
+  - 늄
+  - 늑
+  - 켈
+  - 킴
+  - 쏙
+  - 캘
+  - 굼
+  - 툭
+  - 륨
+  - 뛸
+  - 엿
+  - 옐
+  - 붐
+  - 잭
+  - 댕
+  - 꿉
+  - 콧
+  - 푹
+  - 윌
+  - 쿼
+  - 겟
+  - 쁠
+  - 엮
+  - 횟
+  - 굿
+  - 깡
+  - 닙
+  - 싣
+  - 콕
+  - 뱃
+  - 얹
+  - 짬
+  - 툴
+  - 뻥
+  - 큼
+  - 슐
+  - 잦
+  - 휠
+  - 솜
+  - 펌
+  - 쩡
+  - 헝
+  - 톰
+  - 샐
+  - 긁
+  - 팜
+  - 빔
+  - 돗
+  - 갯
+  - 켄
+  - 럿
+  - 댁
+  - 댐
+  - 앰
+  - 탭
+  - 뺐
+  - 댈
+  - 닛
+  - 훅
+  - 빽
+  - 넬
+  - 짖
+  - 둠
+  - 캄
+  - 둡
+  - 쫄
+  - 딨
+  - 벡
+  - 잤
+  - 퀄
+  - 뿜
+  - 갭
+  - 돔
+  - 콰
+  - 왓
+  - 쥬
+  - 댔
+  - 떳
+  - 낱
+  - 텨
+  - 볕
+  - 뎌
+  - 팎
+  - 궈
+  - 킵
+  - 귄
+  - 찐
+  - 찝
+  - 깍
+  - 랴
+  - 텅
+  - 뺀
+  - 팥
+  - 뵈
+  - 멧
+  - 씬
+  - 벙
+  - 벳
+  - 솥
+  - 젯
+  - 뛴
+  - 쭈
+  - 렐
+  - 쉐
+  - 껄
+  - 얄
+  - 엣
+  - 쌤
+  - 쏜
+  - 쿵
+  - 킷
+  - 왈
+  - 띤
+  - 빴
+  - 뺄
+  - 꿇
+  - 딥
+  - 땄
+  - 렘
+  - 핍
+  - 썸
+  - 떤
+  - 눕
+  - 맷
+  - 찼
+  - 쌈
+  - 늠
+  - 즙
+  - 꼰
+  - 덱
+  - 숍
+  - 엊
+  - 삿
+  - 꾀
+  - 맣
+  - 잼
+  - 걀
+  - 퀘
+  - 쑤
+  - 뾰
+  - 쩐
+  - 뭄
+  - 귤
+  - 랗
+  - 쨋
+  - 컥
+  - 꿰
+  - 섣
+  - 썹
+  - 폈
+  - 탬
+  - 늪
+  - 뜸
+  - 캉
+  - 몹
+  - 슘
+  - 륵
+  - 쓱
+  - 훗
+  - 맏
+  - 텝
+  - 딛
+  - 찹
+  - 뮌
+  - 츄
+  - 펭
+  - 빤
+  - 낌
+  - 뻘
+  - 웁
+  - 꾹
+  - 눅
+  - 웍
+  - 퓰
+  - 쩜
+  - 숟
+  - 겔
+  - 퀸
+  - 콥
+  - 룻
+  - 딕
+  - 뺑
+  - 셧
+  - 컫
+  - 쎈
+  - 뼘
+  - 넨
+  - 챌
+  - 펫
+  - 펐
+  - 쯔
+  - 헉
+  - 튬
+  - 맴
+  - 얌
+  - 텃
+  - 욜
+  - 뻑
+  - 캅
+  - 밋
+  - 앴
+  - 튕
+  - 눔
+  - 샹
+  - 밉
+  - 걱
+  - 깅
+  - 쐈
+  - 폄
+  - 숄
+  - 듈
+  - 뻣
+  - 밧
+  - 갠
+  - 퐁
+  - 꽝
+  - 츰
+  - 쿡
+  - 쿤
+  - 켐
+  - 껌
+  - 칵
+  - 뚤
+  - 챠
+  - 귓
+  - 넛
+  - 훑
+  - 퍽
+  - 쌩
+  - 깼
+  - 캣
+  - 뺨
+  - 훨
+  - 랏
+  - 첸
+  - 샬
+  - 쬐
+  - 깬
+  - 쪄
+  - 엌
+  - 끽
+  - 짰
+  - 갸
+  - 귈
+  - 뎅
+  - 띈
+  - 걍
+  - 낍
+  - 쾅
+  - 탤
+  - 텼
+  - 댑
+  - 찻
+  - 괘
+  - 윽
+  - 쌉
+  - 딧
+  - 랠
+  - 찡
+  - 꿋
+  - 뀌
+  - 뭣
+  - 딤
+  - 홋
+  - 룽
+  - 팸
+  - 헥
+  - 꺽
+  - 꿍
+  - 큘
+  - 컹
+  - 갛
+  - 깰
+  - 쌔
+  - 띵
+  - 훤
+  - 씽
+  - 텁
+  - 뤼
+  - 숏
+  - 짭
+  - 믄
+  - 쉘
+  - 팻
+  - 껐
+  - 곶
+  - 됀
+  - 셌
+  - 쪘
+  - 왁
+  - 줏
+  - 췌
+  - 팰
+  - 짊
+  - 옌
+  - 썽
+  - 젼
+  - 휙
+  - 멱
+  - 슥
+  - 켠
+  - 눗
+  - 쥔
+  - 싯
+  - 랖
+  - 벵
+  - 샛
+  - 쟈
+  - 쭐
+  - 춧
+  - 뗐
+  - 챗
+  - 셸
+  - 웜
+  - 밈
+  - 퉈
+  - 핼
+  - 뽈
+  - 엥
+  - 뵌
+  - 꽈
+  - 쌰
+  - 뵜
+  - 꼿
+  - 빳
+  - 잰
+  - 튠
+  - 옅
+  - 껀
+  - 썻
+  - 씸
+  - 쫀
+  - 뗀
+  - 뿡
+  - 좆
+  - 쐬
+  - 띡
+  - 샨
+  - 궂
+  - 갰
+  - 빕
+  - 쳇
+  - 땔
+  - 멩
+  - 멎
+  - 뮈
+  - 냇
+  - 퀀
+  - 퀵
+  - 듐
+  - 튿
+  - 앳
+  - 튤
+  - 돛
+  - 옇
+  - 훠
+  - 떵
+  - 볐
+  - 깽
+  - 궜
+  - 숑
+  - 믈
+  - 뵀
+  - 켤
+  - 늉
+  - 챈
+  - 숯
+  - 밨
+  - 쫑
+  - 뎀
+  - 헹
+  - 렙
+  - 넸
+  - 녜
+  - 슝
+  - 쏭
+  - 핌
+  - 얏
+  - 맸
+  - 잽
+  - 뽁
+  - 쑨
+  - 욘
+  - 넙
+  - 맬
+  - 톈
+  - 몄
+  - 괸
+  - 뫼
+  - 쫒
+  - 녘
+  - 쥘
+  - 겄
+  - 깠
+  - 뺴
+  - 넵
+  - 뿍
+  - 뀠
+  - 펩
+  - 셴
+  - 챘
+  - 놉
+  - 촐
+  - 엡
+  - 뎁
+  - 삥
+  - 콸
+  - 죤
+  - 콱
+  - 띌
+  - 볏
+  - 갬
+  - 낵
+  - 욤
+  - 챕
+  - 깻
+  - 쨰
+  - 뇽
+  - 쎌
+  - 뺌
+  - 겅
+  - 윅
+  - 캇
+  - 잴
+  - 캬
+  - 윔
+  - 띨
+  - 넜
+  - 뭍
+  - 붇
+  - 캥
+  - 뎃
+  - 쟀
+  - 뜀
+  - 뷴
+  - 얍
+  - 됄
+  - 퀼
+  - 텄
+  - 뷸
+  - 롄
+  - 젭
+  - 윰
+  - 훙
+  - 봬
+  - 홧
+  - 촨
+  - 긱
+  - 떰
+  - 뭅
+  - 헀
+  - 꿎
+  - 멉
+  - 촥
+  - 캤
+  - 햐
+  - 웡
+  - 첵
+  - 펍
+  - 씰
+  - 숀
+  - 츤
+  - 숩
+  - 솝
+  - 쎘
+  - 힉
+  - 뻬
+  - 휼
+  - 냔
+  - 샜
+  - 넴
+  - 삔
+  - 헸
+  - 겜
+  - 숴
+  - 젬
+  - 곈
+  - 넝
+  - 떈
+  - 좔
+  - 헴
+  - 옜
+  - 쥴
+  - 짼
+  - 갗
+  - 떙
+  - 맟
+  - 멓
+  - 쩝
+  - 읏
+  - 팹
+  - 슉
+  - 꼐
+  - 샾
+  - 쎼
+  - 폿
+  - 풉
+  - 곘
+  - 쑹
+  - 겋
+  - 룔
+  - 횐
+  - 밎
+  - 휜
+  - 냠
+  - 헙
+  - 꺠
+  - 뼉
+  - 좃
+  - 샥
+  - 듸
+  - 렝
+  - 믐
+  - 귿
+  - 냘
+  - 됏
+  - 웩
+  - 쨈
+  - 쭘
+  - 둣
+  - 돠
+  - 큭
+  - 샙
+  - 핬
+  - 씼
+  - 옙
+  - 쎔
+  - 쨉
+  - 뗴
+  - 맜
+  - 셍
+  - 펨
+  - 짹
+  - 똔
+  - 겻
+  - 죈
+  - 뙤
+  - 찟
+  - 껜
+  - 툽
+  - 깟
+  - 졍
+  - 롸
+  - 틉
+  - 밌
+  - 굔
+  - 꼇
+  - 땃
+  - 렜
+  - 롷
+  - 롹
+  - 쌕
+  - 쬬
+  - 왑
+  - 힝
+  - 푠
+  - 긷
+  - 먄
+  - 꺄
+  - 싰
+  - 웟
+  - 흣
+  - 뮨
+  - 뾱
+  - 쉈
+  - 젔
+  - 킁
+  - 썅
+  - 삣
+  - 곯
+  - 삵
+  - 넹
+  - 쬔
+  - 깹
+  - 꽌
+  - 톳
+  - 폅
+  - 쿱
+  - 죗
+  - 칡
+  - 쫍
+  - 벧
+  - 똠
+  - 떔
+  - 툇
+  - 잛
+  - 삘
+  - 쑈
+  - 묀
+  - 솎
+  - 뗍
+  - 꽹
+  - 옯
+  - 늡
+  - 붑
+  - 괞
+  - 갂
+  - 빻
+  - 좍
+  - 썪
+  - 쌘
+  - 찿
+  - 곗
+  - 휑
+  - 찧
+  - 띔
+  - 떫
+  - 젋
+  - 옭
+  - 혓
+  - 쉿
+  - 웸
+  - 퉜
+  - 탉
+  - 뮐
+  - 뗏
+  - 쫘
+  - 앎
+  - 닻
+  - 쩄
+  - 뜁
+  - 얜
+  - 쇳
+  - 끕
+  - 홑
+  - 탯
+  - 쯧
+  - 뉩
+  - 튄
+  - 흄
+  - 뉠
+  - 윷
+  - 묽
+  - 탰
+  - 삑
+  - 걘
+  - 햅
+  - 뺍
+  - 곪
+  - 횃
+  - 틔
+  - 짢
+  - 벛
+  - 뿅
+  - 엷
+  - 낑
+  - 섀
+  - 갉
+  - 꿩
+  - 윳
+  - 쉑
+  - 틋
+  - 읊
+  - 뒹
+  - 괭
+  - 뼛
+  - 뜹
+  - 좇
+  - 뀜
+  - 빰
+  - 뎠
+  - 잿
+  - 넋
+  - 튈
+  - 듦
+  - 핥
+  - 띕
+  - 슭
+  - 샅
+  - 쐐
+  - 끙
+  - 픕
+  - 숱
+  - 쨍
+  - 닳
+  - 덫
+  - 뵐
+  - 쁩
+  - 뀝
+  - 괌
+  - 얗
+  - 쭙
+  - 뽐
+  - 뻤
+  - 얕
+  - 쌌
+  - 뗄
+  - 벚
+  - 샴
+  - 뱉
+  - 쫌
+  - 짙
+  - 굶
+  - 흩
+  - 뉜
+  - 촘
+  - 낡
+  - 씌
+  - 눴
+  - 찢
+  - 팠
+  - 껑
+  - 얽
+  - 굵
+  - 큽
+  - 앓
+  - 뤘
+  - 곁
+  - 쟤
+  - 붉
+  - 끓
+  - 맑
+  - 릎
+  - 낚
+  - 촛
+  - 꺾
+  - 갚
+  - 챔
+  - 뭡
+  - 땠
+  - 뚫
+  - 옳
+  - 쫓
+  - 쏟
+  - 옮
+  - 덟
+  - 낳
+  - 앉
+  - 젊
+  - 짧
+  - 됩
+  - 켯
+  - 튐
+  - <nb-NO>
+  - ene
+  - ▁ble
+  - ikk
+  - opp
+  - ▁Han
+  - ▁Den
+  - unn
+  - ▁han
+  - asjon
+  - ▁word
+  - ▁werd
+  - <nn-NO>
+  - eg
+  - ▁ikkje
+  - ▁bok
+  - lik
+  - ▁eit
+  - så
+  - kk
+  - ▁nok
+  - ▁god
+  - ▁lese
+  - dde
+  - inga
+  - ▁denn
+  - inn
+  - kkje
+  - dig
+  - tid
+  - ▁bøke
+  - ord
+  - ▁tru
+  - skje
+  - ▁sei
+  - ller
+  - ▁fle
+  - skriv
+  - ▁heil
+  - wy
+  - Ś
+  - Ł
+  - Ź
+  - Ż
+  - car
+  - tão
+  - ia
+  - ▁foi
+  - ito
+  - ram
+  - fa
+  - ▁meu
+  - ça
+  - ▁dois
+  - ação
+  - ▁ter
+  - nça
+  - ▁compra
+  - ▁mil
+  - ▁minha
+  - ▁passa
+  - ▁casa
+  - Ã
+  - ·
+  - <pt-PT>
+  - das
+  - ▁são
+  - ▁Pa
+  - tura
+  - ▁ser
+  - ▁Ele
+  - forma
+  - ▁Esta
+  - ões
+  - ▁pelo
+  - tua
+  - ▁pela
+  - mar
+  - ▁Foi
+  - ▁foram
+  - este
+  - ▁Um
+  - ▁São
+  - ▁entre
+  - fun
+  - agem
+  - gua
+  - ▁Brasil
+  - ▁grande
+  - icos
+  - ▁cidade
+  - inda
+  - ▁Este
+  - ▁maior
+  - ▁brasileiro
+  - ▁município
+  - ▁nome
+  - ▁encontra
+  - ambém
+  - ▁Sua
+  - ▁três
+  - ▁С
+  - ▁А
+  - ▁К
+  - бе
+  - ▁О
+  - се
+  - ▁П
+  - ▁мне
+  - ▁он
+  - ца
+  - ние
+  - жа
+  - сть
+  - пу
+  - мы
+  - ска
+  - са
+  - ▁тебя
+  - ги
+  - ▁фильм
+  - тре
+  - гра
+  - мер
+  - ша
+  - ▁Включи
+  - лся
+  - щи
+  - ▁сезон
+  - ▁Как
+  - ▁смотрешке
+  - ▁Сбер
+  - ▁Тв
+  - ▁Не
+  - ▁Джой
+  - ▁один
+  - ▁Афина
+  - ▁Ма
+  - ▁семь
+  - ▁Та
+  - ▁Салют
+  - больш
+  - ский
+  - ▁пять
+  - ▁сериал
+  - ▁четыре
+  - ключ
+  - ▁шесть
+  - ится
+  - ▁восемь
+  - ▁вообще
+  - ▁Покажи
+  - ▁потому
+  - ▁двадцать
+  - ▁канал
+  - ▁включи
+  - ▁работ
+  - ▁карт
+  - ишь
+  - ▁день
+  - Ы
+  - ska
+  - var
+  - <th-TH>
+  - ▁า
+  - ▁น
+  - ▁ร
+  - ▁ก
+  - ▁อ
+  - เ
+  - ▁่
+  - ▁ง
+  - ั
+  - ▁ม
+  - ▁้
+  - ▁ย
+  - ▁ี
+  - ▁ล
+  - ▁ว
+  - ▁ด
+  - ▁ท
+  - ▁ส
+  - ▁ต
+  - ▁ิ
+  - ▁บ
+  - ▁ป
+  - ▁ะ
+  - ▁ห
+  - แ
+  - ▁ค
+  - ▁จ
+  - ▁ข
+  - ใ
+  - ไ
+  - ื
+  - ▁พ
+  - ▁ช
+  - ▁็
+  - ▁ู
+  - ▁ุ
+  - ▁์
+  - โ
+  - ํ
+  - ▁ึ
+  - ▁ศ
+  - ▁ถ
+  - ▁ซ
+  - ผ
+  - ▁ภ
+  - ▁ษ
+  - ▁ณ
+  - ▁ธ
+  - ▁ญ
+  - า
+  - น
+  - ▁ฟ
+  - ร
+  - ก
+  - อ
+  - ่
+  - ง
+  - ม
+  - ้
+  - ฉ
+  - ย
+  - ▁ฐ
+  - ี
+  - ล
+  - ว
+  - ด
+  - ท
+  - ▁ฝ
+  - ส
+  - ต
+  - ิ
+  - บ
+  - ▁ฮ
+  - ป
+  - ะ
+  - ห
+  - ฤ
+  - ค
+  - จ
+  - ▁ฏ
+  - ฒ
+  - ข
+  - พ
+  - ช
+  - ็
+  - ู
+  - ุ
+  - ์
+  - ๊
+  - ▁ฬ
+  - ▁ฎ
+  - ฑ
+  - ึ
+  - ศ
+  - ถ
+  - ซ
+  - ภ
+  - ▁๋
+  - ษ
+  - ณ
+  - ธ
+  - ญ
+  - ▁ฆ
+  - ฟ
+  - ฐ
+  - ฝ
+  - ฮ
+  - ฌ
+  - ฏ
+  - ฬ
+  - ฎ
+  - ๅ
+  - ๋
+  - ฆ
+  - ▁ๆ
+  - ฃ
+  - ฺ
+  - ฅ
+  - ๆ
+  - <tr-TR>
+  - ş
+  - ğ
+  - ya
+  - ▁ve
+  - lar
+  - ▁bir
+  - lı
+  - dı
+  - ler
+  - ye
+  - sı
+  - ları
+  - leri
+  - ında
+  - tı
+  - ▁bu
+  - lan
+  - ara
+  - ▁Bu
+  - inde
+  - ını
+  - yı
+  - yo
+  - dü
+  - ▁olarak
+  - ▁için
+  - maktadır
+  - arı
+  - ▁baş
+  - Ş
+  - Ğ
+  - <zh-CN>
+  - ▁须
+  - ▁质
+  - ▁户
+  - ▁云
+  - ▁楼
+  - ▁石
+  - ▁审
+  - ▁显
+  - ▁留
+  - ▁尽
+  - ▁雷
+  - ▁斗
+  - ▁智
+  - ▁杀
+  - ▁括
+  - ▁执
+  - ▁效
+  - ▁青
+  - ▁善
+  - ▁礼
+  - ▁靠
+  - ▁李
+  - ▁黄
+  - ▁响
+  - ▁营
+  - ▁补
+  - ▁势
+  - ▁足
+  - ▁极
+  - ▁江
+  - ▁省
+  - ▁香
+  - ▁究
+  - ▁追
+  - ▁维
+  - ▁群
+  - ▁升
+  - ▁米
+  - ▁亿
+  - ▁帝
+  - ▁票
+  - ▁宝
+  - ▁拍
+  - ▁愿
+  - ▁灵
+  - ▁武
+  - ▁敢
+  - ▁巴
+  - ▁句
+  - ▁律
+  - ▁尔
+  - ▁狗
+  - ▁检
+  - ▁轻
+  - ▁企
+  - ▁策
+  - ⁇
+  - 阮
+  - 氢
+  - 叵
+  - 衙
+  - 泸
+  - 邯
+  - 鱿
+  - 闰
+  - 沂
+  - 匕
+  - 桠
+  - 邡
+  - 馥
+  - 濮
+  - 颍
+  - 岌
+  - 兢
+  - 荀
+  - 翟
+  - 蚯
+  - 洼
+  - 羌
+  - 扼
+  - 蕃
+  - 蛟
+  - 鬓
+  - 攸
+  - 帧
+  - 遐
+  - 臻
+  - 懊
+  - 涟
+  - 氯
+  - 溧
+  - 镰
+  - 孪
+  - 麾
+  - 悌
+  - 恬
+  - 诙
+  - 庾
+  - 跻
+  - 淄
+  - 玷
+  - 恻
+  - 藐
+  - 倜
+  - 徇
+  - 鄞
+  - 惋
+  - 忐
+  - 漩
+  - 蟾
+  - 俨
+  - 弼
+  - 槐
+  - 缭
+  - 绚
+  - 缜
+  - 迥
+  - 掖
+  - 亳
+  - 剐
+  - 吭
+  - 碉
+  - 蛊
+  - 捎
+  - 谚
+  - 嗑
+  - 毗
+  - 璀
+  - 侏
+  - 蜿
+  - 蜒
+  - 轱
+  - 憔
+  - 唏
+  - 氰
+  - 芍
+  - 鞅
+  - 嘈
+  - 蚌
+  - 谌
+  - 邋
+  - 搀
+  - 讥
+  - 蹿
+  - 惆
+  - 撂
+  - 赡
+  - 裘
+  - 踞
+  - 滁
+  - 佯
+  - 涪
+  - 龈
+  - 湄
+  - 觊
+  - 娲
+  - 昙
+  - 莒
+  - 酗
+  - 铎
+  - 潦
+  - 罡
+  - 咆
+  - 犁
+  - 郴
+  - 娓
+  - 恿
+  - 炽
+  - 撅
+  - 疟
+  - 蔻
+  - 荞
+  - 钳
+  - 奚
+  - 豺
+  - 伉
+  - 弑
+  - 汞
+  - 蜚
+  - 捋
+  - 睽
+  - 臃
+  - 骊
+  - 涝
+  - 芷
+  - 蛰
+  - 剽
+  - 挎
+  - 耷
+  - 腼
+  - 芪
+  - 瘙
+  - 麝
+  - 嬴
+  - 恪
+  - 迢
+  - 掣
+  - 翱
+  - 鳕
+  - 邬
+  - 鬃
+  - 菡
+  - 遨
+  - 坻
+  - 拄
+  - 醺
+  - 鸵
+  - 孢
+  - 衢
+  - 涿
+  - 谙
+  - 兖
+  - 荃
+  - 靳
+  - 晟
+  - 漯
+  - 蛐
+  - 蛳
+  - 銮
+  - 妩
+  - 殒
+  - 罂
+  - 耒
+  - 谆
+  - 谀
+  - 轲
+  - 霓
+  - 莴
+  - 隽
+  - 潺
+  - 踌
+  - 郫
+  - 啕
+  - 矗
+  - 窈
+  - 觞
+  - 铬
+  - 颌
+  - 嶂
+  - 涣
+  - 湉
+  - 臊
+  - 唢
+  - 怦
+  - 骥
+  - 滦
+  - 盱
+  - 麋
+  - 卞
+  - 舀
+  - 酮
+  - 鏖
+  - 锚
+  - 骡
+  - 黔
+  - 泱
+  - 珞
+  - 瓯
+  - 瞿
+  - 鲶
+  - 慵
+  - 梆
+  - 滢
+  - 赝
+  - 婀
+  - 氦
+  - 淬
+  - 牍
+  - 琊
+  - 葆
+  - 埭
+  - 蜇
+  - 陂
+  - 拈
+  - 睑
+  - 绥
+  - 跛
+  - 鄢
+  - 嘹
+  - 崂
+  - 搪
+  - 敝
+  - 豉
+  - 赅
+  - 飒
+  - 岑
+  - 箩
+  - 螨
+  - 渌
+  - 阚
+  - 馊
+  - 灏
+  - 炷
+  - 焯
+  - 甬
+  - 蝈
+  - 嗤
+  - 岷
+  - 抿
+  - 涞
+  - 疸
+  - 瞟
+  - 纰
+  - 瀛
+  - 痉
+  - 瘁
+  - 荨
+  - 裆
+  - 鹑
+  - 孬
+  - 簋
+  - 绉
+  - 茱
+  - 莜
+  - 蛔
+  - 栀
+  - 狰
+  - 碣
+  - 邝
+  - 铆
+  - 沭
+  - 胥
+  - 薏
+  - 襁
+  - 轶
+  - 锷
+  - 偌
+  - 埂
+  - 怵
+  - 泔
+  - 胛
+  - 咂
+  - 噶
+  - 崧
+  - 戾
+  - 砝
+  - 贮
+  - 朕
+  - 杳
+  - 灞
+  - 稷
+  - 踮
+  - 锆
+  - 吮
+  - 攥
+  - 毓
+  - 沣
+  - 藿
+  - 裱
+  - 俚
+  - 冽
+  - 矬
+  - 蔫
+  - 馏
+  - 砒
+  - 覃
+  - 踉
+  - 钜
+  - 垤
+  - 淞
+  - 褚
+  - 蹒
+  - 蹩
+  - 郜
+  - 汨
+  - 畈
+  - 痨
+  - 砣
+  - 硚
+  - 谟
+  - 锨
+  - 坳
+  - 垭
+  - 孑
+  - 嵋
+  - 嶙
+  - 晌
+  - 晔
+  - 桎
+  - 沅
+  - 淅
+  - 滘
+  - 煊
+  - 犄
+  - 纨
+  - 膈
+  - 镣
+  - 儋
+  - 凇
+  - 崃
+  - 忤
+  - 怄
+  - 樨
+  - 琰
+  - 痼
+  - 舸
+  - 蔺
+  - 蟋
+  - 钨
+  - 铨
+  - 鲳
+  - 黝
+  - 侑
+  - 崆
+  - 榫
+  - 犸
+  - 琬
+  - 绫
+  - 赈
+  - 邛
+  - 馕
+  - 驷
+  - 囍
+  - 垡
+  - 姝
+  - 搔
+  - 淝
+  - 潸
+  - 烃
+  - 玳
+  - 珮
+  - 皋
+  - 腴
+  - 跬
+  - 鲠
+  - 鼬
+  - 伢
+  - 偃
+  - 嵊
+  - 悱
+  - 揩
+  - 昶
+  - 泫
+  - 涠
+  - 湫
+  - 硌
+  - 窨
+  - 绔
+  - 羸
+  - 腈
+  - 虱
+  - 贰
+  - 趵
+  - 钎
+  - 铷
+  - 伫
+  - 垩
+  - 埝
+  - 妯
+  - 娉
+  - 扪
+  - 掮
+  - 洮
+  - 浃
+  - 煳
+  - 獾
+  - 珲
+  - 疃
+  - 砀
+  - 筱
+  - 綦
+  - 艮
+  - 茆
+  - 褛
+  - 诓
+  - 貔
+  - 逯
+  - 郧
+  - 厝
+  - 囔
+  - 塍
+  - 墉
+  - 媞
+  - 徜
+  - 掇
+  - 掸
+  - 晞
+  - 暹
+  - 泮
+  - 溟
+  - 潞
+  - 犇
+  - 璟
+  - 睇
+  - 苋
+  - 菀
+  - 葳
+  - 跚
+  - 郅
+  - 钴
+  - 鼹
+  - 仟
+  - 侗
+  - 俾
+  - 叁
+  - 圻
+  - 垅
+  - 妤
+  - 旌
+  - 枳
+  - 楔
+  - 楸
+  - 溆
+  - 濂
+  - 矸
+  - 绻
+  - 缱
+  - 腓
+  - 蓥
+  - 谑
+  - 谕
+  - 踱
+  - 邙
+  - 钯
+  - 锒
+  - 闳
+  - 阡
+  - 颢
+  - 骐
+  - 鲭
+  - 鲷
+  - 鹞
+  - 劭
+  - 啵
+  - 嵇
+  - 庹
+  - 拚
+  - 旻
+  - 柞
+  - 樯
+  - 溏
+  - 澍
+  - 琏
+  - 睢
+  - 砷
+  - 祚
+  - 竽
+  - 苡
+  - 荇
+  - 莅
+  - 蕲
+  - 蜱
+  - 蟊
+  - 裨
+  - 觐
+  - 诃
+  - 谧
+  - 邕
+  - 郓
+  - 酰
+  - 铖
+  - 铟
+  - 镌
+  - 阆
+  - 阕
+  - 雒
+  - 霁
+  - 髋
+  - 鲅
+  - 鲑
+  - 鲢
+  - 麸
+  - 刽
+  - 唑
+  - 喟
+  - 嗪
+  - 噘
+  - 囹
+  - 圪
+  - 垚
+  - 埸
+  - 堇
+  - 嫫
+  - 嬗
+  - 孛
+  - 孳
+  - 峁
+  - 嵬
+  - 弋
+  - 悻
+  - 扞
+  - 摈
+  - 撺
+  - 擘
+  - 朐
+  - 栎
+  - 沏
+  - 浠
+  - 淦
+  - 渑
+  - 潋
+  - 炔
+  - 焗
+  - 焘
+  - 煨
+  - 琤
+  - 琮
+  - 瑷
+  - 疝
+  - 疽
+  - 窠
+  - 粼
+  - 纾
+  - 缙
+  - 罔
+  - 腭
+  - 茌
+  - 茯
+  - 荠
+  - 萸
+  - 螈
+  - 衲
+  - 谯
+  - 踺
+  - 轫
+  - 邳
+  - 郯
+  - 铣
+  - 铩
+  - 铰
+  - 锲
+  - 阖
+  - 霈
+  - 骠
+  - 黍
+  - 䶮
+  - 仡
+  - 偓
+  - 刍
+  - 剜
+  - 吖
+  - 咝
+  - 咻
+  - 哂
+  - 唷
+  - 喁
+  - 嗄
+  - 嘭
+  - 噙
+  - 圹
+  - 坩
+  - 埇
+  - 埕
+  - 埚
+  - 妫
+  - 娌
+  - 嫚
+  - 孱
+  - 宓
+  - 尅
+  - 嶝
+  - 弭
+  - 怆
+  - 怿
+  - 恁
+  - 恸
+  - 扦
+  - 枋
+  - 椋
+  - 樾
+  - 毂
+  - 汊
+  - 汩
+  - 泠
+  - 洹
+  - 浈
+  - 焓
+  - 牾
+  - 玹
+  - 珙
+  - 疣
+  - 疴
+  - 瘳
+  - 眬
+  - 矽
+  - 秣
+  - 笳
+  - 篦
+  - 籼
+  - 粲
+  - 绀
+  - 绋
+  - 芩
+  - 蓦
+  - 蠡
+  - 褴
+  - 訾
+  - 讣
+  - 诘
+  - 趺
+  - 踯
+  - 蹚
+  - 躅
+  - 轸
+  - 逡
+  - 酐
+  - 钇
+  - 钲
+  - 铧
+  - 锉
+  - 锟
+  - 闩
+  - 隗
+  - 颀
+  - 飧
+  - 髂
+  - 魉
+  - 鳟
+  - 鸢
+  - Ａ
+  - 馀
+  - 陬
+  - 褔
+  - 疖
+  - 棂
+  - 晷
+  - 搽
+  - 逑
+  - 苷
+  - 砼
+  - 盅
+  - 瑭
+  - 憷
+  - 忿
+  - 屐
+  - 尕
+  - 塬
+  - 倌
+  - 跹
+  - 葚
+  - 殓
+  - 冼
+  - 僮
+  - 轳
+  - 跶
+  - 跎
+  - 貅
+  - 茛
+  - 珺
+  - 柒
+  - 佶
+  - 铡
+  - 粳
+  - 燮
+  - 枰
+  - 呻
+  - 锴
+  - 峒
+  - 唛
+  - 鲟
+  - 骝
+  - 靛
+  - 趸
+  - 耙
+  - 碴
+  - 燊
+  - 淖
+  - 钏
+  - 衮
+  - 琨
+  - 徉
+  - 唁
+  - 胗
+  - 绌
+  - 婊
+  - 咭
+  - 骅
+  - 祎
+  - 癣
+  - 狒
+  - 邺
+  - 蟀
+  - 稞
+  - 湎
+  - 斛
+  - 梏
+  - 枞
+  - 镉
+  - 箴
+  - 煦
+  - 嗔
+  - 苣
+  - 翊
+  - 癜
+  - 蹼
+  - 蛆
+  - 瑁
+  - 昀
+  - 骞
+  - 矾
+  - 璞
+  - 桉
+  - 嵘
+  - 噢
+  - 讴
+  - 皑
+  - 珉
+  - 荚
+  - 翎
+  - 婵
+  - 赓
+  - 缰
+  - 缨
+  - 瘠
+  - 懋
+  - 碜
+  - 烩
+  - 嬷
+  - 呲
+  - 鹌
+  - 阄
+  - 镕
+  - 筠
+  - 炀
+  - 氟
+  - 圩
+  - 熠
+  - 漪
+  - 歆
+  - 擀
+  - 骜
+  - 镭
+  - 赊
+  - 菁
+  - 篪
+  - 眈
+  - 忻
+  - 孀
+  - 藜
+  - 烷
+  - 宸
+  - 偎
+  - 锹
+  - 铉
+  - 褓
+  - 皎
+  - 犷
+  - 犒
+  - 嗖
+  - 鹜
+  - 锌
+  - 珏
+  - 藓
+  - 跄
+  - 榭
+  - 嫔
+  - 娣
+  - 贻
+  - 蜍
+  - 缄
+  - 眸
+  - 眙
+  - 鹫
+  - 蜴
+  - 膺
+  - 瘪
+  - 沓
+  - 斓
+  - 擞
+  - 崮
+  - 镁
+  - 纫
+  - 碚
+  - 桢
+  - 飚
+  - 萋
+  - 焱
+  - 樵
+  - 坯
+  - 嘶
+  - 镊
+  - 衩
+  - 蛹
+  - 莠
+  - 砾
+  - 渍
+  - 毡
+  - 旯
+  - 垛
+  - 锰
+  - 酚
+  - 鳍
+  - 饨
+  - 铀
+  - 峋
+  - 骛
+  - 腩
+  - 畊
+  - 唰
+  - 仞
+  - 阉
+  - 狞
+  - 昱
+  - 搡
+  - 轧
+  - 臧
+  - 窕
+  - 砚
+  - 烊
+  - 楣
+  - 忡
+  - 鹂
+  - 桨
+  - 摞
+  - 愫
+  - 钛
+  - 祺
+  - 蹶
+  - 恃
+  - 呷
+  - 笆
+  - 抡
+  - 忱
+  - 嬅
+  - 刎
+  - 钵
+  - 讧
+  - 蛀
+  - 杈
+  - 餮
+  - 钊
+  - 缎
+  - 镍
+  - 觎
+  - 婧
+  - 颧
+  - 颚
+  - 蝌
+  - 脍
+  - 嗲
+  - 匣
+  - 龊
+  - 苞
+  - 鲫
+  - 躏
+  - 袅
+  - 绢
+  - 婺
+  - 铿
+  - 蚱
+  - 篑
+  - 铤
+  - 脓
+  - 媲
+  - 铄
+  - 箫
+  - 娆
+  - 佘
+  - 邰
+  - 莺
+  - 缢
+  - 搐
+  - 酯
+  - 萦
+  - 漾
+  - 汾
+  - 毽
+  - 褂
+  - 暄
+  - 鸾
+  - 鬟
+  - 缇
+  - 篓
+  - 泾
+  - 赳
+  - 腆
+  - 鳝
+  - 韬
+  - 锏
+  - 诩
+  - 秸
+  - 戬
+  - 觑
+  - 蕙
+  - 鹭
+  - 蚤
+  - 芊
+  - 砌
+  - 獒
+  - 殇
+  - 奂
+  - 钣
+  - 膑
+  - 糗
+  - 盹
+  - 玥
+  - 邃
+  - 蜓
+  - 燎
+  - 啧
+  - 罄
+  - 蜻
+  - 睬
+  - 猬
+  - 馄
+  - 皖
+  - 兀
+  - 霎
+  - 蓓
+  - 瘴
+  - 痫
+  - 镐
+  - 褶
+  - 跺
+  - 烬
+  - 泓
+  - 锵
+  - 讷
+  - 蚪
+  - 秆
+  - 泞
+  - 鳗
+  - 蜥
+  - 炅
+  - 旮
+  - 掂
+  - 壑
+  - 咣
+  - 魇
+  - 碘
+  - 皙
+  - 寐
+  - 瘀
+  - 怅
+  - 蚝
+  - 莘
+  - 寰
+  - 茬
+  - 冢
+  - 鳞
+  - 镳
+  - 辍
+  - 骋
+  - 薰
+  - 筵
+  - 盎
+  - 榈
+  - 咘
+  - 侬
+  - 辘
+  - 脯
+  - 楞
+  - 饽
+  - 苯
+  - 骰
+  - 霏
+  - 蜢
+  - 浔
+  - 挛
+  - 娄
+  - 悴
+  - 婕
+  - 喳
+  - 啾
+  - 讪
+  - 帛
+  - 孺
+  - 诋
+  - 诿
+  - 磺
+  - 皓
+  - 拴
+  - 炜
+  - 幄
+  - 崽
+  - 傥
+  - 鳅
+  - 铮
+  - 涧
+  - 钾
+  - 膛
+  - 紊
+  - 痧
+  - 犊
+  - 浚
+  - 酣
+  - 摹
+  - 幢
+  - 峭
+  - 姣
+  - 吆
+  - 纭
+  - 茁
+  - 滇
+  - 佗
+  - 逵
+  - 湍
+  - 谩
+  - 荫
+  - 窖
+  - 煜
+  - 饕
+  - 遢
+  - 枭
+  - 惦
+  - 轼
+  - 篱
+  - 窿
+  - 祛
+  - 哽
+  - 鹃
+  - 籁
+  - 榷
+  - 昵
+  - 噗
+  - 褥
+  - 瘸
+  - 泯
+  - 孜
+  - 讹
+  - 蔷
+  - 犟
+  - 岖
+  - 鞑
+  - 釉
+  - 蹋
+  - 粑
+  - 涓
+  - 泷
+  - 鲈
+  - 颊
+  - 洙
+  - 锭
+  - 焖
+  - 惬
+  - 驮
+  - 馋
+  - 榕
+  - 饯
+  - 靶
+  - 镂
+  - 沱
+  - 摒
+  - 哐
+  - 黯
+  - 诧
+  - 撬
+  - 铐
+  - 菏
+  - 噱
+  - 芮
+  - 玟
+  - 涮
+  - 铂
+  - 胭
+  - 瑙
+  - 屹
+  - 嗝
+  - 鳖
+  - 阂
+  - 嚓
+  - 蚣
+  - 籽
+  - 炕
+  - 嚏
+  - 迩
+  - 馁
+  - 狈
+  - 挝
+  - 闵
+  - 谏
+  - 篆
+  - 疡
+  - 淼
+  - 挞
+  - 懦
+  - 恙
+  - 彝
+  - 奘
+  - 伶
+  - 淌
+  - 鳌
+  - 胯
+  - 汴
+  - 钗
+  - 跤
+  - 棣
+  - 晗
+  - 忑
+  - 囱
+  - 琅
+  - 徙
+  - 羚
+  - 檐
+  - 蔼
+  - 茴
+  - 馗
+  - 谛
+  - 瑄
+  - 桦
+  - 撵
+  - 鸥
+  - 螳
+  - 绛
+  - 纣
+  - 穗
+  - 榻
+  - 楂
+  - 恺
+  - 夯
+  - 哮
+  - 鸯
+  - 惺
+  - 鄱
+  - 辄
+  - 噼
+  - 厮
+  - 匾
+  - 倔
+  - 眶
+  - 栩
+  - 晏
+  - 嗒
+  - 佼
+  - 捶
+  - 骁
+  - 锄
+  - 胫
+  - 饷
+  - 箍
+  - 烨
+  - 袒
+  - 畸
+  - 惮
+  - 獗
+  - 滕
+  - 帼
+  - 璨
+  - 晾
+  - 跷
+  - 抨
+  - 瓮
+  - 苇
+  - 戛
+  - 蹬
+  - 啬
+  - 佟
+  - 岚
+  - 嬛
+  - 镯
+  - 羁
+  - 飓
+  - 遛
+  - 溅
+  - 锢
+  - 莆
+  - 掳
+  - 煲
+  - 隘
+  - 潍
+  - 诣
+  - 屉
+  - 孚
+  - 佰
+  - 驯
+  - 暨
+  - 俑
+  - 荟
+  - 峪
+  - 颐
+  - 醛
+  - 拣
+  - 蟒
+  - 沥
+  - 悖
+  - 髦
+  - 掷
+  - 仨
+  - 馍
+  - 铠
+  - 痊
+  - 濑
+  - 嘣
+  - 蚓
+  - 砰
+  - 跆
+  - 浒
+  - 峥
+  - 亢
+  - 猩
+  - 汶
+  - 禺
+  - 珑
+  - 叼
+  - 蘸
+  - 鸠
+  - 翩
+  - 缤
+  - 簧
+  - 瑾
+  - 唬
+  - 璋
+  - 梧
+  - 痱
+  - 驭
+  - 琛
+  - 氪
+  - 蒿
+  - 磷
+  - 钝
+  - 辫
+  - 蓟
+  - 粱
+  - 枸
+  - 蜗
+  - 窘
+  - 饵
+  - 刨
+  - 瘩
+  - 哆
+  - 裴
+  - 聋
+  - 猖
+  - 胧
+  - 悚
+  - 袄
+  - 荤
+  - 胺
+  - 栅
+  - 忒
+  - 阑
+  - 辗
+  - 踝
+  - 濒
+  - 洱
+  - 橱
+  - 驿
+  - 筝
+  - 藉
+  - 绞
+  - 毋
+  - 胰
+  - 烽
+  - 瀚
+  - 辙
+  - 嫦
+  - 潼
+  - 渎
+  - 渲
+  - 嗷
+  - 稠
+  - 嫖
+  - 戮
+  - 殃
+  - 驸
+  - 赘
+  - 嚷
+  - 娴
+  - 喆
+  - 茧
+  - 缪
+  - 鹉
+  - 骼
+  - 缕
+  - 巍
+  - 鹦
+  - 赃
+  - 蜕
+  - 溥
+  - 笃
+  - 锯
+  - 钰
+  - 驹
+  - 貂
+  - 癫
+  - 疚
+  - 蜈
+  - 吒
+  - 霄
+  - 隍
+  - 鸳
+  - 绊
+  - 涡
+  - 帷
+  - 铛
+  - 俪
+  - 霖
+  - 蔗
+  - 椭
+  - 溉
+  - 峦
+  - 娅
+  - 匮
+  - 榔
+  - 俐
+  - 吝
+  - 诬
+  - 韭
+  - 俞
+  - 烯
+  - 坍
+  - 疙
+  - 沮
+  - 睐
+  - 汕
+  - 傣
+  - 颅
+  - 虞
+  - 阙
+  - 璇
+  - 诟
+  - 斟
+  - 腮
+  - 炯
+  - 歼
+  - 郸
+  - 痹
+  - 曦
+  - 擂
+  - 锥
+  - 躬
+  - 眯
+  - 豌
+  - 诽
+  - 惫
+  - 鹊
+  - 蕊
+  - 慑
+  - 绅
+  - 擒
+  - 捂
+  - 绽
+  - 孰
+  - 晤
+  - 崭
+  - 潢
+  - 幂
+  - 拧
+  - 肮
+  - 酶
+  - 氮
+  - 噬
+  - 颓
+  - 舜
+  - 栾
+  - 锣
+  - 蛤
+  - 髅
+  - 闫
+  - 泵
+  - 饪
+  - 怂
+  - 腌
+  - 鲸
+  - 甭
+  - 垦
+  - 冀
+  - 磅
+  - 弩
+  - 祯
+  - 梭
+  - 昕
+  - 侥
+  - 愣
+  - 瞪
+  - 涤
+  - 棱
+  - 绯
+  - 澜
+  - 姗
+  - 藕
+  - 霾
+  - 锂
+  - 镀
+  - 汹
+  - 鲤
+  - 湃
+  - 簇
+  - 渺
+  - 遴
+  - 乍
+  - 扳
+  - 耘
+  - 鄂
+  - 疮
+  - 骷
+  - 蚀
+  - 聂
+  - 疤
+  - 淤
+  - 坷
+  - 秽
+  - 瞩
+  - 韶
+  - 钧
+  - 蟑
+  - 茵
+  - 芜
+  - 戌
+  - 劵
+  - 唠
+  - 绮
+  - 浊
+  - 漓
+  - 殡
+  - 眨
+  - 惭
+  - 倪
+  - 煞
+  - 滔
+  - 倘
+  - 枫
+  - 澈
+  - 孽
+  - 雳
+  - 氨
+  - 绰
+  - 辕
+  - 镑
+  - 熄
+  - 恤
+  - 挚
+  - 颤
+  - 瞌
+  - 囧
+  - 讳
+  - 痪
+  - 烁
+  - 羔
+  - 秃
+  - 慷
+  - 岔
+  - 漳
+  - 痞
+  - 彤
+  - 榨
+  - 盏
+  - 沐
+  - 棠
+  - 崴
+  - 坞
+  - 吩
+  - 栈
+  - 柠
+  - 敖
+  - 侈
+  - 羯
+  - 渝
+  - 绷
+  - 纶
+  - 糯
+  - 荔
+  - 淆
+  - 陡
+  - 俏
+  - 墩
+  - 粽
+  - 柬
+  - 嘀
+  - 厥
+  - 剔
+  - 逾
+  - 羲
+  - 诫
+  - 缀
+  - 坨
+  - 赂
+  - 怼
+  - 噩
+  - 陇
+  - 钦
+  - 钠
+  - 唧
+  - 凿
+  - 嗡
+  - 吱
+  - 卉
+  - 呕
+  - 汛
+  - 弈
+  - 秧
+  - 糙
+  - 焕
+  - 涩
+  - 絮
+  - 璐
+  - 涕
+  - 疵
+  - 脐
+  - 氓
+  - 羿
+  - 谤
+  - 蝙
+  - 遏
+  - 蝠
+  - 灶
+  - 枉
+  - 咩
+  - 懵
+  - 婪
+  - 惕
+  - 诅
+  - 喀
+  - 挠
+  - 靓
+  - 郝
+  - 泻
+  - 韧
+  - 憋
+  - 铝
+  - 睿
+  - 冉
+  - 窍
+  - 碾
+  - 惶
+  - 潇
+  - 巅
+  - 陨
+  - 玺
+  - 赣
+  - 鲍
+  - 哗
+  - 粤
+  - 娥
+  - 囤
+  - 瀑
+  - 棕
+  - 叽
+  - 焊
+  - 鸽
+  - 抒
+  - 剿
+  - 苟
+  - 酝
+  - 聆
+  - 硅
+  - 睹
+  - 螂
+  - 扒
+  - 亵
+  - 锈
+  - 丐
+  - 猝
+  - 陋
+  - 衅
+  - 妞
+  - 呸
+  - 缚
+  - 骇
+  - 龚
+  - 剁
+  - 玮
+  - 瞅
+  - 俘
+  - 榆
+  - 婶
+  - 瘟
+  - 敛
+  - 蝇
+  - 俭
+  - 镖
+  - 骏
+  - 凳
+  - 倚
+  - 啸
+  - 筷
+  - 绸
+  - 沪
+  - 衫
+  - 瑕
+  - 洽
+  - 觅
+  - 膊
+  - 佬
+  - 缮
+  - 掺
+  - 胳
+  - 皂
+  - 邢
+  - 绒
+  - 碱
+  - 窥
+  - 暧
+  - 懈
+  - 槟
+  - 嚣
+  - 粪
+  - 钙
+  - 葫
+  - 刁
+  - 哒
+  - 邹
+  - 橡
+  - 腥
+  - 馅
+  - 矶
+  - 鳄
+  - 呛
+  - 憬
+  - 皱
+  - 喱
+  - 阎
+  - 嗦
+  - 雯
+  - 啰
+  - 窜
+  - 馒
+  - 敞
+  - 赁
+  - 禀
+  - 搂
+  - 劈
+  - 耸
+  - 蕴
+  - 篷
+  - 豁
+  - 舔
+  - 毙
+  - 窦
+  - 噜
+  - 詹
+  - 瘫
+  - 彪
+  - 掀
+  - 铲
+  - 顽
+  - 篡
+  - 乓
+  - 阀
+  - 娟
+  - 鑫
+  - 帜
+  - 丫
+  - 髓
+  - 沦
+  - 叨
+  - 镶
+  - 嗓
+  - 诲
+  - 咏
+  - 饺
+  - 鸦
+  - 榄
+  - 庐
+  - 虏
+  - 骆
+  - 蝎
+  - 哔
+  - 轿
+  - 揍
+  - 憨
+  - 侄
+  - 酥
+  - 踹
+  - 橄
+  - 纺
+  - 兮
+  - 烛
+  - 悯
+  - 螃
+  - 萤
+  - 厢
+  - 沧
+  - 啃
+  - 辜
+  - 罕
+  - 饲
+  - 谜
+  - 卤
+  - 浇
+  - 埔
+  - 琦
+  - 葩
+  - 恳
+  - 笋
+  - 咐
+  - 屿
+  - 钞
+  - 诀
+  - 雏
+  - 掰
+  - 阐
+  - 屎
+  - 咕
+  - 摧
+  - 黏
+  - 摁
+  - 恕
+  - 缉
+  - 渤
+  - 纬
+  - 撸
+  - 萍
+  - 攒
+  - 擎
+  - 睁
+  - 炳
+  - 乒
+  - 竖
+  - 缔
+  - 仑
+  - 闸
+  - 诡
+  - 啤
+  - 琐
+  - 蚂
+  - 蝴
+  - 奕
+  - 谴
+  - 揽
+  - 叮
+  - 绎
+  - 矫
+  - 捣
+  - 歇
+  - 袍
+  - 谍
+  - 枣
+  - 喵
+  - 鲨
+  - 诏
+  - 奠
+  - 倩
+  - 蹭
+  - 撩
+  - 翘
+  - 侨
+  - 辐
+  - 瞒
+  - 焰
+  - 饥
+  - 咦
+  - 袜
+  - 捍
+  - 樊
+  - 闽
+  - 铸
+  - 壶
+  - 蘑
+  - 缸
+  - 邵
+  - 盔
+  - 炖
+  - 澎
+  - 谬
+  - 淇
+  - 铅
+  - 崛
+  - 耿
+  - 揣
+  - 甄
+  - 坝
+  - 亩
+  - 阱
+  - 隧
+  - 甸
+  - 尧
+  - 磕
+  - 戳
+  - 滤
+  - 讶
+  - 畴
+  - 酿
+  - 舆
+  - 岂
+  - 嫂
+  - 灿
+  - 衬
+  - 痘
+  - 莓
+  - 咚
+  - 忏
+  - 颂
+  - 锡
+  - 嘻
+  - 冈
+  - 绣
+  - 贱
+  - 纱
+  - 雍
+  - 飙
+  - 眷
+  - 瞄
+  - 冕
+  - 廖
+  - 拢
+  - 掐
+  - 浑
+  - 槃
+  - 钉
+  - 撇
+  - 驴
+  - 滥
+  - 裹
+  - 呜
+  - 帐
+  - 竭
+  - 贿
+  - 浆
+  - 脖
+  - 匆
+  - 驼
+  - 薛
+  - 魄
+  - 诵
+  - 垒
+  - 缅
+  - 蹦
+  - 霉
+  - 揪
+  - 垄
+  - 匀
+  - 纤
+  - 搅
+  - 坎
+  - 稻
+  - 桩
+  - 玫
+  - 荧
+  - 窑
+  - 哑
+  - 搓
+  - 铭
+  - 兑
+  - 肆
+  - 咔
+  - 坟
+  - 囊
+  - 驰
+  - 瞧
+  - 壤
+  - 寞
+  - 颇
+  - 拎
+  - 旷
+  - 蜡
+  - 羡
+  - 喔
+  - 涅
+  - 钥
+  - 熙
+  - 撕
+  - 烫
+  - 驳
+  - 缆
+  - 蹈
+  - 瞻
+  - 瑰
+  - 衔
+  - 耻
+  - 蚁
+  - 闺
+  - 捆
+  - 顷
+  - 塘
+  - 瑶
+  - 谭
+  - 莹
+  - 琼
+  - 拦
+  - 穆
+  - 菠
+  - 咪
+  - 棵
+  - 讽
+  - 嫩
+  - 诛
+  - 垮
+  - 咙
+  - 鹤
+  - 瓷
+  - 鹰
+  - 倡
+  - 呱
+  - 陌
+  - 悄
+  - 烘
+  - 拱
+  - 拯
+  - 舱
+  - 熹
+  - 巩
+  - 浏
+  - 甩
+  - 颈
+  - 屡
+  - 拽
+  - 塌
+  - 贬
+  - 蠢
+  - 芬
+  - 绵
+  - 匈
+  - 搏
+  - 赎
+  - 斋
+  - 谐
+  - 蔬
+  - 耍
+  - 碟
+  - 菇
+  - 丛
+  - 巢
+  - 帘
+  - 莽
+  - 寇
+  - 裙
+  - 豫
+  - 擅
+  - 佣
+  - 噻
+  - 饶
+  - 渗
+  - 锻
+  - 诠
+  - 蒂
+  - 勺
+  - 隶
+  - 婷
+  - 趟
+  - 搁
+  - 嘟
+  - 坠
+  - 奎
+  - 腊
+  - 泼
+  - 匪
+  - 锐
+  - 哩
+  - 艰
+  - 吨
+  - 谣
+  - 姬
+  - 侣
+  - 澡
+  - 槛
+  - 荆
+  - 狠
+  - 渣
+  - 陕
+  - 掏
+  - 弗
+  - 谊
+  - 颁
+  - 攀
+  - 愤
+  - 妒
+  - 钩
+  - 胀
+  - 扛
+  - 扔
+  - 凑
+  - 炫
+  - 垫
+  - 钮
+  - 垃
+  - 鹅
+  - 愧
+  - 僵
+  - 渴
+  - 挪
+  - 谅
+  - 铃
+  - 笼
+  - 跪
+  - 瑜
+  - 溃
+  - 悬
+  - 贾
+  - 歹
+  - 齿
+  - 趁
+  - 掩
+  - 讼
+  - 贩
+  - 滩
+  - 锤
+  - 盯
+  - 扑
+  - 牺
+  - 壳
+  - 圾
+  - 勋
+  - 哼
+  - 瘾
+  - 苍
+  - 妮
+  - 颖
+  - 阔
+  - 熏
+  - 瞎
+  - 渊
+  - 坤
+  - 鸣
+  - 愈
+  - 逊
+  - 腻
+  - 骄
+  - 贞
+  - 唤
+  - 韵
+  - 婴
+  - 沾
+  - 韦
+  - 颠
+  - 棍
+  - 乔
+  - 屌
+  - 肃
+  - 胁
+  - 彭
+  - 磊
+  - 啪
+  - 厦
+  - 琪
+  - 绳
+  - 姊
+  - 骚
+  - 纲
+  - 辖
+  - 虾
+  - 谎
+  - 袁
+  - 缠
+  - 罐
+  - 寨
+  - 庞
+  - 闯
+  - 娇
+  - 蹲
+  - 叭
+  - 帕
+  - 萧
+  - 吁
+  - 瑟
+  - 氛
+  - 莎
+  - 摔
+  - 盼
+  - 媳
+  - 闷
+  - 捞
+  - 俱
+  - 鸿
+  - 鹏
+  - 馈
+  - 畅
+  - 谦
+  - 唉
+  - 抠
+  - 迈
+  - 筛
+  - 贺
+  - 萝
+  - 谨
+  - 纽
+  - 爹
+  - 肾
+  - 骤
+  - 冯
+  - 扭
+  - 喇
+  - 砖
+  - 诞
+  - 斩
+  - 狮
+  - 罢
+  - 诱
+  - 咒
+  - 硕
+  - 缝
+  - 捅
+  - 驱
+  - 喻
+  - 盐
+  - 辽
+  - 哄
+  - 酱
+  - 拨
+  - 叹
+  - 惩
+  - 泛
+  - 妆
+  - 阁
+  - 滨
+  - 侦
+  - 怡
+  - 奸
+  - 圳
+  - 笨
+  - 躺
+  - 兹
+  - 歧
+  - 仗
+  - 翅
+  - 窝
+  - 翰
+  - 岗
+  - 裤
+  - 绘
+  - 诈
+  - 饱
+  - 譬
+  - 轩
+  - 贫
+  - 矣
+  - 挣
+  - 柯
+  - 跃
+  - 钓
+  - 揭
+  - 捡
+  - 姨
+  - 臂
+  - 趴
+  - 飘
+  - 仿
+  - 轴
+  - 夹
+  - 疏
+  - 砸
+  - 钻
+  - 咧
+  - 肿
+  - 饿
+  - 扯
+  - 纹
+  - 摊
+  - 伪
+  - 谱
+  - 贯
+  - 肚
+  - 缴
+  - 荡
+  - 抛
+  - 肠
+  - 吕
+  - 岭
+  - 碳
+  - 邻
+  - 驻
+  - 鸭
+  - 抚
+  - 兔
+  - 纠
+  - 龟
+  - 熬
+  - 吵
+  - 浓
+  - 倾
+  - 厕
+  - 涂
+  - 俩
+  - 邓
+  - 雾
+  - 纵
+  - 卧
+  - 肤
+  - 丧
+  - 胶
+  - 胖
+  - 捷
+  - 涵
+  - 赠
+  - 赌
+  - 邮
+  - 晕
+  - 篮
+  - 卢
+  - 绑
+  - 坛
+  - 祸
+  - 莲
+  - 杠
+  - 猎
+  - 轰
+  - 叠
+  - 尸
+  - 柜
+  - 堡
+  - 剂
+  - 恼
+  - 删
+  - 奋
+  - 抖
+  - 烤
+  - 彻
+  - 醉
+  - 锋
+  - 糟
+  - 杆
+  - 伞
+  - 纷
+  - 厌
+  - 框
+  - 栏
+  - 佩
+  - 劝
+  - 逛
+  - 醋
+  - 详
+  - 艳
+  - 炼
+  - 刮
+  - 恢
+  - 夸
+  - 递
+  - 玛
+  - 尘
+  - 赐
+  - 迟
+  - 菲
+  - 赋
+  - 疯
+  - 综
+  - 荐
+  - 泪
+  - 尴
+  - 偿
+  - 挤
+  - 储
+  - 迁
+  - 陷
+  - 驶
+  - 舰
+  - 呗
+  - 犹
+  - 劲
+  - 扎
+  - 册
+  - 牵
+  - 筹
+  - 傻
+  - 辉
+  - 晨
+  - 仓
+  - 踢
+  - 饰
+  - 罩
+  - 冻
+  - 绕
+  - 喷
+  - 绪
+  - 赔
+  - 砍
+  - 贡
+  - 踩
+  - 撑
+  - 侧
+  - 闲
+  - 辩
+  - 歉
+  - 宪
+  - 铜
+  - 链
+  - 氧
+  - 腾
+  - 龄
+  - 娱
+  - 辆
+  - 贪
+  - 览
+  - 墙
+  - 鉴
+  - 啡
+  - 脉
+  - 吓
+  - 狱
+  - 兽
+  - 窗
+  - 弯
+  - 炮
+  - 咨
+  - 忧
+  - 雕
+  - 宠
+  - 尬
+  - 渔
+  - 聪
+  - 矿
+  - 铺
+  - 桌
+  - 毁
+  - 朵
+  - 袭
+  - 扰
+  - 娜
+  - 锦
+  - 挡
+  - 栋
+  - 逻
+  - 郑
+  - 嚎
+  - 凯
+  - 轨
+  - 庙
+  - 凭
+  - 拟
+  - 尝
+  - 啥
+  - 嗨
+  - 泽
+  - 猜
+  - 傅
+  - 允
+  - 闹
+  - 默
+  - 穷
+  - 呦
+  - 缓
+  - 鸟
+  - 缩
+  - 贸
+  - 躲
+  - 赏
+  - 扬
+  - 糕
+  - 撞
+  - 贷
+  - 夺
+  - 舒
+  - 忆
+  - 洁
+  - 懒
+  - 汇
+  - 辅
+  - 拖
+  - 译
+  - 碎
+  - 伙
+  - 仪
+  - 咖
+  - 渐
+  - 贤
+  - 脏
+  - 饮
+  - 摸
+  - 邀
+  - 辈
+  - 嘿
+  - 晓
+  - 拥
+  - 颗
+  - 娃
+  - 帅
+  - 赖
+  - 拆
+  - 废
+  - 烂
+  - 阅
+  - 骑
+  - 污
+  - 插
+  - 迪
+  - 苹
+  - 诊
+  - 账
+  - 暂
+  - 稣
+  - 驾
+  - 拼
+  - 顿
+  - 骂
+  - 诺
+  - 沉
+  - 喂
+  - 宾
+  - 抬
+  - 债
+  - 凤
+  - 趋
+  - 厅
+  - 爷
+  - 桥
+  - 摄
+  - 扩
+  - 锅
+  - 订
+  - 锁
+  - 乌
+  - 丰
+  - 霸
+  - 伦
+  - 扫
+  - 诚
+  - 鲜
+  - 遗
+  - 齐
+  - 摆
+  - 吴
+  - 隐
+  - 础
+  - 宽
+  - 圆
+  - 碰
+  - 惯
+  - 仍
+  - 惊
+  - 敌
+  - 饼
+  - 挥
+  - 杰
+  - 鲁
+  - 绩
+  - 抢
+  - 贼
+  - 庆
+  - 汤
+  - 嘎
+  - 贝
+  - 弃
+  - 挖
+  - 镜
+  - 喊
+  - 剩
+  - 偷
+  - 阵
+  - 颜
+  - 荣
+  - 罚
+  - 哟
+  - 辑
+  - 阴
+  - 纯
+  - 签
+  - 滚
+  - 蓝
+  - 缘
+  - 询
+  - 涉
+  - 骗
+  - 竞
+  - 跌
+  - 坡
+  - 访
+  - 灾
+  - 闭
+  - 页
+  - 钢
+  - 估
+  - 苏
+  - 币
+  - 剑
+  - 库
+  - 灭
+  - 挂
+  - 违
+  - 售
+  - 宁
+  - 扣
+  - 坚
+  - 杨
+  - 赢
+  - 丝
+  - 喽
+  - 枪
+  - 赚
+  - 圈
+  - 纳
+  - 贴
+  - 疗
+  - 厉
+  - 软
+  - 沟
+  - 诗
+  - 赞
+  - 烟
+  - 败
+  - 虑
+  - 旁
+  - 损
+  - 咯
+  - 杂
+  - 缺
+  - 奶
+  - 岛
+  - 乡
+  - 织
+  - 烧
+  - 额
+  - 净
+  - 键
+  - 镇
+  - 脸
+  - 稳
+  - 档
+  - 载
+  - 她
+  - 稍
+  - 诸
+  - 编
+  - 赵
+  - 猴
+  - 摇
+  - 兰
+  - 咱
+  - 仅
+  - 刘
+  - 谋
+  - 竟
+  - 启
+  - 梦
+  - 伟
+  - 临
+  - 络
+  - 孙
+  - 韩
+  - 轮
+  - 涨
+  - 寻
+  - 销
+  - 误
+  - 厂
+  - 释
+  - 绍
+  - 亏
+  - 阶
+  - 训
+  - 购
+  - 闪
+  - 搜
+  - 陆
+  - 劳
+  - 丽
+  - 弹
+  - 恶
+  - 县
+  - 码
+  - 丢
+  - 异
+  - 货
+  - 毕
+  - 频
+  - 萨
+  - 抓
+  - 奖
+  - 笔
+  - 怀
+  - 输
+  - 树
+  - 纪
+  - 饭
+  - 烦
+  - 绿
+  - 冰
+  - 胜
+  - 择
+  - 爸
+  - 击
+  - 闻
+  - 坏
+  - 铁
+  - 获
+  - 顾
+  - 围
+  - 责
+  - 您
+  - 适
+  - 归
+  - 评
+  - 盘
+  - 鸡
+  - 幺
+  - 职
+  - 积
+  - 艺
+  - 针
+  - 赶
+  - 脑
+  - 兴
+  - 财
+  - 农
+  - 紧
+  - 顺
+  - 园
+  - 测
+  - 讯
+  - 录
+  - 贵
+  - 压
+  - 银
+  - 范
+  - 陈
+  - 剧
+  - 练
+  - 监
+  - 协
+  - 减
+  - 词
+  - 呐
+  - 优
+  - 钟
+  - 岁
+  - 严
+  - 细
+  - 汉
+  - 负
+  - 盖
+  - 药
+  - 亚
+  - 顶
+  - 伤
+  - 层
+  - 热
+  - 轻
+  - 检
+  - 尔
+  - 灵
+  - 亿
+  - 维
+  - 极
+  - 补
+  - 营
+  - 响
+  - 靠
+  - 效
+  - 执
+  - 杀
+  - 显
+  - 审
+  - 质
+  - 须
+  - 构
+  - 圣
+  - 谓
+  - 卖
+  - 哥
+  - 亲
+  - 济
+  - 绝
+  - 鱼
+  - 险
+  - 读
+  - 课
+  - 罗
+  - 虽
+  - 飞
+  - 孩
+  - 卡
+  - 卫
+  - 值
+  - 护
+  - 谈
+  - 怕
+  - 验
+  - 赛
+  - 戏
+  - 继
+  - 联
+  - 阳
+  - 划
+  - 创
+  - 晚
+  - 增
+  - 诉
+  - 试
+  - 识
+  - 跑
+  - 预
+  - 环
+  - 许
+  - 懂
+  - 态
+  - 项
+  - 团
+  - 宫
+  - 备
+  - 离
+  - 龙
+  - 讨
+  - 际
+  - 简
+  - 养
+  - 导
+  - 举
+  - 块
+  - 队
+  - 连
+  - 术
+  - 历
+  - 图
+  - 则
+  - 证
+  - 语
+  - 拜
+  - 专
+  - 红
+  - 换
+  - 众
+  - 步
+  - 级
+  - 权
+  - 习
+  - 查
+  - 复
+  - 儿
+  - 况
+  - 决
+  - 领
+  - 达
+  - 标
+  - 欢
+  - 组
+  - 搞
+  - 类
+  - 续
+  - 另
+  - 妈
+  - 广
+  - 华
+  - 乐
+  - 规
+  - 传
+  - 确
+  - 节
+  - 义
+  - 嘞
+  - 错
+  - 约
+  - 视
+  - 军
+  - 哇
+  - 战
+  - 强
+  - 议
+  - 收
+  - 观
+  - 谁
+  - 价
+  - 转
+  - 运
+  - 拿
+  - 务
+  - 掉
+  - 并
+  - 网
+  - 远
+  - 满
+  - 线
+  - 难
+  - 总
+  - 钱
+  - 统
+  - 帮
+  - 计
+  - 风
+  - 门
+  - 爱
+  - 张
+  - 呀
+  - 马
+  - 找
+  - 气
+  - 办
+  - 设
+  - 带
+  - 买
+  - 处
+  - 报
+  - 选
+  - 认
+  - 论
+  - 书
+  - 见
+  - 车
+  - 结
+  - 单
+  - 记
+  - 每
+  - 够
+  - 调
+  - 产
+  - 听
+  - 啦
+  - 谢
+  - 诶
+  - 员
+  - 嗯
+  - 较
+  - 电
+  - 资
+  - 变
+  - 无
+  - 别
+  - 场
+  - 哎
+  - 吗
+  - 让
+  - 该
+  - 从
+  - 吧
+  - 业
+  - 题
+  - 怎
+  - 间
+  - 东
+  - 嘛
+  - 应
+  - 长
+  - 进
+  - 刚
+  - 动
+  - 关
+  - 边
+  - 觉
+  - 而
+  - 发
+  - 经
+  - 话
+  - 种
+  - 讲
+  - 开
+  - 它
+  - 实
+  - 给
+  - 做
+  - 跟
+  - 现
+  - 过
+  - 呃
+  - 很
+  - 哦
+  - 时
+  - 还
+  - 呢
+  - 说
+  - 为
+  - 么
+  - 们
+  - 啊
+  - 你
+  - 这
+  - 㶧
+  - 佚
+  - 佝
+  - 俟
+  - 偈
+  - 偻
+  - 勐
+  - 匏
+  - 卲
+  - 吋
+  - 哕
+  - 唳
+  - 啲
+  - 啶
+  - 嗫
+  - 嗬
+  - 嘏
+  - 囗
+  - 囫
+  - 囯
+  - 囵
+  - 圄
+  - 坭
+  - 垌
+  - 堃
+  - 夔
+  - 奁
+  - 妪
+  - 娈
+  - 嫒
+  - 嵛
+  - 幔
+  - 忪
+  - 怫
+  - 悭
+  - 懑
+  - 戍
+  - 戗
+  - 搧
+  - 敕
+  - 旖
+  - 昝
+  - 暌
+  - 暾
+  - 曈
+  - 枥
+  - 柃
+  - 栌
+  - 桴
+  - 桷
+  - 椁
+  - 椟
+  - 椤
+  - 椴
+  - 榉
+  - 槭
+  - 橐
+  - 檗
+  - 欸
+  - 歙
+  - 殁
+  - 殚
+  - 氚
+  - 氤
+  - 氲
+  - 泖
+  - 泺
+  - 洺
+  - 浐
+  - 涑
+  - 滹
+  - 漭
+  - 潆
+  - 澧
+  - 澶
+  - 烀
+  - 熵
+  - 牠
+  - 猁
+  - 猹
+  - 獭
+  - 玑
+  - 珥
+  - 瘢
+  - 癞
+  - 矍
+  - 砭
+  - 硒
+  - 硖
+  - 磴
+  - 稹
+  - 笸
+  - 篼
+  - 纡
+  - 缛
+  - 缬
+  - 羧
+  - 耄
+  - 耋
+  - 耜
+  - 耪
+  - 肱
+  - 臬
+  - 艋
+  - 艿
+  - 芗
+  - 芾
+  - 茳
+  - 茼
+  - 荛
+  - 荸
+  - 菘
+  - 蒯
+  - 蓁
+  - 薷
+  - 藠
+  - 蚬
+  - 蚴
+  - 蛉
+  - 蝽
+  - 蟆
+  - 蠊
+  - 觥
+  - 诤
+  - 诹
+  - 谖
+  - 谘
+  - 谮
+  - 谶
+  - 豇
+  - 豢
+  - 貉
+  - 贲
+  - 赉
+  - 蹁
+  - 蹉
+  - 辊
+  - 逋
+  - 遑
+  - 郇
+  - 酞
+  - 钐
+  - 钒
+  - 钼
+  - 铋
+  - 铍
+  - 铑
+  - 锑
+  - 镏
+  - 镔
+  - 闾
+  - 陉
+  - 霪
+  - 靑
+  - 韫
+  - 颦
+  - 餍
+  - 饴
+  - 馑
+  - 骈
+  - 骓
+  - 骺
+  - 髌
+  - 髯
+  - 魟
+  - 鲼
+  - 鳃
+  - 鸩
+  - 鸪
+  - 鸫
+  - 鹁
+  - 鹧
+  - 鹳
+  - ，
+  - <vi-VN>
+  - ▁t
+  - ▁đ
+  - nh
+  - ▁th
+  - ▁ch
+  - ▁nh
+  - ▁kh
+  - ▁ng
+  - ▁g
+  - ông
+  - ▁ph
+  - ▁r
+  - ▁gi
+  - ời
+  - ên
+  - ▁cá
+  - ▁và
+  - ▁có
+  - iệ
+  - ột
+  - ▁không
+  - ôi
+  - iế
+  - ▁một
+  - ới
+  - ủa
+  - ▁của
+  - ▁x
+  - ười
+  - ượ
+  - ình
+  - ất
+  - ại
+  - uy
+  - ày
+  - ▁người
+  - ong
+  - anh
+  - ược
+  - iề
+  - ▁được
+  - ▁nó
+  - ững
+  - ▁cho
+  - ấy
+  - ▁như
+  - ▁ngh
+  - ▁mà
+  - ▁tôi
+  - ươ
+  - ải
+  - ▁những
+  - ▁thì
+  - ây
+  - ao
+  - ▁đã
+  - ần
+  - ▁cái
+  - ▁đó
+  - ▁đi
+  - ▁với
+  - ướ
+  - ▁trong
+  - ▁các
+  - iều
+  - ▁này
+  - ũng
+  - úng
+  - ăm
+  - ồi
+  - ạn
+  - ▁anh
+  - ư
+  - ế
+  - ạ
+  - ộ
+  - ờ
+  - ả
+  - ấ
+  - ố
+  - ớ
+  - ệ
+  - ề
+  - ể
+  - ơ
+  - ủ
+  - ậ
+  - ợ
+  - ầ
+  - ị
+  - ữ
+  - ứ
+  - ự
+  - ọ
+  - ồ
+  - ở
+  - ắ
+  - ừ
+  - ụ
+  - ũ
+  - ổ
+  - ặ
+  - ẽ
+  - ằ
+  - Đ
+  - ỉ
+  - ỏ
+  - ử
+  - ĩ
+  - ỗ
+  - ẫ
+  - ẹ
+  - ẩ
+  - ễ
+  - ẻ
+  - ẳ
+  - ỹ
+  - ỡ
+  - ỳ
+  - ỷ
+  - ẵ
+  - Ở
+  - ỵ
+  - Ấ
+  - Ý
+  - Ừ
+  - Ă
+  - Ờ
+  - Ả
+  - Ồ
+  - Ơ
+  - Ư
+  - Ứ
+  - Ố
+  - Ớ
+  - Ủ
+  - Ẩ
+  - Ắ
+  - Ổ
+  - Ỷ
+  - Ế
+  - Ỳ
+decoding:
+  strategy: greedy_batch
+  greedy:
+    max_symbols: 10
+  beam:
+    beam_size: 2
+    return_best_hypothesis: false
+    score_norm: true
+    tsd_max_sym_exp: 50
+    alsd_max_target_len: 2.0
+aux_ctc:
+  ctc_loss_weight: 0.1
+  use_cer: false
+  ctc_reduction: mean_batch
+  decoder:
+    _target_: nemo.collections.asr.modules.ConvASRDecoder
+    feat_in: null
+    num_classes: -1
+    vocabulary: []
+  decoding:
+    strategy: greedy
+interctc:
+  loss_weights: []
+  apply_at_layers: []
+loss:
+  loss_name: default
+  warprnnt_numba_kwargs:
+    fastemit_lambda: 0.005
+    clamp: -1.0
+variational_noise:
+  start_step: 0
+  std: 0.0
+optim:
+  name: adamw
+  lr: 0.5
+  betas:
+  - 0.9
+  - 0.98
+  weight_decay: 0.001
+  sched:
+    name: NoamAnnealing
+    d_model: 1024
+    warmup_steps: 10000
+    warmup_ratio: null
+    min_lr: 1.0e-06
+labels:
+- <unk>
+- <bg-BG>
+- ▁
+- и
+- .
+- е
+- ','
+- а
+- с
+- о
+- н
+- т
+- та
+- я
+- к
+- ▁на
+- л
+- у
+- з
+- р
+- то
+- на
+- ▁да
+- ва
+- ра
+- д
+- e
+- ка
+- ▁за
+- но
+- м
+- ни
+- ъ
+- ме
+- t
+- ст
+- п
+- ▁по
+- a
+- не
+- s
+- ▁се
+- ре
+- в
+- ко
+- ▁в
+- o
+- i
+- ▁с
+- г
+- те
+- ли
+- че
+- б
+- ▁и
+- ти
+- ж
+- ▁от
+- ч
+- r
+- ите
+- ма
+- х
+- ве
+- ви
+- ри
+- l
+- ш
+- u
+- во
+- ▁е
+- d
+- ди
+- c
+- га
+- ми
+- ла
+- по
+- ▁съ
+- й
+- ще
+- ле
+- ро
+- де
+- го
+- h
+- m
+- ци
+- щ
+- ▁про
+- ▁из
+- да
+- мо
+- си
+- И
+- ▁това
+- ния
+- p
+- ните
+- ение
+- ло
+- Н
+- ф
+- ▁до
+- П
+- ▁пред
+- ▁при
+- прав
+- С
+- ▁са
+- ▁раз
+- що
+- ▁об
+- 'n'
+- ▁има
+- па
+- ста
+- В
+- ▁трябва
+- g
+- ност
+- f
+- би
+- ча
+- en
+- in
+- ция
+- вър
+- 'on'
+- 'y'
+- er
+- an
+- Т
+- w
+- ване
+- К
+- ▁които
+- ▁много
+- ▁пре
+- '0'
+- b
+- v
+- държа
+- це
+- А
+- жда
+- ▁Благодаря
+- '2'
+- М
+- '1'
+- ▁the
+- О
+- ▁може
+- Д
+- след
+- говор
+- работ
+- ▁въпрос
+- доб
+- З
+- ц
+- k
+- ▁Това
+- '?'
+- ▁бъде
+- ▁комисия
+- Е
+- ▁този
+- ▁тези
+- ▁господин
+- ▁въз
+- ▁Европейския
+- Б
+- Г
+- Р
+- ю
+- '3'
+- '5'
+- q
+- I
+- é
+- '4'
+- z
+- A
+- '6'
+- j
+- E
+- '7'
+- Щ
+- T
+- '8'
+- '9'
+- Л
+- S
+- Ф
+- x
+- C
+- Х
+- ь
+- M
+- P
+- У
+- D
+- B
+- Ч
+- U
+- W
+- Ш
+- Ц
+- 'N'
+- O
+- G
+- à
+- F
+- L
+- è
+- V
+- R
+- ا
+- Ю
+- ó
+- Я
+- H
+- α
+- ü
+- ä
+- ل
+- Ж
+- J
+- í
+- τ
+- ι
+- á
+- ο
+- K
+- ε
+- ي
+- ê
+- 'Y'
+- ν
+- ن
+- ö
+- م
+- ç
+- ρ
+- Й
+- و
+- σ
+- π
+- ę
+- υ
+- ت
+- η
+- ر
+- μ
+- κ
+- <cs-CZ>
+- st
+- ch
+- ní
+- ▁s
+- le
+- li
+- ▁po
+- ▁v
+- ž
+- č
+- ▁to
+- 'no'
+- to
+- ▁z
+- me
+- ▁se
+- ▁a
+- te
+- ▁je
+- ho
+- ▁pro
+- ů
+- ně
+- ro
+- ▁na
+- ce
+- ▁o
+- la
+- š
+- ▁ne
+- ni
+- ra
+- ti
+- lo
+- ko
+- ▁že
+- ná
+- po
+- je
+- ě
+- de
+- na
+- mi
+- ▁do
+- ci
+- ▁k
+- ku
+- ře
+- ▁by
+- ve
+- ▁za
+- mě
+- ▁A
+- ý
+- re
+- vá
+- ou
+- vo
+- né
+- va
+- že
+- mo
+- vě
+- jí
+- tě
+- vý
+- ▁tak
+- ze
+- ří
+- ne
+- še
+- ▁vy
+- ka
+- ji
+- ky
+- rá
+- ovat
+- ▁ob
+- cí
+- ▁jak
+- ▁pře
+- ny
+- ví
+- ný
+- vi
+- ▁in
+- práv
+- ú
+- ▁co
+- ▁také
+- ent
+- ▁pan
+- ▁Děkuji
+- ▁které
+- ři
+- ▁aby
+- ▁pří
+- ▁při
+- prav
+- ř
+- vrop
+- ▁bude
+- ▁roz
+- ▁jsou
+- ové
+- ▁jsme
+- ské
+- ování
+- ▁tady
+- ský
+- děl
+- ▁musí
+- Z
+- klad
+- ▁tedy
+- dob
+- ▁To
+- ální
+- ▁Je
+- ▁stát
+- ň
+- oval
+- ▁protože
+- ▁jsem
+- ▁který
+- předsed
+- ▁být
+- ď
+- Č
+- ť
+- Š
+- Ř
+- Ž
+- ă
+- ł
+- ż
+- ą
+- X
+- Ú
+- ś
+- <da-DK>
+- ▁for
+- ▁det
+- ▁at
+- æ
+- et
+- ▁og
+- ▁vi
+- al
+- ▁de
+- ▁der
+- ▁til
+- or
+- ▁er
+- om
+- å
+- ø
+- and
+- ▁har
+- at
+- ▁f
+- ▁i
+- ▁så
+- ▁af
+- ge
+- ar
+- is
+- ing
+- ▁med
+- ▁på
+- ▁be
+- un
+- lig
+- ▁ikke
+- ▁man
+- ig
+- ▁som
+- ør
+- ▁Og
+- el
+- ag
+- ▁skal
+- erne
+- ▁Det
+- ▁den
+- ste
+- ning
+- ▁jeg
+- id
+- ▁kan
+- ▁også
+- ▁vil
+- ske
+- iv
+- ▁ud
+- ▁her
+- ion
+- am
+- ur
+- for
+- ▁pr
+- else
+- ▁sig
+- ▁men
+- ▁ind
+- ▁jo
+- ende
+- ▁være
+- ▁Vi
+- ation
+- ▁må
+- mme
+- ighed
+- tage
+- ▁op
+- ▁Jeg
+- ▁hvor
+- ▁ved
+- ▁få
+- ▁fra
+- ▁over
+- ▁have
+- kke
+- ▁meget
+- ▁Så
+- ▁Tak
+- ▁noget
+- ▁alle
+- brug
+- ▁komme
+- ▁Men
+- ▁var
+- hold
+- arbejde
+- ▁eller
+- ▁vores
+- ▁frem
+- ▁altså
+- ▁vigtig
+- vær
+- ▁EU
+- ▁gøre
+- ▁nogle
+- skab
+- ▁spørgsmål
+- ▁kunne
+- ▁kommissionen
+- ▁hvis
+- Ø
+- Æ
+- ς
+- λ
+- ί
+- ό
+- ı
+- έ
+- ά
+- ω
+- γ
+- δ
+- ή
+- <de-DE>
+- ▁die
+- ▁und
+- ▁das
+- sch
+- ▁ist
+- ▁ich
+- ▁ein
+- ▁ge
+- ung
+- it
+- ▁wir
+- ▁zu
+- ▁so
+- ▁da
+- ▁S
+- ▁auch
+- gen
+- ▁nicht
+- ▁W
+- ▁B
+- ▁E
+- ▁F
+- ll
+- ▁es
+- ▁K
+- ie
+- au
+- ▁P
+- ich
+- ▁eine
+- lich
+- ck
+- ten
+- mal
+- ein
+- ▁T
+- ▁dann
+- ▁Und
+- ▁mit
+- ▁auf
+- hr
+- ter
+- tz
+- ▁dass
+- ▁G
+- ben
+- um
+- us
+- cht
+- il
+- ▁Das
+- ▁diese
+- ▁noch
+- ▁jetzt
+- ut
+- ▁ver
+- kt
+- ▁Ich
+- ▁hier
+- ▁hat
+- ▁haben
+- ▁von
+- ri
+- ach
+- ol
+- ▁Da
+- ▁als
+- sp
+- ▁für
+- ell
+- ▁sich
+- ▁was
+- ▁ja
+- uch
+- ▁kann
+- ▁sind
+- wi
+- ▁aus
+- rei
+- ▁wie
+- ▁Ge
+- und
+- ▁St
+- isch
+- ▁sie
+- ▁Ja
+- ▁du
+- ▁war
+- ▁im
+- ▁dem
+- ▁aber
+- ▁oder
+- ß
+- ▁Sch
+- ▁uns
+- ▁habe
+- ▁wenn
+- ▁wo
+- ▁bei
+- ▁ihr
+- ▁Ma
+- zu
+- ▁schon
+- ▁De
+- ▁Sie
+- ▁über
+- ▁vor
+- ▁Die
+- ▁ganz
+- iert
+- ▁Le
+- ▁viel
+- ▁In
+- ▁Also
+- ▁Ver
+- ▁sehr
+- ▁Re
+- halt
+- ▁einfach
+- ▁werden
+- ▁sein
+- ▁Wir
+- ▁nur
+- ▁immer
+- ieren
+- ▁muss
+- ▁wieder
+- ▁mir
+- ▁gut
+- ▁mehr
+- ▁Mi
+- ▁nach
+- ▁Ha
+- ▁weil
+- ▁Aber
+- kommen
+- ▁gibt
+- ▁meine
+- ▁andere
+- ▁können
+- ▁machen
+- ▁natürlich
+- ▁bisschen
+- ▁durch
+- sehen
+- ▁weiter
+- ▁keine
+- ▁sagen
+- ▁wirklich
+- ▁eigentlich
+- ▁jede
+- schaft
+- ▁glaube
+- Ü
+- <el-GR>
+- χ
+- τα
+- ▁να
+- ει
+- ▁και
+- μα
+- β
+- ση
+- τε
+- ώ
+- θ
+- φ
+- πο
+- ύ
+- ▁το
+- ία
+- τι
+- αν
+- ου
+- ρα
+- ▁για
+- εί
+- τη
+- ξ
+- κα
+- ▁την
+- ▁τη
+- με
+- το
+- ού
+- ▁του
+- ▁προ
+- ▁με
+- ζ
+- ▁θα
+- ▁είναι
+- ρο
+- ων
+- μέ
+- ▁που
+- ια
+- νο
+- ική
+- ών
+- ρι
+- θε
+- Ε
+- ρί
+- ▁ότι
+- ουμε
+- ▁από
+- λο
+- ρά
+- ιο
+- ▁των
+- ευ
+- λη
+- ουν
+- Α
+- ▁σε
+- Π
+- ▁συν
+- φορ
+- ▁δεν
+- Σ
+- ▁στο
+- ▁δι
+- τά
+- ▁αυτό
+- ▁δια
+- ιστ
+- ▁πολύ
+- ▁πρέπει
+- ▁στην
+- σουμε
+- ικά
+- Τ
+- ▁επ
+- Κ
+- ψ
+- ▁απο
+- ▁οι
+- εται
+- ▁επι
+- ▁Υπότιτλοι
+- ▁AUTHORWAVE
+- ούμε
+- ικό
+- ▁Και
+- πρό
+- ▁Ευχαριστώ
+- ▁μια
+- ▁ένα
+- ▁συμ
+- Μ
+- ▁περι
+- ▁αυτή
+- ήσει
+- Ο
+- ικέ
+- ▁κατά
+- Γ
+- Θ
+- ▁Ευρωπαϊκή
+- ▁έχουμε
+- ▁αλλά
+- εργ
+- Η
+- ▁θέμα
+- ολογ
+- ότητα
+- ▁έχει
+- πολιτ
+- Δ
+- ▁λοιπόν
+- ονται
+- Ν
+- φέρ
+- ▁Επιτροπή
+- ▁αυτά
+- ▁Ένωση
+- Υ
+- ϊ
+- ▁Δεν
+- ▁έχουν
+- ▁υπάρχει
+- Β
+- Ι
+- Λ
+- Φ
+- Ρ
+- Χ
+- Ξ
+- Ω
+- Ζ
+- Ψ
+- Ή
+- Ά
+- Ό
+- Έ
+- <et-EE>
+- ma
+- ta
+- se
+- da
+- si
+- ▁on
+- õ
+- ks
+- ga
+- ▁et
+- ▁ka
+- he
+- mu
+- tu
+- ha
+- ja
+- gi
+- ▁selle
+- ▁ole
+- nd
+- oo
+- gu
+- ju
+- est
+- ▁ei
+- ▁pa
+- nud
+- ▁väga
+- ▁see
+- tud
+- ▁pea
+- nda
+- är
+- ▁Euroopa
+- ▁kui
+- vad
+- ke
+- sta
+- sed
+- ▁või
+- di
+- ▁saa
+- mise
+- ▁siis
+- ▁su
+- ide
+- pool
+- val
+- tus
+- ▁seda
+- ▁Me
+- ▁vastu
+- ▁jä
+- ▁tule
+- selt
+- ment
+- ▁kes
+- ndus
+- ▁töö
+- ▁kõik
+- dus
+- ▁mõ
+- eeri
+- ▁meie
+- ▁meil
+- ▁ning
+- võt
+- ▁mida
+- ▁arv
+- ▁See
+- takse
+- ▁vaja
+- ▁osa
+- õigus
+- ▁nende
+- ▁nüüd
+- ▁aasta
+- tsiooni
+- ▁inim
+- ▁need
+- tsus
+- riigi
+- ▁täh
+- ▁Liidu
+- ▁välja
+- Ä
+- Õ
+- ã
+- Q
+- ć
+- ع
+- ñ
+- <fi-FI>
+- tä
+- ssa
+- lla
+- ▁että
+- ksi
+- ty
+- ki
+- vä
+- pa
+- lle
+- lu
+- tta
+- stä
+- isi
+- ise
+- llä
+- kin
+- nä
+- ään
+- kse
+- tte
+- jä
+- ttä
+- ssä
+- ista
+- inen
+- kä
+- llis
+- tö
+- ▁myös
+- vu
+- taan
+- ▁tämä
+- ▁voi
+- utta
+- iden
+- nyt
+- ▁niin
+- ▁Kiitos
+- ▁ovat
+- hän
+- suu
+- ▁toimi
+- aika
+- ▁Tämä
+- ▁pää
+- ▁mutta
+- ▁käy
+- ▁tässä
+- ▁asia
+- ▁Tä
+- ▁jotka
+- ▁työ
+- neet
+- ▁täytyy
+- ▁sitten
+- ▁Euroopan
+- ▁puolesta
+- ▁halua
+- ▁siitä
+- ▁komissio
+- ▁hyvä
+- ▁hyvin
+- ▁puhu
+- ▁meidän
+- ▁vastaan
+- ▁tärkeä
+- ▁kaikki
+- ▁Kiitoksia
+- ▁vielä
+- ▁muut
+- ▁paljon
+- mahdollis
+- parlament
+- ▁pitäisi
+- ▁hyväksy
+- ▁puheenjohtaja
+- ▁liitty
+- ā
+- ა
+- ი
+- ī
+- ē
+- ë
+- ე
+- <fr-FR>
+- ▁est
+- ▁c
+- ▁d
+- ▁la
+- ▁p
+- ▁que
+- ▁en
+- ▁le
+- ▁à
+- es
+- ▁l
+- ▁un
+- ▁pas
+- ▁les
+- ▁qui
+- ▁il
+- ▁vous
+- ▁des
+- ▁ce
+- ▁qu
+- ▁pour
+- ▁n
+- ▁par
+- ▁ça
+- ▁une
+- ▁b
+- ant
+- ▁j
+- ais
+- ez
+- ▁dans
+- ▁va
+- ▁C
+- tre
+- ir
+- elle
+- eur
+- ▁sur
+- ▁re
+- ▁con
+- ▁ma
+- ▁Et
+- ▁au
+- ement
+- tion
+- té
+- ▁tout
+- mp
+- ique
+- ▁plus
+- eux
+- ▁dé
+- ▁fait
+- qu
+- ▁ai
+- ▁comme
+- ens
+- ac
+- ▁là
+- ▁si
+- ait
+- che
+- ▁mais
+- que
+- ul
+- ▁avec
+- ▁bien
+- ▁tu
+- age
+- ▁mon
+- ▁Donc
+- end
+- ▁faire
+- ▁être
+- ver
+- ▁peu
+- ▁même
+- tra
+- cha
+- ▁nous
+- ▁donc
+- ▁sont
+- ▁moi
+- ille
+- ff
+- ▁ex
+- ien
+- ▁Il
+- ▁très
+- ▁cette
+- im
+- ité
+- ▁dire
+- ▁peut
+- ance
+- aire
+- mé
+- ▁app
+- ▁aussi
+- ▁petit
+- aux
+- ▁parce
+- onne
+- mb
+- man
+- ▁On
+- ▁quand
+- ▁autre
+- ô
+- ▁chose
+- ▁puis
+- ▁était
+- ndre
+- port
+- ▁vraiment
+- ence
+- ▁Mais
+- î
+- ▁avoir
+- form
+- ▁faut
+- ▁Alors
+- ign
+- ▁où
+- près
+- ▁beaucoup
+- ture
+- û
+- Ç
+- â
+- ù
+- <hu-HU>
+- sz
+- ▁az
+- ▁hogy
+- ő
+- ás
+- ok
+- gy
+- ek
+- ál
+- és
+- em
+- ár
+- ▁meg
+- ▁és
+- ▁is
+- ▁ez
+- ▁egy
+- os
+- ak
+- ban
+- nak
+- ít
+- ik
+- unk
+- ▁nem
+- oz
+- ül
+- án
+- át
+- cs
+- él
+- ér
+- nek
+- ▁mi
+- szer
+- bb
+- ▁Köszönöm
+- ség
+- ▁kell
+- én
+- hat
+- ▁ha
+- ság
+- ▁szépen
+- ért
+- ék
+- ott
+- ön
+- ép
+- elő
+- ünk
+- ▁van
+- ▁ki
+- ▁fel
+- ény
+- vé
+- leg
+- eket
+- ▁Az
+- juk
+- ▁köz
+- ű
+- ▁nagyon
+- ▁tud
+- ▁jelen
+- ▁amely
+- ▁lehet
+- ▁ami
+- ▁kérdés
+- ▁ellen
+- tart
+- ről
+- É
+- ország
+- rend
+- ról
+- ▁vagy
+- ▁fontos
+- ▁Európai
+- ▁akkor
+- ▁jog
+- ▁fog
+- fogad
+- kapcsol
+- ▁rész
+- áció
+- ▁volt
+- ▁elnök
+- ▁bizottság
+- ▁gondol
+- ▁olyan
+- ▁illetve
+- ▁tagállam
+- ▁pedig
+- ▁Tehát
+- ▁európai
+- ▁szükség
+- szavaz
+- ▁tehát
+- következ
+- ▁össze
+- ▁biztos
+- Ö
+- Á
+- Í
+- Ő
+- <hr-HR>
+- ▁u
+- ▁bi
+- ▁sa
+- će
+- ▁od
+- ru
+- ▁iz
+- go
+- nje
+- sti
+- đ
+- ▁pri
+- ima
+- nu
+- ▁pre
+- ▁Hvala
+- lje
+- ▁što
+- či
+- nja
+- zi
+- vr
+- ći
+- če
+- ca
+- ▁koji
+- ba
+- ▁raz
+- י
+- ו
+- ה
+- د
+- ל
+- ة
+- ب
+- ه
+- أ
+- א
+- س
+- ك
+- ת
+- ר
+- ț
+- מ
+- ق
+- ש
+- <it-IT>
+- ▁di
+- ▁e
+- ▁che
+- ▁è
+- co
+- ▁per
+- ▁al
+- ▁non
+- do
+- gli
+- so
+- amo
+- sa
+- ndo
+- ▁una
+- fi
+- pi
+- nti
+- tto
+- tro
+- ▁fa
+- chi
+- ▁qua
+- zione
+- bi
+- ▁del
+- mente
+- pe
+- ssi
+- ▁ri
+- ▁sono
+- ▁me
+- ▁questo
+- nte
+- tti
+- tà
+- ▁nel
+- ▁anche
+- sso
+- ▁perché
+- ▁più
+- nta
+- ▁come
+- cu
+- ▁quindi
+- ggi
+- nza
+- sto
+- ▁ho
+- ò
+- ▁della
+- gra
+- ▁fare
+- spe
+- cco
+- nde
+- mento
+- fe
+- gio
+- pu
+- ▁questa
+- ▁tra
+- zza
+- sci
+- ▁ba
+- ▁dei
+- ▁poi
+- sco
+- stra
+- ▁quel
+- qui
+- ▁delle
+- ▁cosa
+- ▁molto
+- sse
+- zioni
+- ▁vol
+- ▁inter
+- sce
+- ▁fatto
+- ▁com
+- ▁quello
+- ▁essere
+- ▁due
+- ▁abbiamo
+- ▁comp
+- ▁tutti
+- ì
+- ▁prima
+- ▁parte
+- ▁così
+- ▁sempre
+- ▁tutto
+- ▁video
+- ▁maglia
+- ▁imp
+- ▁cui
+- ▁dove
+- ▁col
+- ▁Quindi
+- sione
+- rebbe
+- scri
+- <lt-LT>
+- ė
+- ai
+- ų
+- ▁ir
+- as
+- į
+- ▁kad
+- ės
+- ▁tai
+- ū
+- tų
+- ▁yra
+- ių
+- uo
+- ▁ko
+- ▁iš
+- tin
+- ▁vis
+- čia
+- ▁kuri
+- dė
+- ly
+- gal
+- ▁ši
+- iau
+- jo
+- tar
+- yb
+- ▁Ir
+- ▁tik
+- ijos
+- sak
+- ▁turi
+- oje
+- ▁Tai
+- jų
+- ▁apie
+- ▁nu
+- ▁mes
+- ▁už
+- išk
+- ▁gali
+- ▁dėl
+- ▁labai
+- imas
+- klaus
+- laik
+- ▁Europos
+- ▁aš
+- veik
+- ▁būtų
+- darb
+- ▁kaip
+- ▁teis
+- ▁daug
+- ▁tikrai
+- ▁pra
+- reik
+- ▁buvo
+- turė
+- ▁valstyb
+- ▁reikia
+- ▁būti
+- ▁Aš
+- ▁mūsų
+- ▁jūs
+- vyk
+- ▁Ačiū
+- cija
+- Į
+- ņ
+- <lv-LV>
+- ▁no
+- jā
+- iem
+- tā
+- āk
+- ▁ar
+- ām
+- ▁pie
+- ies
+- ot
+- kā
+- ļ
+- tr
+- ▁tā
+- īt
+- nā
+- ▁uz
+- ▁tas
+- ēt
+- dz
+- ▁arī
+- ▁vien
+- ▁jau
+- ▁kā
+- ▁ie
+- gad
+- ▁kur
+- ▁kas
+- ▁Un
+- ▁mēs
+- iet
+- dā
+- īg
+- ▁Ta
+- ▁kād
+- kaut
+- ēm
+- ▁lie
+- umu
+- ties
+- dar
+- lē
+- ▁vai
+- ▁bija
+- ▁mums
+- ▁tad
+- ▁bet
+- ība
+- ▁ga
+- ▁Latvijas
+- ija
+- kr
+- vē
+- sim
+- ▁šo
+- dien
+- gan
+- īgi
+- ▁ap
+- ģ
+- ▁būt
+- domā
+- ▁tev
+- mēr
+- ▁daudz
+- ▁aiz
+- ▁Tā
+- ▁tād
+- ▁tur
+- ▁monēt
+- ▁vēl
+- ▁laik
+- ▁cilvē
+- ▁nav
+- ▁lab
+- ▁ļoti
+- aug
+- ▁līdz
+- ▁lai
+- šana
+- ▁Nu
+- ▁viņa
+- ▁savu
+- ▁cit
+- teik
+- ▁darb
+- ▁Ne
+- zin
+- ▁pirm
+- ▁Latvi
+- ▁tieš
+- ▁viņi
+- ēja
+- dzīvo
+- ▁viņš
+- ▁pilsē
+- ināt
+- ▁viņu
+- ▁tagad
+- kārt
+- ▁pats
+- ▁vairāk
+- reiz
+- ▁tikai
+- sakta
+- ▁bij
+- ▁Viņ
+- ▁sev
+- ▁māj
+- vērt
+- ▁20
+- ▁ceļ
+- tiek
+- iski
+- ▁dzīv
+- ▁kāpēc
+- ▁Bet
+- ▁pēc
+- ▁nozīmē
+- niek
+- ībā
+- ▁palīdz
+- ▁protams
+- ▁stils
+- ▁vajadz
+- ▁attīstī
+- ▁svarīg
+- ▁sievie
+- ▁grib
+- ▁dažād
+- ▁valst
+- ▁banka
+- ▁iespēja
+- ▁bez
+- prāt
+- vērtīb
+- ▁person
+- pasaules
+- ▁varbūt
+- ▁vienkārši
+- ▁nauda
+- meklē
+- brauc
+- ▁nevar
+- ācijas
+- spēj
+- ķ
+- <nl-NL>
+- ▁een
+- ▁het
+- ▁dat
+- ▁we
+- ▁ik
+- ij
+- ▁En
+- ▁te
+- ▁ook
+- ▁niet
+- ▁dan
+- ▁zo
+- ▁voor
+- ▁met
+- ▁aan
+- ▁zijn
+- ▁Ik
+- ▁wel
+- ▁wat
+- aar
+- ▁ze
+- ken
+- ▁heb
+- der
+- ui
+- den
+- ▁daar
+- ▁maar
+- op
+- ▁heel
+- ▁nog
+- ▁Dus
+- oor
+- ▁hebben
+- ▁uit
+- ▁of
+- ven
+- ▁Maar
+- ▁Dat
+- ▁gaan
+- elijk
+- ▁naar
+- ▁moet
+- acht
+- ▁waar
+- ▁dus
+- ▁ben
+- ▁goed
+- ▁Het
+- ▁even
+- ond
+- eld
+- ▁dit
+- ▁wil
+- rij
+- ▁echt
+- ▁doen
+- ▁gewoon
+- lijk
+- tijd
+- ▁meer
+- ▁mijn
+- ▁We
+- ▁gaat
+- werk
+- ▁hoe
+- uw
+- ▁eigenlijk
+- ▁deze
+- zelf
+- vol
+- ▁veel
+- atie
+- ▁kunnen
+- ▁door
+- llen
+- ▁mee
+- ▁onder
+- ▁toe
+- ▁zit
+- ▁mensen
+- ▁hij
+- ▁denk
+- ▁zie
+- ▁heeft
+- ▁kl
+- nnen
+- ▁zien
+- komen
+- ▁natuurlijk
+- heid
+- ▁Dan
+- ▁vind
+- ▁wordt
+- ▁iets
+- ▁maken
+- ▁doe
+- ▁Wat
+- ▁wij
+- ▁beetje
+- ▁worden
+- ▁Want
+- ▁twee
+- ▁hem
+- ▁had
+- ▁jullie
+- ▁Als
+- ▁kijken
+- ▁toch
+- ▁tot
+- nieuw
+- lang
+- ▁Nou
+- ▁krijg
+- houd
+- ▁hele
+- ▁allemaal
+- ▁want
+- ▁zeggen
+- ▁leuk
+- <pl-PL>
+- nie
+- ▁w
+- cz
+- wa
+- ▁się
+- ▁jest
+- my
+- ła
+- cie
+- czy
+- ▁nie
+- wie
+- ▁wy
+- nia
+- wo
+- rze
+- ło
+- ▁że
+- dzi
+- ej
+- ów
+- dzie
+- ▁prze
+- ści
+- by
+- za
+- dy
+- ry
+- ń
+- ją
+- we
+- cze
+- owa
+- ego
+- że
+- cy
+- rzy
+- mie
+- ▁przy
+- ły
+- rz
+- szy
+- sze
+- ść
+- wia
+- zy
+- ży
+- ▁tutaj
+- ję
+- pie
+- nych
+- ▁tym
+- ▁może
+- cji
+- ▁pod
+- ▁ale
+- ▁tego
+- owy
+- uje
+- ▁bo
+- ▁był
+- ną
+- bie
+- sy
+- ▁też
+- ▁bardzo
+- ▁są
+- ▁będzie
+- ▁Po
+- ski
+- ▁które
+- ź
+- ▁już
+- ▁dla
+- łem
+- nego
+- ▁Nie
+- ▁No
+- ▁praw
+- cja
+- ▁ten
+- ▁takie
+- ować
+- ▁który
+- ▁właśnie
+- ▁jeszcze
+- ▁tam
+- ▁żeby
+- ▁być
+- ▁więc
+- ▁czyli
+- ▁sobie
+- ▁sam
+- ▁tylko
+- ▁tej
+- ▁spraw
+- ▁Na
+- ▁mówi
+- ▁osob
+- ▁czas
+- ▁prac
+- ▁Czy
+- ▁prostu
+- ▁teraz
+- stęp
+- ▁Was
+- ▁myśl
+- ▁powiedz
+- ▁zrobi
+- liśmy
+- ▁jakieś
+- ając
+- ▁widz
+- ▁kart
+- ▁musi
+- ▁pyta
+- <pt-BR>
+- pt
+- PT
+- <
+- '>'
+- '-'
+- ▁é
+- ▁não
+- ▁eu
+- ▁um
+- ▁você
+- ▁para
+- ão
+- ▁aqui
+- ▁uma
+- ção
+- ▁ca
+- ▁pe
+- ▁tem
+- ▁em
+- ▁gente
+- ▁O
+- ▁ele
+- pre
+- ria
+- ▁fo
+- mos
+- nho
+- ▁Então
+- bo
+- io
+- nha
+- ▁isso
+- ▁por
+- ▁muito
+- nto
+- ▁Eu
+- ▁está
+- idade
+- ▁aí
+- be
+- ▁esse
+- ▁pode
+- ▁como
+- ente
+- ▁também
+- ▁essa
+- lha
+- ▁já
+- ▁mas
+- ▁pessoa
+- qua
+- ▁né
+- ▁fazer
+- ▁tá
+- lho
+- ▁lá
+- fica
+- ▁vou
+- ▁porque
+- ▁Se
+- ▁fala
+- ▁coisa
+- ▁Não
+- '...'
+- ▁só
+- ▁nós
+- ço
+- ▁Por
+- ▁assim
+- ▁Co
+- iza
+- ▁bem
+- ▁todo
+- eira
+- ▁sua
+- ência
+- ções
+- ▁Você
+- ▁tudo
+- ▁agora
+- eiro
+- ário
+- ▁até
+- ▁mesmo
+- ▁vamos
+- ▁quando
+- ciona
+- <ro-RO>
+- ▁în
+- ți
+- ▁să
+- ▁și
+- ▁cu
+- ▁că
+- ▁care
+- ▁mai
+- ră
+- sc
+- că
+- ▁am
+- are
+- ▁din
+- ▁fi
+- ▁este
+- tă
+- ▁pentru
+- rea
+- ști
+- ș
+- ele
+- du
+- ▁M
+- ▁fac
+- ân
+- ▁sunt
+- ▁I
+- ▁acest
+- ului
+- lor
+- ▁mult
+- și
+- ▁mo
+- ▁fost
+- per
+- ▁foarte
+- ▁Și
+- ▁mă
+- să
+- cur
+- tor
+- ▁cum
+- inte
+- ată
+- ște
+- ▁dacă
+- ând
+- ▁subliniere
+- ▁dar
+- ▁sau
+- tat
+- ori
+- ▁vă
+- ▁asta
+- nă
+- ▁prim
+- ▁așa
+- ează
+- ▁într
+- ▁spun
+- ▁lui
+- ▁sub
+- itate
+- ▁aici
+- ▁bine
+- ▁când
+- ▁prin
+- ▁alt
+- ▁nici
+- stru
+- ▁cât
+- ▁vede
+- fer
+- ▁după
+- ▁ju
+- ▁despre
+- ▁timp
+- ▁acum
+- ▁poate
+- ▁spus
+- ▁lucru
+- ▁făcut
+- păr
+- ▁urmă
+- ▁atunci
+- ▁fr
+- ▁chiar
+- ▁încep
+- Ș
+- Î
+- <ru-RU>
+- ▁не
+- ы
+- ть
+- ▁это
+- же
+- ▁что
+- ▁то
+- ль
+- ▁о
+- ▁у
+- ать
+- ▁так
+- ▁как
+- ки
+- ся
+- ем
+- ▁вы
+- ▁бы
+- ▁все
+- ру
+- бо
+- ▁И
+- ▁вот
+- ку
+- ▁В
+- чи
+- ой
+- му
+- ▁со
+- ты
+- ну
+- сь
+- ▁есть
+- ту
+- ны
+- ше
+- ▁мы
+- ду
+- ить
+- э
+- дел
+- ля
+- мен
+- жи
+- сто
+- хо
+- ств
+- вы
+- вер
+- зна
+- сти
+- ши
+- ется
+- ую
+- ры
+- ход
+- ает
+- ный
+- пер
+- ▁По
+- луч
+- ные
+- тор
+- ▁там
+- ▁будет
+- ▁сам
+- ▁для
+- ▁очень
+- ения
+- ают
+- ▁Ну
+- ▁Это
+- ▁Да
+- ▁меня
+- ▁если
+- ▁То
+- ень
+- ных
+- ▁еще
+- ▁вам
+- ▁пере
+- ▁здесь
+- ▁просто
+- ▁Вот
+- ▁Но
+- ▁чтобы
+- смотр
+- ▁сейчас
+- ▁может
+- ▁эти
+- ально
+- дол
+- ▁На
+- ▁Так
+- ▁когда
+- ё
+- айте
+- пис
+- тельно
+- ешь
+- ▁друг
+- Э
+- <sk-SK>
+- ov
+- ľ
+- sk
+- ▁aj
+- ob
+- tá
+- ať
+- ▁bol
+- ▁sú
+- ▁ako
+- ži
+- ▁sme
+- ▁V
+- ali
+- ▁alebo
+- ▁čo
+- iť
+- ▁má
+- ých
+- ▁zá
+- ▁tie
+- ▁nejak
+- ▁vý
+- čas
+- nov
+- rov
+- ▁ktoré
+- ajú
+- ovať
+- ▁keď
+- ▁str
+- ▁škol
+- nú
+- ▁ktor
+- ▁vlastne
+- ▁prí
+- nej
+- ▁veľmi
+- šie
+- rob
+- ▁tr
+- ných
+- enie
+- ▁spo
+- ▁rok
+- osti
+- ▁tým
+- ▁môže
+- ▁ktorý
+- osť
+- ▁projekt
+- ▁kon
+- ▁vzdeláva
+- ▁Takže
+- ▁ešte
+- ▁tých
+- ▁mal
+- ▁cel
+- ▁potom
+- ▁svoj
+- enia
+- álne
+- ieť
+- ▁teda
+- jedn
+- sled
+- ▁možno
+- ▁vám
+- chod
+- ujú
+- tvor
+- ▁druh
+- ▁Slovensk
+- hľad
+- stup
+- ▁ľudí
+- ▁napríklad
+- ▁veľk
+- ▁niečo
+- Ď
+- <sl-SL>
+- sl
+- lj
+- kot
+- ih
+- ▁svet
+- ▁ta
+- ▁tako
+- ▁kar
+- ▁nek
+- jih
+- udi
+- ▁vse
+- ▁drug
+- ▁ima
+- kaj
+- ▁smo
+- del
+- ▁sem
+- ▁lahko
+- ▁samo
+- ▁več
+- nih
+- ▁držav
+- ▁zelo
+- ▁zdaj
+- ▁razum
+- ▁še
+- ▁tega
+- ▁ljudi
+- ▁pred
+- ▁sta
+- nost
+- ▁ampak
+- ▁novinar
+- ▁naprej
+- ▁mora
+- ▁Vs
+- krat
+- ▁Ampak
+- ▁vedno
+- ▁velik
+- ▁kako
+- ▁najbolj
+- ziroma
+- ▁vsi
+- ▁nekaj
+- ▁kater
+- ▁res
+- ▁tukaj
+- ▁dogaja
+- ▁svoje
+- ▁let
+- daj
+- ▁pripriča
+- ▁človek
+- ▁hoče
+- ▁vojn
+- ▁Pre
+- ▁dobr
+- ljan
+- ▁moj
+- ▁dejansko
+- ▁ljudje
+- ▁mediji
+- ▁prot
+- ▁narav
+- bilo
+- ▁Afrik
+- ▁vzhod
+- ▁človeštva
+- ▁kriz
+- ▁pogled
+- ▁medije
+- poved
+- ▁začel
+- ▁večin
+- imajo
+- ▁Ljudje
+- ▁družb
+- ▁govorim
+- ▁informacij
+- ▁kultur
+- ▁bližnj
+- ▁podobno
+- ▁njihov
+- ▁konc
+- ▁pisa
+- ▁zaveda
+- ▁vsak
+- živel
+- ▁funkcionira
+- ▁internet
+- ▁islamsk
+- ▁film
+- ▁otroci
+- ▁prihaja
+- ▁političn
+- ▁popoln
+- ▁Velik
+- ▁drugačen
+- ▁recimo
+- ▁resnic
+- solutno
+- ▁Bližn
+- ▁Evropsk
+- ▁muslimani
+- ▁nadzoruje
+- ▁socialne
+- ▁zgodovin
+- ▁človešk
+- ▁življenj
+- ▁prijatelj
+- ▁vendar
+- ▁ljudem
+- ▁števil
+- ▁Sirij
+- <sv-SE>
+- ▁att
+- ▁och
+- ▁är
+- ▁för
+- ▁här
+- ▁jag
+- än
+- ▁till
+- ▁h
+- ▁inte
+- ▁Och
+- ▁av
+- ▁om
+- ▁ska
+- ▁ut
+- ▁ett
+- all
+- ▁också
+- ▁Jag
+- era
+- pp
+- ▁upp
+- ▁då
+- ▁där
+- ▁lite
+- år
+- sam
+- isk
+- het
+- för
+- ▁kommer
+- ▁vill
+- ör
+- erna
+- ande
+- sätt
+- ▁finns
+- ▁när
+- ▁vara
+- ade
+- sök
+- ▁hur
+- ▁vad
+- bil
+- ▁göra
+- ▁får
+- verk
+- ▁mycket
+- ▁väl
+- kom
+- ▁gör
+- ▁ni
+- ▁bara
+- ▁från
+- ställ
+- ▁väldigt
+- ▁min
+- ▁olika
+- ▁alla
+- lev
+- ▁fram
+- ▁kanske
+- ▁vår
+- ▁tid
+- skap
+- håll
+- ▁För
+- ▁går
+- ▁blir
+- ▁under
+- ▁lär
+- ▁ny
+- ▁Då
+- ▁börja
+- rätt
+- ▁över
+- ▁oss
+- ▁exempel
+- ▁skulle
+- gång
+- ▁kunna
+- ▁andra
+- ▁någon
+- ▁jobba
+- land
+- ▁något
+- ▁behöver
+- ▁säga
+- klar
+- ▁många
+- ▁skriv
+- ▁använda
+- ▁själv
+- ▁samma
+- lägg
+- ▁måste
+- ▁efter
+- text
+- ▁prata
+- ▁klicka
+- ▁hitta
+- ▁tror
+- ▁någonting
+- fråga
+- ▁titta
+- ▁tycker
+- ▁ganska
+- ▁jätte
+- ▁Vad
+- ▁genom
+- ▁även
+- ▁tänker
+- arbete
+- ▁faktiskt
+- person
+- ▁komma
+- bygg
+- <uk-UA>
+- і
+- ні
+- є
+- ї
+- ▁з
+- ▁що
+- ві
+- рі
+- ці
+- ▁і
+- лі
+- мі
+- бу
+- ді
+- ого
+- ▁ви
+- ▁це
+- ер
+- сі
+- ▁як
+- ому
+- ▁від
+- до
+- ті
+- ін
+- ба
+- ▁І
+- пі
+- пе
+- ення
+- нь
+- кі
+- за
+- них
+- ▁під
+- ний
+- раз
+- ня
+- лю
+- пи
+- со
+- бі
+- ться
+- ▁роз
+- сті
+- ▁які
+- увати
+- ▁нас
+- ання
+- ного
+- ▁вони
+- ають
+- ▁дуже
+- ▁За
+- лу
+- ків
+- ▁Ми
+- ▁тому
+- ▁буде
+- ▁вже
+- ▁Це
+- ць
+- ▁час
+- ість
+- ця
+- ▁було
+- ▁але
+- більш
+- прац
+- трим
+- аємо
+- ається
+- ▁тут
+- ують
+- ації
+- ▁який
+- мент
+- ▁люди
+- ування
+- ▁якщо
+- фор
+- ▁без
+- україн
+- ували
+- розумі
+- Є
+- Ї
+- І
+- <ar-AR>
+- ف
+- ح
+- ِ
+- ُ
+- ج
+- ▁ال
+- ص
+- ▁و
+- ْ
+- ط
+- ش
+- َ
+- خ
+- ز
+- ان
+- ▁أ
+- ض
+- ال
+- ▁ب
+- ▁الم
+- ▁في
+- ▁من
+- ى
+- ات
+- َّ
+- ين
+- ها
+- ية
+- ث
+- غ
+- ▁م
+- ار
+- ▁وَ
+- لا
+- ذ
+- ول
+- ئ
+- َا
+- ام
+- ون
+- وا
+- ▁على
+- ▁وال
+- ▁الْ
+- نا
+- ▁الأ
+- ما
+- ير
+- لِ
+- ظ
+- اء
+- لَ
+- ور
+- ▁الت
+- ▁أن
+- اب
+- مَ
+- كَ
+- تَ
+- ّ
+- هم
+- عَ
+- اد
+- ▁إ
+- نْ
+- ▁أَ
+- اس
+- ▁الس
+- ُو
+- بِ
+- ▁الع
+- آ
+- يه
+- ِّ
+- ▁لل
+- ٍ
+- ▁الح
+- نَ
+- يا
+- ▁فى
+- ▁بال
+- وم
+- ▁عن
+- ▁الن
+- مَا
+- يد
+- ▁ما
+- اع
+- َيْ
+- اً
+- ًا
+- ▁مع
+- ست
+- مُ
+- ▁الش
+- شر
+- ▁كان
+- إ
+- إِ
+- اف
+- اح
+- ٌ
+- حَ
+- ذا
+- ▁فِي
+- رب
+- ▁يعني
+- ▁يَ
+- َةِ
+- ▁الق
+- قَ
+- نَا
+- ُّ
+- ▁الج
+- سَ
+- ▁الب
+- ▁الد
+- مْ
+- مر
+- ُونَ
+- ؤ
+- ▁الا
+- مِ
+- َوْ
+- بر
+- ▁بي
+- ▁الر
+- بَ
+- هَا
+- هُ
+- وق
+- اج
+- ▁فَ
+- ▁آه
+- ▁الف
+- ْتَ
+- ▁كل
+- ▁الص
+- ▁إلى
+- ▁هو
+- ▁مِنْ
+- ود
+- وب
+- ▁وأ
+- خل
+- رَ
+- حد
+- يم
+- ▁الإ
+- دَ
+- فَ
+- هُمْ
+- نِ
+- جَ
+- ُوا
+- فر
+- َعْ
+- ▁أو
+- ▁إن
+- وس
+- لَا
+- جم
+- ِينَ
+- َّا
+- وف
+- وج
+- ▁الخ
+- عمل
+- ▁لم
+- َاتِ
+- ▁هذا
+- ▁أَنْ
+- ▁مش
+- ▁بعد
+- ▁الْمُ
+- ▁الط
+- ِهِ
+- ▁اللى
+- ء
+- ▁اللي
+- ▁عَلَى
+- ْتِ
+- ▁الْأَ
+- ذَا
+- َرَ
+- ▁أنا
+- كُمْ
+- ▁الْمَ
+- ▁إِنَّ
+- ْرَ
+- ▁هذه
+- َلَ
+- َرْ
+- ▁است
+- ▁مصر
+- ِيَ
+- ْرِ
+- َحْ
+- رِي
+- َدْ
+- ▁مِنَ
+- ▁وَلَ
+- ▁وَالْ
+- ▁كما
+- بقى
+- دِي
+- ▁الله
+- ▁الَّذِي
+- ▁الذي
+- عرف
+- ▁الْعَ
+- َهُ
+- شعر
+- ▁لكن
+- علم
+- َةُ
+- ً
+- ▁نفس
+- ِيَّةِ
+- َتْ
+- ▁وَأَ
+- َةٍ
+- مثل
+- ▁غير
+- ائي
+- ▁إِلَى
+- ▁واحد
+- ▁أَنَّ
+- ▁هَذَا
+- ▁ذلك
+- َةَ
+- ▁حتى
+- ▁هَلْ
+- ؟
+- ،
+- vy
+- ▁byl
+- Ň
+- Ť
+- Ó
+- ær
+- ▁blev
+- ft
+- lige
+- ved
+- ''''
+- Å
+- ▁H
+- ▁D
+- aus
+- ▁N
+- ▁Be
+- mm
+- ab
+- ▁Er
+- ssen
+- hl
+- hn
+- ischen
+- ▁wurde
+- rie
+- lei
+- ▁An
+- ▁Ein
+- etz
+- rau
+- ische
+- äh
+- ▁mein
+- ▁So
+- ▁hatte
+- ▁unter
+- ▁Zu
+- ▁ihn
+- ▁Jahr
+- ▁zwei
+- keit
+- ▁ihm
+- ▁Aus
+- <en-GB>
+- ▁you
+- ▁that
+- ▁and
+- ▁can
+- ▁it
+- ▁your
+- ed
+- ▁Okay
+- ▁just
+- ay
+- ▁Yeah
+- ▁with
+- th
+- ▁Thank
+- ▁thank
+- ▁help
+- ▁please
+- ▁one
+- ▁there
+- ic
+- ▁much
+- ▁what
+- ▁my
+- hi
+- ▁will
+- ▁would
+- ▁if
+- ▁two
+- ▁this
+- ▁he
+- ▁go
+- ▁all
+- ▁Oh
+- ▁like
+- ▁very
+- ▁The
+- ▁today
+- ▁not
+- ▁yeah
+- ▁take
+- ight
+- ex
+- ▁Ok
+- ▁seven
+- ▁number
+- ▁know
+- ▁about
+- ▁four
+- ▁okay
+- ▁name
+- ▁And
+- ▁five
+- ▁How
+- ▁account
+- ▁any
+- ▁three
+- ▁could
+- ▁up
+- ▁get
+- ▁phone
+- ▁great
+- ▁six
+- ▁eight
+- ▁now
+- ▁nine
+- ▁That
+- ▁address
+- ▁look
+- ▁call
+- ill
+- ▁You
+- ▁but
+- ▁got
+- ▁don
+- ▁email
+- ▁calling
+- ▁problem
+- ▁right
+- ▁good
+- ▁well
+- ▁out
+- ▁What
+- ▁how
+- ▁really
+- ▁anything
+- ▁actually
+- ▁from
+- ▁think
+- ▁time
+- ▁some
+- ▁ask
+- ▁else
+- other
+- ▁fine
+- able
+- ▁Good
+- ▁when
+- ▁full
+- ▁confirm
+- ▁give
+- ▁more
+- ever
+- ▁month
+- ▁information
+- ▁sure
+- ▁survey
+- ▁sorry
+- ▁send
+- ▁through
+- ▁check
+- ▁long
+- ▁birth
+- ▁should
+- ▁twenty
+- ▁make
+- ▁zero
+- ful
+- ▁store
+- ▁policy
+- ▁back
+- ▁again
+- ▁first
+- ▁Could
+- ▁work
+- ▁afternoon
+- ▁after
+- ▁insurance
+- ▁customer
+- ▁payment
+- ▁question
+- ▁receive
+- ▁possible
+- ▁moment
+- ▁system
+- ▁change
+- ▁hundred
+- ▁nineteen
+- <en-US>
+- ▁.
+- ▁,
+- ▁st
+- ▁are
+- ow
+- ive
+- ate
+- ad
+- ect
+- ▁they
+- ▁as
+- ng
+- ity
+- ther
+- act
+- ist
+- ▁our
+- ▁sp
+- ally
+- ▁his
+- ▁But
+- ▁has
+- ▁also
+- ▁which
+- ▁He
+- ▁uh
+- day
+- ▁people
+- ▁who
+- ▁thing
+- ▁because
+- ▁other
+- ough
+- ▁part
+- ▁say
+- ▁year
+- side
+- '"'
+- <es-ES>
+- ▁y
+- ▁el
+- ción
+- ▁Es
+- res
+- ▁los
+- ▁La
+- dos
+- ía
+- ▁El
+- ▁las
+- ▁más
+- men
+- ño
+- ▁esta
+- idad
+- par
+- ¿
+- ría
+- ▁fue
+- rio
+- enta
+- ón
+- cho
+- ciones
+- ble
+- ▁Ca
+- ▁muy
+- ▁también
+- ▁tiene
+- ña
+- ▁Su
+- ▁pero
+- ▁son
+- encia
+- sión
+- ▁hay
+- ▁puede
+- ncia
+- ▁mucho
+- ▁Si
+- ▁pues
+- miento
+- ▁Con
+- ones
+- ecto
+- iendo
+- ▁día
+- ▁sobre
+- ▁primer
+- ▁qué
+- ▁gusta
+- ▁San
+- ▁hacer
+- cional
+- ▁verdad
+- ▁persona
+- ▁pasa
+- ▁mejor
+- quí
+- ▁Fue
+- ▁Com
+- ▁ciudad
+- Ñ
+- <es-US>
+- cia
+- ▁lo
+- ▁Y
+- ron
+- les
+- ▁mu
+- cio
+- ▁yo
+- bu
+- ▁sí
+- ▁Pero
+- ▁así
+- <fr-CA>
+- ré
+- ée
+- ▁Les
+- nt
+- our
+- ▁Ce
+- com
+- ▁Elle
+- ▁Cet
+- ux
+- ale
+- ier
+- ction
+- ▁cha
+- ▁pré
+- ▁deux
+- if
+- lé
+- ère
+- ière
+- iste
+- ▁parti
+- ▁été
+- cette
+- avec
+- ▁tou
+- jour
+- app
+- cul
+- ▁égale
+- aine
+- gue
+- ▁trè
+- ▁nombre
+- ▁étai
+- tout
+- ▁grand
+- ▁commun
+- Une
+- œ
+- ï
+- À
+- Œ
+- È
+- ō
+- ÿ
+- Ō
+- Ô
+- Ê
+- Â
+- ▁m
+- av
+- ouv
+- êt
+- ois
+- pri
+- voir
+- sion
+- ix
+- ang
+- était
+- ard
+- aient
+- Ć
+- İ
+- Ù
+- Û
+- Ë
+- Ï
+- <he-IL>
+- ב
+- ע
+- ק
+- ח
+- כ
+- ד
+- נ
+- ▁ב
+- ים
+- ג
+- ▁מ
+- ס
+- ם
+- ות
+- צ
+- פ
+- ט
+- ור
+- ז
+- ▁ל
+- ני
+- ▁של
+- ▁המ
+- ן
+- ך
+- מו
+- בי
+- נו
+- ול
+- לי
+- בר
+- די
+- ▁את
+- ▁על
+- שי
+- מש
+- ון
+- יר
+- נה
+- ית
+- פר
+- ף
+- כל
+- ▁הוא
+- מי
+- וב
+- רו
+- ▁במ
+- פי
+- אי
+- ▁הש
+- חי
+- חו
+- לו
+- בע
+- ▁הא
+- קר
+- ▁לא
+- נים
+- סי
+- רי
+- ▁לה
+- שר
+- וד
+- ין
+- ופ
+- אל
+- ▁הח
+- דר
+- נות
+- ▁הע
+- רים
+- פו
+- צי
+- ▁למ
+- אר
+- אות
+- טי
+- ▁הס
+- יות
+- כי
+- ץ
+- ▁או
+- ▁וה
+- ▁זה
+- ▁היא
+- ▁הצ
+- מר
+- פע
+- ▁הפ
+- כן
+- ▁היה
+- טר
+- זר
+- ▁שנ
+- אחר
+- ▁רב
+- ▁זו
+- ▁הר
+- מים
+- ▁ומ
+- ראש
+- ▁לאחר
+- חלק
+- מן
+- ▁היו
+- מספר
+- ▁יותר
+- אחד
+- ▁היית
+- עצמ
+- מקום
+- <hi-IN>
+- ा
+- र
+- न
+- क
+- स
+- ।
+- ि
+- म
+- ी
+- ल
+- े
+- प
+- ▁है
+- ्
+- ह
+- ज
+- व
+- त
+- ं
+- ट
+- ो
+- ु
+- ग
+- ▁के
+- ▁ब
+- ▁में
+- श
+- ने
+- ू
+- य
+- ना
+- ता
+- द
+- च
+- ▁आ
+- ब
+- ▁कर
+- ▁की
+- ▁अ
+- र्
+- ▁हो
+- ▁और
+- ए
+- ख
+- ▁तो
+- ▁हैं
+- ▁से
+- ▁का
+- ों
+- ▁को
+- ▁कि
+- ते
+- फ
+- ध
+- रा
+- वा
+- ▁जा
+- ड
+- ै
+- ▁नहीं
+- उ
+- ्य
+- ई
+- ▁भी
+- का
+- ▁द
+- ड़
+- के
+- री
+- ती
+- इ
+- ▁एक
+- ्र
+- ▁इस
+- ▁प्र
+- ▁उस
+- या
+- ▁पर
+- मा
+- भ
+- ें
+- ले
+- ▁वो
+- ला
+- ौ
+- से
+- ▁हम
+- ▁जो
+- क्
+- गा
+- ण
+- ▁वि
+- हा
+- नी
+- ▁आप
+- िया
+- ▁मैं
+- ंग
+- स्
+- ▁ही
+- थ
+- रे
+- ▁पा
+- ित
+- ॉ
+- भा
+- सी
+- ँ
+- ▁ये
+- क्ष
+- छ
+- ▁था
+- ति
+- ▁लिए
+- ▁दे
+- ली
+- ▁क्या
+- ▁सं
+- ष
+- ▁यह
+- ▁हाँ
+- ठ
+- त्र
+- ंद
+- घ
+- ▁बहुत
+- ▁सम
+- ्या
+- ▁लग
+- ▁दो
+- ़
+- ▁देख
+- ओ
+- दा
+- ▁नि
+- ंड
+- दी
+- ▁रहे
+- ▁लोग
+- ▁बात
+- ▁कुछ
+- ाइ
+- ▁अच्छा
+- ▁सु
+- ▁साथ
+- ▁कहा
+- ▁किया
+- स्ट
+- ▁सब
+- ढ़
+- ▁रहा
+- ▁गया
+- ▁फिर
+- ▁पे
+- ▁अब
+- स्थ
+- ▁जी
+- ▁चल
+- ▁बार
+- ▁थे
+- स्त
+- ▁थी
+- ▁मिल
+- ▁कोई
+- ृ
+- ▁मतलब
+- ियों
+- ▁हूँ
+- ▁अभी
+- ेंगे
+- ▁बोल
+- झ
+- ▁रही
+- चार
+- ▁अपने
+- ▁बाद
+- ▁लेकिन
+- त्त
+- ऐ
+- ▁मुझे
+- ▁मेरे
+- ऑ
+- '!'
+- आ
+- ऊ
+- ढ
+- ञ
+- अ
+- ः
+- औ
+- ऋ
+- ॅ
+- ङ
+- ऍ
+- ॐ
+- ॠ
+- ऱ
+- Ì
+- <ja-JP>
+- ▁い
+- ▁。
+- ▁、
+- ▁の
+- ▁う
+- ▁ん
+- ▁な
+- ▁か
+- ▁で
+- ▁っ
+- ▁て
+- ▁あ
+- ▁た
+- ▁と
+- ▁す
+- ▁る
+- ▁は
+- ▁に
+- ▁し
+- ▁そ
+- ▁も
+- ▁ー
+- ▁ま
+- ▁が
+- ▁ね
+- ▁ら
+- ▁れ
+- ▁だ
+- ▁ン
+- ▁こ
+- ▁よ
+- ▁り
+- ▁を
+- 以
+- 仕
+- ▁友
+- ▁東
+- ▁違
+- ▁文
+- ▁ァ
+- ▁ノ
+- ▁成
+- ▁明
+- ▁世
+- ▁強
+- ▁曲
+- ▁表
+- ▁月
+- ▁情
+- ▁活
+- ▁町
+- ▁付
+- ▁ふ
+- ▁ひ
+- ▁買
+- ▁連
+- ▁む
+- ▁区
+- ▁ペ
+- ▁確
+- ▁流
+- ▁期
+- ▁海
+- ▁設
+- ▁語
+- ▁書
+- ▁料
+- ▁要
+- ▁科
+- ▁育
+- ▁ゴ
+- ▁安
+- ▁六
+- ▁有
+- ▁ゲ
+- ▁原
+- ▁能
+- ▁売
+- ▁愛
+- ▁京
+- ▁制
+- ▁ザ
+- ▁良
+- ▁ギ
+- ▁ヤ
+- ▁七
+- ▁無
+- ▁考
+- ▁特
+- ▁百
+- ▁少
+- ▁参
+- ▁男
+- ▁保
+- ▁園
+- 普
+- ▁他
+- ▁ォ
+- ▁次
+- ▁優
+- ▁ぎ
+- ▁調
+- ▁演
+- ▁口
+- ▁風
+- ▁送
+- ▁運
+- ▁駅
+- ▁局
+- 受
+- ▁置
+- ▁都
+- ▁信
+- ▁美
+- ▁親
+- ▁々
+- ▁零
+- ▁元
+- ▁始
+- ▁選
+- ▁工
+- ▁界
+- ▁身
+- ▁広
+- ▁向
+- ▁組
+- ▁在
+- ▁協
+- ▁水
+- ▁州
+- ▁休
+- ▁和
+- ▁放
+- ▁様
+- ▁終
+- ▁際
+- ▁加
+- ▁南
+- ▁切
+- ▁不
+- ▁僕
+- ▁例
+- ▁早
+- ▁族
+- ▁ぇ
+- ▁経
+- ▁供
+- ▁形
+- ▁白
+- ▁木
+- ▁等
+- ▁天
+- ▁利
+- ▁現
+- ▁応
+- ▁館
+- ▁各
+- ▁点
+- ▁務
+- ▁ヴ
+- ▁真
+- ▁指
+- ▁朝
+- ▁音
+- ▁予
+- ▁平
+- ▁題
+- ▁住
+- ▁円
+- ▁伝
+- ▁団
+- ▁村
+- ▁相
+- ▁術
+- ▁帰
+- ▁古
+- ▁誰
+- ▁可
+- ▁夫
+- ▁彼
+- ▁医
+- ▁空
+- ▁賞
+- ▁政
+- ▁交
+- ▁民
+- ▁決
+- 専
+- ▁産
+- ▁限
+- ▁神
+- ▁基
+- ▁悪
+- ▁院
+- ▁系
+- ▁引
+- ▁旅
+- ▁技
+- ▁台
+- ▁勝
+- ▁ゆ
+- ▁域
+- ▁再
+- ▁問
+- ▁色
+- ▁ヒ
+- 企
+- 登
+- 総
+- 改
+- 探
+- 異
+- 完
+- 伊
+- 頑
+- 深
+- 競
+- 推
+- 農
+- 昨
+- 掛
+- 寄
+- 仙
+- 危
+- 辞
+- 漫
+- 埼
+- 詳
+- 幼
+- 扱
+- 余
+- 描
+- 採
+- 被
+- ヶ
+- 俳
+- 栃
+- 固
+- 副
+- 混
+- 救
+- 甘
+- 互
+- 閉
+- 疲
+- 亜
+- 借
+- 植
+- 責
+- 仮
+- 趣
+- 辛
+- 脱
+- 恐
+- 泣
+- 契
+- 悲
+- 隠
+- 昭
+- 麻
+- 哲
+- 宣
+- 沖
+- 悩
+- 浮
+- 諸
+- 巨
+- 午
+- 占
+- 距
+- 繋
+- 渋
+- 忙
+- 汚
+- 延
+- 冒
+- 訪
+- 沿
+- 唯
+- 批
+- 郵
+- 依
+- 揚
+- 勇
+- 誕
+- 柔
+- 傾
+- 寂
+- 誉
+- 懸
+- 黄
+- 邦
+- 臨
+- 嬉
+- 綺
+- 崩
+- 購
+- 浅
+- 繰
+- 維
+- 喫
+- 稼
+- 燃
+- 既
+- 踏
+- 喧
+- 憧
+- 祝
+- 漁
+- 荒
+- 緊
+- 獲
+- 飾
+- 炭
+- 搭
+- 努
+- 狙
+- 訴
+- 寅
+- 顧
+- 挑
+- 懐
+- 狭
+- 雰
+- 招
+- 塗
+- 排
+- 阿
+- 奪
+- 雇
+- 埋
+- 履
+- 侵
+- 憲
+- 該
+- 硬
+- 貯
+- 胸
+- 頻
+- 勧
+- 魅
+- 忠
+- 茨
+- 抑
+- 驚
+- 痩
+- 妖
+- 揃
+- 衝
+- 哀
+- 芝
+- 偏
+- 弧
+- 仰
+- 潰
+- 涼
+- 諦
+- 飽
+- 妊
+- 挿
+- 耐
+- 賢
+- 逮
+- 披
+- 浩
+- 透
+- 挨
+- 促
+- 智
+- 偽
+- 拓
+- 控
+- 撤
+- 潜
+- 栗
+- 啓
+- 羨
+- 贈
+- 励
+- 伺
+- 吐
+- 循
+- 需
+- 摂
+- 添
+- 翻
+- 睡
+- 孤
+- 笠
+- 昆
+- 堺
+- 沈
+- 俗
+- 函
+- 匂
+- 遭
+- 溶
+- 勲
+- 罰
+- 誇
+- 斜
+- 鍛
+- 貰
+- 緩
+- 抽
+- 癒
+- 叩
+- 但
+- 栽
+- 貿
+- 脇
+- 倶
+- 逢
+- 奉
+- 是
+- 褒
+- 鉱
+- 貼
+- 佳
+- 疾
+- 幡
+- 架
+- 呪
+- 串
+- 幾
+- 沙
+- 拒
+- 脅
+- 謡
+- 挟
+- 拍
+- 鎌
+- 胃
+- 馴
+- 遷
+- 冗
+- 筑
+- 漬
+- 恨
+- 殴
+- 曇
+- 翌
+- 軌
+- 卸
+- 歓
+- 淡
+- 漏
+- 覆
+- 狩
+- 畜
+- 蒸
+- 蕎
+- 泰
+- 紛
+- 絞
+- 詐
+- 椅
+- 恒
+- 儲
+- 擬
+- 叔
+- 召
+- 幽
+- 肺
+- 箇
+- 肥
+- 疎
+- 陶
+- 旨
+- 邸
+- 呉
+- 准
+- 跳
+- 畿
+- 廷
+- 鈍
+- 溜
+- 慰
+- 犠
+- 繊
+- 芳
+- 牲
+- 眺
+- 郊
+- 憎
+- 克
+- 猛
+- 措
+- 騙
+- 浸
+- 慈
+- 劣
+- 鎮
+- 虐
+- 蹴
+- 苗
+- 陥
+- 徐
+- 拭
+- 壌
+- 慌
+- 捉
+- 膜
+- 傍
+- 噛
+- 膚
+- 漠
+- 恭
+- 膨
+- 樽
+- 舌
+- 愚
+- 碁
+- 芦
+- 廊
+- 噴
+- 羊
+- 薫
+- 篠
+- 妥
+- 磯
+- 桑
+- 炒
+- 拘
+- 椎
+- 粘
+- 刈
+- 聡
+- 卿
+- 胡
+- 崇
+- 蒲
+- 剰
+- 瑞
+- 渓
+- 賭
+- 湧
+- 烹
+- 凝
+- 紺
+- 逸
+- 牡
+- 墨
+- 萌
+- 戯
+- 萩
+- 秩
+- 捧
+- 槻
+- 腔
+- 蝶
+- 贅
+- 穏
+- 敢
+- 擁
+- 赴
+- 磐
+- 壮
+- 誓
+- 抹
+- 溢
+- 叱
+- 叶
+- 妨
+- 沸
+- 紳
+- 阻
+- 妄
+- 斐
+- 妃
+- 巧
+- 吊
+- 惚
+- 舶
+- 勿
+- 懇
+- 甥
+- 惜
+- 笹
+- 殆
+- 濡
+- 惣
+- 怠
+- 淀
+- 剥
+- 曖
+- 此
+- 藝
+- 辰
+- 挫
+- 暫
+- 慕
+- 碧
+- 嘴
+- ぢ
+- 洪
+- 虜
+- 遥
+- 鋭
+- 娯
+- 腎
+- 蜜
+- 訂
+- 瓦
+- 奄
+- 播
+- 痕
+- 綴
+- 穀
+- 隙
+- 厄
+- 呈
+- 曰
+- 崖
+- 擦
+- 烏
+- 拉
+- 衡
+- 朱
+- 嘆
+- 茹
+- 峯
+- 濱
+- 蒼
+- ヱ
+- 洒
+- 薩
+- 諏
+- 嗅
+- 條
+- 肖
+- 硝
+- 詣
+- 賑
+- 枢
+- 溝
+- 稀
+- 橘
+- 睦
+- 陳
+- 釧
+- 醸
+- 喪
+- 枯
+- 梁
+- 蛍
+- 糧
+- 郭
+- 灘
+- 爽
+- 粗
+- 蜂
+- 据
+- 儒
+- 股
+- 鞍
+- 懲
+- 孔
+- 漆
+- 蒙
+- 椿
+- 獅
+- 珈
+- 畔
+- 騨
+- 杜
+- 禄
+- 勃
+- 髄
+- 弊
+- 矯
+- 鷲
+- 壬
+- 晦
+- 渕
+- 藍
+- 匿
+- 堪
+- 窪
+- 劉
+- 憂
+- 傑
+- 掴
+- 后
+- 酪
+- 其
+- 苫
+- ヅ
+- 揉
+- 玩
+- 胴
+- 褐
+- 諾
+- 喘
+- 喚
+- 薔
+- 賄
+- 翠
+- 倣
+- 坪
+- 愉
+- 扶
+- 朋
+- 卑
+- 曾
+- 硫
+- 冨
+- 學
+- 汽
+- 荻
+- 葡
+- 溺
+- 辿
+- 云
+- 忌
+- 砕
+- 朴
+- 檎
+- 錠
+- 幣
+- 肯
+- 膵
+- 勅
+- 於
+- 祇
+- 茄
+- 斑
+- 僅
+- 詠
+- 隼
+- 飢
+- 稽
+- 嶺
+- 淵
+- 讃
+- 窮
+- 篤
+- 韻
+- 梗
+- 狸
+- 槍
+- 謗
+- 誹
+- 逐
+- 叙
+- 吠
+- 牟
+- 頸
+- 勾
+- 煽
+- 瑠
+- 侶
+- 梶
+- 覗
+- 閤
+- 冥
+- 巾
+- 弄
+- 菩
+- 蔦
+- 馨
+- 濁
+- 煎
+- 舘
+- 桶
+- 秦
+- 遡
+- 堆
+- 櫻
+- 渇
+- 瞭
+- 臆
+- 俣
+- 煩
+- 咳
+- 唆
+- 惹
+- 杵
+- 粟
+- 邑
+- 唾
+- 杖
+- 楠
+- 歪
+- 焚
+- 辱
+- 喝
+- 湘
+- 盲
+- 謹
+- 踪
+- 陛
+- 墟
+- 撰
+- 泌
+- 漕
+- 詫
+- 眞
+- 郁
+- 渚
+- 舐
+- 舵
+- 躊
+- 壹
+- 屯
+- 琵
+- 琶
+- 窒
+- 芯
+- 躇
+- 丞
+- 牢
+- 茅
+- 彗
+- 榛
+- 箕
+- 芭
+- 醍
+- 醐
+- 饅
+- 堕
+- 巫
+- 檜
+- 酌
+- 雫
+- 款
+- 鴻
+- 伐
+- 礁
+- 窃
+- 莉
+- 銚
+- 憑
+- 掟
+- 撒
+- 樋
+- 猶
+- 蚊
+- 裾
+- 雌
+- 或
+- 搾
+- 泄
+- 焉
+- 祀
+- 箋
+- 醜
+- 鵜
+- 凱
+- 尖
+- 氣
+- 痒
+- 茎
+- 瑛
+- 怯
+- 榎
+- 濫
+- 炙
+- 鞭
+- 魏
+- 佛
+- 冶
+- 嗜
+- 坐
+- 慄
+- 應
+- 汐
+- 珂
+- 迅
+- 拷
+- 這
+- 嫡
+- 悼
+- 捻
+- 樺
+- 藁
+- 錬
+- 傭
+- 剃
+- 嵌
+- 牽
+- 鍼
+- 侮
+- 彙
+- 毬
+- 亨
+- 來
+- 宍
+- 訛
+- 骸
+- 仇
+- 巴
+- 氾
+- 燦
+- 砺
+- 租
+- 蕉
+- 嘔
+- 會
+- 柚
+- 槌
+- 莫
+- 裔
+- 釘
+- 冤
+- 冴
+- 撫
+- 贋
+- ヵ
+- 些
+- 佃
+- 狐
+- 嚢
+- 鋳
+- 嶽
+- 齋
+- 凹
+- 哺
+- 埴
+- 旺
+- 蛋
+- 賜
+- 伍
+- 呟
+- 夷
+- 嶼
+- 汎
+- 霹
+- 塵
+- 愁
+- 脆
+- 韮
+- 吏
+- 套
+- 妓
+- 梱
+- 洛
+- 漱
+- 牝
+- 禍
+- 紡
+- 脊
+- 賓
+- 填
+- 朽
+- 樫
+- 芙
+- 蓉
+- 錐
+- 堵
+- 弔
+- 挽
+- 楕
+- 汲
+- 劔
+- 庸
+- 楊
+- 砦
+- 鱗
+- 憤
+- 捏
+- 洩
+- 爾
+- 甍
+- 腿
+- 鱒
+- 桟
+- 橿
+- 苛
+- 頬
+- 嗚
+- 坑
+- 孵
+- 庇
+- 梢
+- 欅
+- 畠
+- 穿
+- 蔓
+- 趙
+- 鉾
+- 佑
+- 巌
+- 彷
+- 斧
+- 棘
+- 淘
+- 箔
+- 累
+- 蜩
+- 邊
+- 麿
+- 圓
+- 暢
+- 榮
+- 殉
+- 涌
+- 竪
+- 諮
+- 雛
+- 鯵
+- 且
+- 升
+- 奔
+- 峨
+- 煉
+- 瞑
+- 艶
+- 萎
+- 蕨
+- 薪
+- 輌
+- 巽
+- 曳
+- 沫
+- 芥
+- 蔑
+- 鎧
+- 鼠
+- 凪
+- 屑
+- 崔
+- 嵯
+- 橙
+- 游
+- 稜
+- 聲
+- 儚
+- 楚
+- 耆
+- 芹
+- 菖
+- 裳
+- 逗
+- 遜
+- 陀
+- 俸
+- 娩
+- 峙
+- 憐
+- 扁
+- 扮
+- 澪
+- 眩
+- 罵
+- 耶
+- 聘
+- 鰻
+- ゝ
+- 囃
+- 彿
+- 慧
+- 曝
+- 濠
+- 茉
+- 靭
+- 鶯
+- 麒
+- ヰ
+- 乞
+- 傲
+- 哨
+- 彬
+- 珀
+- 秤
+- 蓬
+- 躾
+- 遵
+- 凸
+- 厩
+- 慨
+- 榊
+- 沌
+- 疱
+- 迦
+- 叡
+- 吻
+- 嬬
+- 嵩
+- 昏
+- 腱
+- 袈
+- 鰹
+- 埠
+- 寡
+- 峻
+- 巷
+- 拗
+- 拙
+- 揄
+- 揶
+- 斡
+- 楢
+- 淋
+- 爬
+- 琥
+- 聚
+- 胚
+- 膠
+- 芒
+- 蜃
+- 螺
+- 餐
+- 鷺
+- 几
+- 劫
+- 匡
+- 揖
+- 欽
+- 琢
+- 砥
+- 蝿
+- 諜
+- 諧
+- 趾
+- 僑
+- 媚
+- 孟
+- 宕
+- 寓
+- 徊
+- 徘
+- 捗
+- 曙
+- 纂
+- 翁
+- 膿
+- 藪
+- 訊
+- 迂
+- 錫
+- 俯
+- 娼
+- 梟
+- 渾
+- 濾
+- 禿
+- 糠
+- 膀
+- 苅
+- 衷
+- 豹
+- 鞘
+- 麹
+- 黎
+- 檻
+- 渥
+- 酉
+- 鞠
+- 噺
+- 惰
+- 摯
+- 旛
+- 毀
+- 洸
+- 淑
+- 燻
+- 瞰
+- 竈
+- 糾
+- 蛙
+- 蹄
+- 倭
+- 卯
+- 囁
+- 堰
+- 晒
+- 樓
+- 狛
+- 蓼
+- 蛛
+- 蜘
+- 謳
+- 劾
+- 吃
+- 咄
+- 嘱
+- 恰
+- 悶
+- 槇
+- 猥
+- 玖
+- 礫
+- 祷
+- 站
+- 竣
+- 絨
+- 縞
+- 陪
+- 乘
+- 叢
+- 尹
+- 憾
+- 拮
+- 挺
+- 斂
+- 朔
+- 瀞
+- 疇
+- 瞥
+- 穣
+- 罹
+- 諫
+- 逓
+- 雹
+- 頚
+- 伽
+- 廿
+- 惟
+- 掻
+- 攣
+- 殲
+- 汝
+- 浙
+- 聯
+- 詔
+- 隻
+- 頁
+- 餓
+- 傳
+- 冲
+- 斥
+- 總
+- 腑
+- 鋸
+- 隕
+- 頒
+- 頷
+- 什
+- 哭
+- 團
+- 塑
+- 姦
+- 寵
+- 慟
+- 欒
+- 祓
+- 禽
+- 籐
+- 蚕
+- 賦
+- 轢
+- 鄭
+- 鋒
+- 顛
+- 鱈
+- 丑
+- 嬰
+- 宦
+- 實
+- 屍
+- 柩
+- 涛
+- 瑳
+- 疼
+- 窩
+- 緻
+- 脛
+- 鍬
+- 享
+- 厭
+- 咽
+- 嘲
+- 樅
+- 燭
+- 痙
+- 瘤
+- 縣
+- 肋
+- 肛
+- 虔
+- 襟
+- 閃
+- 魯
+- 喩
+- 嗽
+- 嚥
+- 壕
+- 怜
+- 捌
+- 筏
+- 箪
+- 繭
+- 藏
+- 蛾
+- 訃
+- 貪
+- 颯
+- 匝
+- 咀
+- 咎
+- 嚼
+- 屓
+- 庚
+- 愕
+- 滸
+- 灼
+- 笥
+- 蜀
+- 訶
+- 誅
+- 贔
+- 醬
+- 鰐
+- 俄
+- 倦
+- 倹
+- 刹
+- 嚙
+- 塙
+- 桝
+- 櫛
+- 焙
+- 盧
+- 竄
+- 紘
+- 絢
+- 菰
+- 葦
+- 蒜
+- 蕁
+- 薙
+- 蘆
+- 謁
+- 辣
+- 靡
+- 駕
+- 鴎
+- 仄
+- 侘
+- 倖
+- 傀
+- 僻
+- 儡
+- 剋
+- 彅
+- 栂
+- 桔
+- 梵
+- 滲
+- 澳
+- 濤
+- 獨
+- 畷
+- 痔
+- 瘦
+- 祠
+- 禰
+- 膣
+- 荏
+- 襄
+- 訥
+- 跨
+- 躓
+- 邱
+- 鉤
+- 鏑
+- 闊
+- 雉
+- 鵬
+- 叛
+- 吼
+- 姐
+- 彌
+- 曼
+- 沃
+- 漣
+- 漸
+- 瀋
+- 爛
+- 皐
+- 簾
+- 翡
+- 苓
+- 莞
+- 蓑
+- 蕾
+- 蝋
+- 蝦
+- 褪
+- 鄙
+- 酋
+- 鋤
+- 鍾
+- 鐵
+- 冑
+- 啼
+- 嘗
+- 屏
+- 斯
+- 椀
+- 渠
+- 熾
+- 犀
+- 皺
+- 睨
+- 磋
+- 筧
+- 糊
+- 荼
+- 莱
+- 辨
+- 逞
+- 邁
+- 鍮
+- 隋
+- 鞆
+- 鞋
+- 乖
+- 嗟
+- 圀
+- 忖
+- 惠
+- 憺
+- 攘
+- 朧
+- 杞
+- 槙
+- 殘
+- 淫
+- 瀕
+- 炸
+- 燐
+- 筐
+- 翳
+- 脾
+- 臀
+- 證
+- 錘
+- 鴬
+- ゎ
+- 于
+- 偕
+- 咬
+- 唖
+- 啜
+- 圃
+- 壽
+- 姚
+- 姥
+- 婉
+- 嬌
+- 孕
+- 屠
+- 岱
+- 廓
+- 憫
+- 戟
+- 按
+- 捺
+- 桓
+- 椹
+- 楷
+- 櫂
+- 灌
+- 燗
+- 甦
+- 碍
+- 祟
+- 禮
+- 穹
+- 筍
+- 簗
+- 腋
+- 茫
+- 蒔
+- 諺
+- 貶
+- 遙
+- 鈑
+- 錨
+- 靱
+- 飄
+- 髷
+- 鵠
+- 鼎
+- 亦
+- 佇
+- 偲
+- 剪
+- 剱
+- 埒
+- 姶
+- 對
+- 幇
+- 徽
+- 恫
+- 攫
+- 歸
+- 狡
+- 瞼
+- 硯
+- 竺
+- 笏
+- 篝
+- 簀
+- 籾
+- 罫
+- 聾
+- 脹
+- 蔡
+- 蕗
+- 蝮
+- 賽
+- 贖
+- 辭
+- 鋪
+- 鮓
+- 鰯
+- 鰺
+- 两
+- 乎
+- 儘
+- 匍
+- 匐
+- 嚆
+- 弛
+- 徨
+- 惡
+- 憚
+- 暘
+- 棉
+- 樂
+- 殷
+- 毫
+- 汀
+- 烙
+- 狄
+- 珪
+- 琳
+- 瓣
+- 箏
+- 繚
+- 與
+- 舫
+- 舷
+- 茗
+- 蒟
+- 蒻
+- 蛭
+- 袢
+- 襖
+- 襦
+- 賴
+- 贄
+- 蹙
+- 轍
+- 辟
+- 辯
+- 醂
+- 醇
+- 鑽
+- 顆
+- 顰
+- 鰭
+- 凰
+- 呵
+- 噪
+- 寶
+- 懺
+- 捲
+- 掠
+- 榴
+- 營
+- 獰
+- 畏
+- 畝
+- 畦
+- 盈
+- 砧
+- 穢
+- 紆
+- 翆
+- 耽
+- 舅
+- 蕩
+- 蛸
+- 袂
+- 褻
+- 躯
+- 迭
+- 逅
+- 邂
+- 邉
+- 鈎
+- 銛
+- 關
+- 鸞
+- 齧
+- 亥
+- 勸
+- 吽
+- 咥
+- 奧
+- 妍
+- 婢
+- 尤
+- 屁
+- 愴
+- 斷
+- 旱
+- 暈
+- 枷
+- 柘
+- 櫃
+- 櫟
+- 毘
+- 汪
+- 潴
+- 澱
+- 煤
+- 熔
+- 當
+- 睾
+- 碓
+- 窄
+- 篁
+- 簪
+- 繹
+- 翹
+- 耀
+- 莇
+- 菴
+- 蘂
+- 蜷
+- 褄
+- 褌
+- 謬
+- 賣
+- 躰
+- 軋
+- 逼
+- 鎬
+- 靜
+- 魃
+- 鮟
+- 鳶
+- 齟
+- 齬
+- 〜
+- ヮ
+- 亟
+- 仆
+- 凋
+- 咤
+- 啄
+- 埜
+- 娑
+- 娶
+- 悉
+- 戊
+- 戎
+- 撼
+- 擲
+- 數
+- 朦
+- 桿
+- 樟
+- 檮
+- 沁
+- 浣
+- 涜
+- 滓
+- 瀾
+- 燧
+- 爲
+- 猾
+- 瑤
+- 瑩
+- 癬
+- 睫
+- 矮
+- 碌
+- 稟
+- 穎
+- 篥
+- 篳
+- 粹
+- 緬
+- 罷
+- 羞
+- 舖
+- 葺
+- 諍
+- 諷
+- 謄
+- 趨
+- 蹊
+- 躁
+- 輻
+- 逍
+- 霍
+- 鬆
+- 鮪
+- 黴
+- 佻
+- 內
+- 凉
+- 剝
+- 勒
+- 厖
+- 厶
+- 唸
+- 啖
+- 墅
+- 夭
+- 宥
+- 寢
+- 已
+- 悍
+- 拇
+- 捐
+- 搦
+- 撚
+- 撥
+- 擔
+- 攪
+- 晝
+- 杓
+- 杣
+- 枇
+- 桧
+- 椰
+- 橇
+- 欣
+- 泗
+- 涸
+- 淹
+- 渭
+- 滿
+- 潘
+- 濔
+- 濘
+- 濟
+- 炬
+- 煇
+- 熨
+- 燵
+- 狽
+- 玻
+- 瘻
+- 癇
+- 瞞
+- 碕
+- 禧
+- 禾
+- 秉
+- 絲
+- 綉
+- 縋
+- 縷
+- 繫
+- 臺
+- 艱
+- 蕪
+- 虻
+- 蝸
+- 覺
+- 訝
+- 誼
+- 譯
+- 輕
+- 鐸
+- 閏
+- 驛
+- 髙
+- 鬘
+- 魍
+- 魎
+- 鯰
+- 鯱
+- 鵡
+- 鸚
+- 黛
+- 鼾
+- 亞
+- 侃
+- 侭
+- 俎
+- 們
+- 勞
+- 匙
+- 吞
+- 咸
+- 哈
+- 噎
+- 噤
+- 囓
+- 壞
+- 媽
+- 忸
+- 忽
+- 怩
+- 恍
+- 恣
+- 惇
+- 憮
+- 截
+- 托
+- 撻
+- 敲
+- 斌
+- 昊
+- 椙
+- 槎
+- 涎
+- 淮
+- 淺
+- 湛
+- 溯
+- 漉
+- 潯
+- 澹
+- 焔
+- 焜
+- 煖
+- 燔
+- 猷
+- 獪
+- 珊
+- 琿
+- 瑚
+- 甜
+- 甫
+- 畤
+- 疆
+- 癪
+- 盪
+- 瞠
+- 砿
+- 祗
+- 禊
+- 窺
+- 笈
+- 笙
+- 箭
+- 簸
+- 胤
+- 臍
+- 舛
+- 艾
+- 茘
+- 莪
+- 萃
+- 萱
+- 蒋
+- 薗
+- 藹
+- 蛎
+- 蛯
+- 蠕
+- 袱
+- 襷
+- 覯
+- 觀
+- 詈
+- 誦
+- 諌
+- 諤
+- 譽
+- 豐
+- 賎
+- 賤
+- 赭
+- 跋
+- 蹂
+- 躙
+- 轆
+- 轤
+- 遁
+- 鉈
+- 鉉
+- 錮
+- 雙
+- 飮
+- 餞
+- 饒
+- 饗
+- 駈
+- 駝
+- 驗
+- 鵄
+- 鷗
+- 麴
+- 黑
+- 𥱋
+- 丕
+- 个
+- 亙
+- 亰
+- 份
+- 假
+- 僖
+- 僭
+- 剌
+- 劍
+- 势
+- 卷
+- 參
+- 咋
+- 咫
+- 哪
+- 喃
+- 單
+- 嚴
+- 囂
+- 囑
+- 垳
+- 塒
+- 壘
+- 夙
+- 头
+- 妇
+- 妲
+- 姆
+- 嫣
+- 寥
+- 对
+- 將
+- 專
+- 嵜
+- 师
+- 帚
+- 帶
+- 庖
+- 廬
+- 彡
+- 從
+- 德
+- 惻
+- 愿
+- 慇
+- 憊
+- 懃
+- 懿
+- 戈
+- 戰
+- 户
+- 抉
+- 拂
+- 拌
+- 拔
+- 捩
+- 掬
+- 摑
+- 撓
+- 撹
+- 攬
+- 晖
+- 枌
+- 样
+- 梳
+- 槿
+- 樱
+- 檄
+- 檢
+- 檪
+- 檬
+- 檸
+- 櫨
+- 欝
+- 沛
+- 沽
+- 洵
+- 润
+- 溌
+- 滉
+- 滯
+- 滾
+- 漑
+- 漲
+- 潭
+- 煥
+- 燼
+- 牒
+- 狷
+- 瑣
+- 甑
+- 疋
+- 痍
+- 痰
+- 癲
+- 發
+- 盂
+- 睛
+- 矜
+- 矩
+- 硼
+- 碩
+- 祁
+- 禎
+- 禹
+- 笞
+- 筅
+- 箆
+- 簑
+- 粮
+- 絅
+- 絽
+- 經
+- 綠
+- 綬
+- 綸
+- 緘
+- 縒
+- 繡
+- 繩
+- 繪
+- 續
+- 纸
+- 终
+- 聊
+- 聰
+- 肅
+- 胄
+- 舍
+- 舩
+- 艘
+- 艸
+- 菫
+- 蔔
+- 蔚
+- 蘊
+- 蘿
+- 蛞
+- 蜊
+- 蝓
+- 蝕
+- 蟄
+- 蟠
+- 衍
+- 裝
+- 覽
+- 覿
+- 註
+- 諄
+- 譴
+- 讀
+- 讓
+- 请
+- 豬
+- 貘
+- 费
+- 赫
+- 跣
+- 躉
+- 軾
+- 轉
+- 迸
+- 迹
+- 酊
+- 酩
+- 醪
+- 鈿
+- 銜
+- 鍍
+- 鐺
+- 鑚
+- 钿
+- 閻
+- 问
+- 陞
+- 雜
+- 霆
+- 霰
+- 韋
+- 顚
+- 馆
+- 駁
+- 駱
+- 驕
+- 魑
+- 鎹
+- 扈
+- 鹼
+- 鰤
+- 蝗
+- 杷
+- 曉
+- 鱧
+- 鱇
+- 鈔
+- 溪
+- 斤
+- 獏
+- 晰
+- 盒
+- 幟
+- 轟
+- 諒
+- 箒
+- 痣
+- 麩
+- 榜
+- 鮒
+- 厘
+- 賂
+- 蒡
+- 薯
+- 檀
+- 踵
+- 卦
+- 祢
+- 悸
+- 筈
+- 盃
+- 枡
+- 螢
+- 魁
+- 羹
+- 毯
+- 篭
+- 瘡
+- 噓
+- 卜
+- 紬
+- 壷
+- 嗣
+- 胱
+- 雁
+- 昴
+- 昂
+- 摺
+- 謂
+- 膏
+- 綜
+- 蟻
+- 臥
+- 鮫
+- 櫓
+- 裟
+- 妾
+- 瓜
+- 麵
+- 蟲
+- 鹸
+- 兜
+- 纏
+- 錆
+- 袴
+- 瓢
+- 丙
+- 竿
+- 奢
+- 蔭
+- 柊
+- 喬
+- 餡
+- 迄
+- 杭
+- 粕
+- 擢
+- 鞄
+- 蹟
+- 繕
+- 肇
+- 靂
+- 遽
+- 埃
+- 栓
+- 甚
+- 煌
+- 柵
+- 凌
+- 蔽
+- 燈
+- 饉
+- 采
+- 董
+- 楯
+- 垢
+- 渦
+- 毅
+- 怨
+- 嚇
+- 麟
+- 柑
+- 暉
+- 緋
+- 痢
+- 梓
+- 湊
+- 逝
+- 窯
+- 址
+- 繍
+- 揆
+- 惧
+- 巳
+- 壺
+- 璃
+- 肴
+- 肘
+- 鮎
+- 詮
+- 兎
+- 髭
+- 葱
+- 塀
+- 只
+- 粥
+- 訣
+- 抄
+- 弐
+- 呆
+- 茸
+- 廉
+- 灸
+- 栞
+- 帥
+- 苺
+- 楓
+- 牌
+- 絹
+- 梯
+- 戴
+- 亘
+- 宵
+- 譚
+- 廻
+- 鯛
+- 馳
+- 凧
+- 稔
+- 罠
+- 醒
+- 疹
+- 綻
+- 墜
+- 鉢
+- 狗
+- 椒
+- 仔
+- 糞
+- 赦
+- 萄
+- 苔
+- 瀧
+- 蠣
+- 姑
+- 耗
+- 凛
+- 飴
+- 棺
+- 悦
+- 鮭
+- 蟹
+- 眉
+- 栖
+- 鯉
+- 薇
+- 吟
+- 閑
+- 蛮
+- 藻
+- 窟
+- 貌
+- 婿
+- 腺
+- 痺
+- 隈
+- 臼
+- 紐
+- 綿
+- 槽
+- 鯨
+- 琉
+- 叉
+- 俵
+- 牙
+- 茜
+- 琲
+- 帖
+- 遮
+- 滴
+- 錯
+- 遼
+- 鯖
+- 姜
+- 蝉
+- 頓
+- 碗
+- 猪
+- 騰
+- 宛
+- 酎
+- 燕
+- 鳳
+- 嫉
+- 坦
+- 汰
+- 鴨
+- 輿
+- 顎
+- 諭
+- 瘍
+- 桁
+- 萬
+- 遍
+- 某
+- 靖
+- 壱
+- 霞
+- 虚
+- 帆
+- 穫
+- 膳
+- 鮨
+- 暁
+- 拐
+- 宋
+- 凡
+- 泡
+- 呑
+- 鳩
+- 喰
+- 囚
+- 姪
+- 塊
+- 妬
+- 紗
+- 瓶
+- 尺
+- 矛
+- 廣
+- 麓
+- 蓋
+- 漂
+- 晃
+- 径
+- 兆
+- 柿
+- 侠
+- 鬱
+- 寸
+- 掌
+- 宜
+- 賠
+- 澄
+- 杏
+- 姻
+- 厨
+- 閥
+- 棲
+- 侯
+- 猟
+- 李
+- 禅
+- 謙
+- 蛇
+- 胆
+- ヂ
+- 昧
+- 霜
+- 葛
+- 斬
+- 籠
+- 曹
+- 惨
+- 縫
+- 灰
+- 桂
+- 辻
+- 虎
+- 粒
+- 笛
+- 唇
+- 酵
+- 胎
+- 爪
+- 珠
+- 盾
+- 殻
+- 鐘
+- 鉛
+- 隅
+- 舟
+- 銅
+- 國
+- 錦
+- 烈
+- 鷹
+- 鋼
+- 枕
+- 堤
+- 訟
+- 凶
+- 机
+- 庶
+- 尼
+- 喉
+- 桐
+- 膝
+- 壇
+- 蓄
+- 芽
+- 蘇
+- 箸
+- 峠
+- 貞
+- 炉
+- 峡
+- 絆
+- 滋
+- 袖
+- 璧
+- 嘉
+- 缶
+- 虹
+- 裸
+- 耕
+- 悠
+- 葵
+- 搬
+- 晋
+- 弦
+- 餌
+- 艇
+- 亮
+- 腫
+- 狼
+- 楼
+- 餅
+- 爺
+- 又
+- 侍
+- 棟
+- 奮
+- 僧
+- 蓮
+- 芋
+- 畳
+- 宴
+- 駿
+- 酬
+- 棚
+- 剖
+- 賊
+- 衰
+- 塁
+- 譜
+- 旋
+- 讐
+- 肪
+- 腸
+- 菱
+- 閲
+- 筒
+- 哉
+- 陵
+- 婆
+- 欄
+- 顕
+- 遂
+- 縛
+- 軸
+- 塞
+- 宏
+- 緯
+- 琴
+- 宰
+- 釜
+- 蘭
+- 銘
+- 潤
+- 暦
+- 伎
+- 痴
+- 玲
+- 疫
+- 昌
+- 班
+- 往
+- 刃
+- 潔
+- 洲
+- 如
+- 岬
+- 祐
+- 柏
+- 冊
+- 雀
+- 裂
+- 叫
+- 羅
+- 粋
+- 柱
+- 祈
+- 敦
+- ヲ
+- 尉
+- ぅ
+- 綱
+- 乏
+- 欺
+- 曽
+- 淳
+- 翔
+- 把
+- 殖
+- 涯
+- 戒
+- 媒
+- 符
+- 酢
+- 酷
+- 貝
+- 峰
+- 寛
+- 隷
+- 猿
+- 癌
+- 綾
+- 泥
+- 粛
+- 扉
+- 娠
+- 輔
+- 皿
+- 鼓
+- 熟
+- 朗
+- 駒
+- 銭
+- 苑
+- 鎖
+- 肝
+- 垂
+- 億
+- 磁
+- 洞
+- 闇
+- 覇
+- 冠
+- 墳
+- 丼
+- 寧
+- 瞳
+- 癖
+- 剛
+- 菊
+- 嬢
+- 遇
+- 肢
+- 敏
+- 尋
+- 狂
+- 柴
+- 彫
+- 堅
+- 枝
+- 紫
+- 拾
+- 嶋
+- 還
+- 縦
+- 胞
+- 恩
+- ぃ
+- 釈
+- 尻
+- 庵
+- 威
+- 尚
+- 拳
+- 撲
+- 匠
+- 晶
+- 憩
+- 祥
+- 砲
+- 焦
+- 尿
+- 魂
+- 穂
+- 轄
+- 拝
+- 醤
+- 斎
+- 戚
+- 巣
+- 圭
+- 霧
+- 潮
+- 培
+- 征
+- 弥
+- 孝
+- 腐
+- 貢
+- 没
+- 棋
+- 彰
+- 帽
+- 菌
+- 碑
+- 斗
+- 揺
+- 糸
+- 鶏
+- 鼻
+- 爵
+- 薦
+- 肌
+- 屈
+- 紋
+- 枠
+- 垣
+- 旬
+- 慎
+- 随
+- 軒
+- 乙
+- 玄
+- 刀
+- 践
+- 伏
+- 噂
+- 庄
+- 磨
+- 隔
+- 隆
+- 穴
+- 盆
+- 貧
+- 鍵
+- 岳
+- 慮
+- 却
+- 拶
+- 弓
+- 即
+- 姓
+- 掘
+- 浪
+- 譲
+- 斉
+- 騎
+- 奨
+- 謀
+- 塔
+- 滑
+- 傘
+- 雷
+- 俊
+- 軟
+- 輝
+- 摘
+- 慶
+- 汗
+- 澤
+- 篇
+- 謎
+- 幻
+- 餃
+- 匹
+- 吾
+- 鏡
+- 棒
+- 涙
+- 賃
+- 茂
+- 悟
+- 唄
+- 葬
+- 摩
+- 簿
+- 渉
+- 償
+- 僚
+- 旭
+- 脂
+- 序
+- 貫
+- ぉ
+- 誤
+- 翼
+- 寮
+- 滝
+- 氷
+- 針
+- 雅
+- 倫
+- 藩
+- 刷
+- 陣
+- 畑
+- 媛
+- 尽
+- 賛
+- 債
+- 誠
+- 煮
+- 桃
+- 勘
+- 稲
+- 棄
+- 腰
+- 菅
+- 獄
+- 柳
+- 粧
+- 弘
+- 鶴
+- 肩
+- 銃
+- 汁
+- 灯
+- 眼
+- 網
+- 封
+- 噌
+- 稿
+- 附
+- 杯
+- 悔
+- 麦
+- 湿
+- 靴
+- ぺ
+- 殊
+- 抵
+- 礎
+- 豚
+- 黙
+- 締
+- 酔
+- 乃
+- 燥
+- 鍋
+- 豪
+- 討
+- 濃
+- 紅
+- 票
+- 炎
+- 皮
+- 縮
+- 徹
+- 杉
+- 較
+- 稚
+- 堀
+- 帳
+- 忍
+- 伯
+- 託
+- 矢
+- 詩
+- 迫
+- 偶
+- 核
+- 儀
+- 双
+- 到
+- 削
+- 液
+- 駆
+- 亀
+- 襲
+- 衆
+- 唐
+- 糖
+- 巡
+- 繁
+- 臭
+- 炊
+- 陰
+- 腕
+- 浄
+- 嘩
+- 咲
+- 盗
+- 脈
+- 滞
+- 牧
+- 坊
+- 包
+- 至
+- 枚
+- 偉
+- 致
+- 訓
+- 貨
+- 耳
+- 漢
+- 旗
+- 己
+- 扇
+- 梅
+- 握
+- 欧
+- 薄
+- 恥
+- 献
+- 預
+- 仁
+- 龍
+- 詰
+- 珍
+- 彩
+- 快
+- 沼
+- 毒
+- 丹
+- 句
+- 鈴
+- 釣
+- 縁
+- 微
+- 妙
+- 括
+- 晩
+- 粉
+- 麺
+- 卓
+- 圏
+- 兼
+- 欠
+- 踊
+- 脳
+- 竜
+- 鳴
+- 彦
+- 嫁
+- 騒
+- 髪
+- 請
+- 卵
+- 損
+- 荷
+- 梨
+- 唱
+- 嵐
+- 幌
+- 伴
+- 才
+- 阜
+- 臓
+- 獣
+- 箱
+- 祖
+- 甲
+- 浴
+- 尊
+- 避
+- 昇
+- 熊
+- 壁
+- 丘
+- 析
+- 孫
+- 干
+- 皇
+- 厚
+- 亭
+- 霊
+- 筆
+- 承
+- 均
+- 融
+- 律
+- 緑
+- 否
+- 鬼
+- 塾
+- 脚
+- 須
+- 邪
+- 袋
+- 湖
+- 乳
+- 裕
+- 揮
+- 凍
+- 滅
+- 乾
+- ぴ
+- 羽
+- 慢
+- 候
+- 拡
+- 濯
+- 貸
+- 砂
+- 敬
+- 概
+- 庁
+- 煙
+- 執
+- 底
+- 裁
+- 喋
+- 麗
+- 露
+- 雲
+- 骨
+- 倍
+- 殿
+- 奇
+- 易
+- 層
+- 敷
+- 幕
+- 毛
+- 爆
+- 暇
+- 械
+- 貴
+- 隣
+- 輸
+- ぷ
+- 柄
+- 姫
+- 範
+- 掲
+- 嘘
+- 塚
+- 剤
+- 充
+- 併
+- 奴
+- 束
+- 墓
+- 瀬
+- 刊
+- 衣
+- 択
+- 縄
+- 瞬
+- 射
+- 菓
+- 募
+- 乱
+- 迎
+- 抱
+- 永
+- 竹
+- 酸
+- 刺
+- 閣
+- 郷
+- 也
+- 憶
+- 剣
+- 功
+- 鹿
+- 牛
+- 秘
+- 仏
+- 雄
+- 虫
+- 善
+- 届
+- 艦
+- 片
+- 複
+- 為
+- 泳
+- 宝
+- 激
+- 幹
+- 臣
+- 之
+- 暑
+- 浦
+- 看
+- 疑
+- 誘
+- 暴
+- 聖
+- 捨
+- 板
+- 桜
+- 破
+- 革
+- 希
+- 幅
+- 呂
+- 折
+- 診
+- 伸
+- 惑
+- 測
+- 駐
+- 窓
+- 紀
+- 舎
+- 署
+- 患
+- 岸
+- 績
+- 湾
+- 岐
+- 樹
+- 納
+- 秀
+- 免
+- 謝
+- 池
+- 禁
+- 背
+- 躍
+- 聴
+- 抗
+- 豆
+- 税
+- 奏
+- 草
+- 弾
+- 恵
+- 老
+- 礼
+- 角
+- 童
+- 審
+- 裏
+- 吹
+- 眠
+- 歯
+- 拠
+- 寒
+- 慣
+- 触
+- 飼
+- 荘
+- 群
+- 迷
+- 泊
+- 宗
+- 旦
+- 傷
+- 額
+- 塩
+- 券
+- 床
+- 静
+- 留
+- 著
+- 油
+- 誌
+- 罪
+- 純
+- 腹
+- 偵
+- 則
+- 壊
+- 札
+- 輪
+- 掃
+- 災
+- 闘
+- 弱
+- 刻
+- 航
+- 答
+- 栄
+- 姿
+- 亡
+- 織
+- 敗
+- 章
+- 吸
+- 令
+- 鮮
+- 補
+- 夕
+- 捜
+- 怒
+- 模
+- 益
+- 喜
+- 華
+- 絵
+- 申
+- 盤
+- 軽
+- 積
+- 標
+- 階
+- 省
+- 密
+- 項
+- 猫
+- 従
+- 非
+- 帝
+- 季
+- 捕
+- 党
+- 我
+- 圧
+- 香
+- 筋
+- 輩
+- 籍
+- 丁
+- 押
+- 尾
+- 韓
+- 操
+- 暗
+- 症
+- 散
+- 突
+- 適
+- 雑
+- 跡
+- 厳
+- 了
+- 鳥
+- 逃
+- 講
+- 晴
+- 徴
+- 刑
+- 駄
+- 倉
+- 困
+- 短
+- 婦
+- 遣
+- 略
+- 齢
+- 震
+- 敵
+- 蔵
+- 博
+- 血
+- 満
+- 志
+- 舗
+- 宙
+- 郡
+- 那
+- 寿
+- 遺
+- 秋
+- 極
+- 里
+- 廃
+- 因
+- 典
+- 染
+- 徒
+- 巻
+- 頂
+- 坂
+- 超
+- 河
+- 盛
+- 犬
+- 豊
+- 端
+- 紹
+- 首
+- 湯
+- 陽
+- 精
+- 祉
+- 歳
+- 練
+- 江
+- 怪
+- 印
+- 算
+- 紙
+- 払
+- 求
+- 障
+- 簡
+- 御
+- 途
+- 創
+- 賀
+- 船
+- 堂
+- 菜
+- ゥ
+- 勤
+- 痛
+- 並
+- 景
+- 雪
+- 節
+- 鑑
+- 浜
+- 昼
+- 清
+- 抜
+- 勢
+- 暮
+- 銀
+- 盟
+- 魚
+- 率
+- 洋
+- 寺
+- 弁
+- 皆
+- 徳
+- 茶
+- 笑
+- 渡
+- 奈
+- 順
+- 況
+- 談
+- 舞
+- 案
+- 岩
+- 負
+- 旧
+- 財
+- 許
+- 故
+- 冬
+- 横
+- 奥
+- 訳
+- 比
+- 囲
+- 停
+- 築
+- 波
+- 妹
+- 林
+- 暖
+- 索
+- 赤
+- 給
+- 末
+- 催
+- 武
+- 洗
+- 遅
+- 述
+- 黒
+- 犯
+- 左
+- 源
+- 魔
+- 細
+- 久
+- 与
+- 減
+- 級
+- 費
+- 越
+- 差
+- 妻
+- 領
+- 衛
+- 丸
+- 絡
+- 隊
+- 薬
+- 氏
+- 望
+- 似
+- 就
+- 右
+- 条
+- 布
+- 処
+- 谷
+- 策
+- 効
+- 忘
+- 熱
+- 復
+- 姉
+- ヌ
+- 振
+- 課
+- 規
+- 倒
+- 港
+- 注
+- 森
+- 防
+- 継
+- 退
+- 根
+- 火
+- 替
+- 陸
+- 去
+- 視
+- 整
+- 準
+- 庭
+- ゾ
+- 独
+- 撃
+- 児
+- 橋
+- ぽ
+- 換
+- 念
+- 識
+- ぬ
+- 打
+- 津
+- 雨
+- 幸
+- 含
+- 祭
+- 響
+- 労
+- 凄
+- 将
+- 官
+- 苦
+- 追
+- 遠
+- 未
+- 販
+- 娘
+- 街
+- 曜
+- 程
+- 提
+- 玉
+- 判
+- 移
+- 攻
+- 低
+- 装
+- 断
+- 及
+- 証
+- 象
+- 守
+- 青
+- 富
+- 戻
+- 詞
+- 吉
+- 投
+- 歴
+- 沢
+- 載
+- 具
+- 庫
+- 除
+- 環
+- 展
+- 卒
+- 争
+- 失
+- 房
+- 春
+- 挙
+- 潟
+- 返
+- 馬
+- 欲
+- 材
+- 戸
+- 図
+- 寝
+- 養
+- 焼
+- 導
+- 夢
+- 米
+- 冷
+- 息
+- 兵
+- 席
+- 済
+- 劇
+- 援
+- 飯
+- 央
+- 険
+- 服
+- 態
+- 走
+- 評
+- 居
+- 権
+- 論
+- 弟
+- ゅ
+- 境
+- 察
+- 授
+- 頼
+- 派
+- 撮
+- 素
+- 修
+- 第
+- 質
+- 告
+- 興
+- 秒
+- 宇
+- 肉
+- 兄
+- 像
+- 称
+- 値
+- 頭
+- 週
+- 督
+- 消
+- 宅
+- 芸
+- 顔
+- 読
+- 仲
+- 遊
+- 試
+- 速
+- 酒
+- 宿
+- 離
+- 松
+- 増
+- 殺
+- 鉄
+- 司
+- 害
+- 割
+- 石
+- 夏
+- 版
+- 佐
+- 助
+- 英
+- 号
+- 想
+- 管
+- 急
+- 頃
+- づ
+- 若
+- 恋
+- 造
+- 史
+- 泉
+- 量
+- 製
+- 府
+- 足
+- 怖
+- 王
+- 委
+- 両
+- 辺
+- 残
+- 逆
+- 備
+- 軍
+- 警
+- 査
+- 列
+- 編
+- 段
+- 反
+- ゼ
+- 携
+- 歩
+- 株
+- 器
+- 座
+- 飛
+- 丈
+- 花
+- 価
+- 監
+- 崎
+- 藤
+- ヘ
+- 周
+- 毎
+- 統
+- 収
+- 落
+- 星
+- 降
+- 担
+- 側
+- 療
+- 師
+- 写
+- 類
+- 命
+- 介
+- 願
+- 護
+- 城
+- 死
+- 果
+- 阪
+- 任
+- 更
+- 常
+- 便
+- ぜ
+- 検
+- 過
+- 資
+- 働
+- 認
+- 般
+- 示
+- 客
+- 習
+- 究
+- 半
+- 録
+- 字
+- 昔
+- 康
+- 郎
+- 影
+- 覚
+- 型
+- 声
+- 件
+- 義
+- 施
+- 福
+- 容
+- 路
+- 呼
+- 役
+- 単
+- 井
+- 状
+- 建
+- 由
+- 属
+- 勉
+- 土
+- 葉
+- 起
+- 覧
+- 配
+- 張
+- 接
+- 込
+- 待
+- 室
+- 病
+- 帯
+- 嫌
+- 婚
+- 光
+- 個
+- 職
+- 営
+- ぼ
+- 研
+- 計
+- 直
+- 難
+- ぞ
+- 絶
+- ヨ
+- 照
+- 西
+- 約
+- 存
+- 験
+- 治
+- 父
+- 解
+- 岡
+- 転
+- 商
+- 進
+- 係
+- 説
+- 観
+- 球
+- 乗
+- 宮
+- 支
+- 得
+- 君
+- 議
+- 健
+- 門
+- 止
+- 重
+- 温
+- 緒
+- 着
+- 飲
+- 母
+- 士
+- ざ
+- 集
+- 万
+- 太
+- 続
+- 線
+- 種
+- 格
+- 位
+- ユ
+- 歌
+- 夜
+- 共
+- 正
+- 必
+- ヒ
+- 色
+- 問
+- 再
+- 域
+- ゆ
+- 勝
+- 台
+- 技
+- 旅
+- 引
+- 系
+- 院
+- 悪
+- 基
+- 神
+- 限
+- 産
+- 決
+- 民
+- 交
+- 政
+- 賞
+- 空
+- 医
+- 彼
+- 夫
+- 可
+- 誰
+- 古
+- 帰
+- 術
+- 相
+- 村
+- 団
+- 伝
+- 円
+- 住
+- 題
+- 平
+- 予
+- 音
+- 朝
+- 指
+- 真
+- ヴ
+- 務
+- 点
+- 各
+- 館
+- 応
+- 現
+- 利
+- 天
+- 等
+- 木
+- 白
+- 形
+- 供
+- 経
+- ぇ
+- 族
+- 早
+- 例
+- 僕
+- 不
+- 切
+- 南
+- 加
+- 際
+- 終
+- 様
+- 放
+- 和
+- 休
+- 州
+- 水
+- 協
+- 在
+- 組
+- 向
+- 広
+- 身
+- 界
+- 工
+- 選
+- 始
+- 元
+- 零
+- 々
+- 親
+- 美
+- 信
+- 都
+- 置
+- 局
+- 駅
+- 運
+- 送
+- 風
+- 口
+- 演
+- 調
+- ぎ
+- 優
+- 次
+- ォ
+- 他
+- 園
+- 保
+- 男
+- 参
+- 少
+- 百
+- 特
+- 考
+- 無
+- 七
+- ヤ
+- ギ
+- 良
+- ザ
+- 制
+- 京
+- 愛
+- 売
+- 能
+- 原
+- ゲ
+- 有
+- 六
+- 安
+- ゴ
+- 育
+- 科
+- 要
+- 料
+- 書
+- 語
+- 設
+- 海
+- 期
+- 流
+- 確
+- ペ
+- 区
+- む
+- 連
+- 買
+- ひ
+- ふ
+- 付
+- 町
+- 活
+- 情
+- 月
+- 表
+- 曲
+- 強
+- 世
+- 明
+- 成
+- ノ
+- ァ
+- 文
+- 違
+- 東
+- 友
+- 意
+- 力
+- 式
+- 法
+- 報
+- 員
+- 心
+- 屋
+- 品
+- 北
+- 先
+- 島
+- 味
+- 川
+- 開
+- 千
+- 関
+- 八
+- 電
+- 然
+- 度
+- 俺
+- 達
+- 面
+- 九
+- 数
+- 取
+- 楽
+- 金
+- 性
+- 野
+- 別
+- 戦
+- 公
+- 機
+- 道
+- 目
+- 記
+- び
+- 発
+- 対
+- 立
+- 初
+- 化
+- ソ
+- 四
+- ワ
+- 田
+- 持
+- ガ
+- 車
+- 番
+- ピ
+- 聞
+- 回
+- ぁ
+- ぶ
+- ベ
+- 五
+- げ
+- 実
+- ボ
+- 店
+- 小
+- 定
+- モ
+- 長
+- 新
+- ハ
+- ケ
+- 外
+- ポ
+- 近
+- 所
+- へ
+- 県
+- 同
+- ネ
+- 内
+- 女
+- ホ
+- 体
+- 好
+- ツ
+- セ
+- 知
+- 山
+- 来
+- ェ
+- 使
+- ョ
+- ズ
+- 主
+- 動
+- 理
+- 物
+- 映
+- 者
+- ぐ
+- 的
+- 代
+- 変
+- 教
+- 社
+- 用
+- 話
+- 名
+- 構
+- 高
+- 最
+- ず
+- ミ
+- 校
+- ダ
+- 食
+- 後
+- 手
+- 三
+- 通
+- 感
+- 合
+- 多
+- 業
+- 入
+- エ
+- 場
+- べ
+- 上
+- 家
+- 私
+- 年
+- 間
+- 画
+- 前
+- 下
+- ャ
+- 地
+- 二
+- ウ
+- ナ
+- ビ
+- 自
+- 全
+- パ
+- 結
+- ブ
+- ュ
+- 市
+- サ
+- 気
+- 方
+- デ
+- 十
+- キ
+- 当
+- 国
+- 作
+- ィ
+- 部
+- オ
+- ニ
+- チ
+- ム
+- グ
+- メ
+- ご
+- 子
+- ば
+- 生
+- ほ
+- ぱ
+- せ
+- 何
+- 出
+- 言
+- 今
+- バ
+- 事
+- 中
+- プ
+- 時
+- コ
+- 見
+- テ
+- 会
+- マ
+- カ
+- 思
+- ロ
+- ジ
+- フ
+- シ
+- め
+- レ
+- ド
+- 分
+- ょ
+- ろ
+- 学
+- 行
+- タ
+- 大
+- つ
+- 本
+- 日
+- わ
+- 一
+- ク
+- み
+- リ
+- ア
+- ッ
+- 人
+- ラ
+- ？
+- お
+- じ
+- イ
+- ル
+- ト
+- ゃ
+- き
+- さ
+- ち
+- や
+- ス
+- ど
+- け
+- く
+- え
+- を
+- り
+- よ
+- こ
+- ン
+- だ
+- れ
+- ら
+- ね
+- が
+- ま
+- ー
+- も
+- そ
+- し
+- に
+- は
+- る
+- す
+- と
+- た
+- あ
+- て
+- っ
+- で
+- か
+- な
+- ん
+- う
+- の
+- 、
+- 。
+- い
+- <ko-KR>
+- 이
+- 가
+- 을
+- 는
+- 에
+- 도
+- 고
+- 의
+- 지
+- 를
+- ▁그
+- 다
+- 은
+- 기
+- 한
+- 어
+- 시
+- 자
+- 서
+- 로
+- 해
+- 리
+- 요
+- 사
+- ▁뭐
+- 인
+- 게
+- 에서
+- ▁이제
+- 정
+- 하
+- ▁어
+- ▁거
+- 하는
+- 나
+- 대
+- ▁좀
+- 하고
+- 만
+- ▁수
+- ▁아
+- 장
+- 면
+- 으로
+- 원
+- 야
+- 주
+- 과
+- 상
+- 구
+- 스
+- 일
+- ▁그런
+- 라
+- 수
+- 할
+- 아
+- 들
+- ▁이런
+- ▁예
+- 거
+- ▁지금
+- 성
+- ▁보
+- ▁안
+- 보
+- ▁또
+- 동
+- 소
+- 신
+- ▁있는
+- 십
+- ▁것
+- 간
+- 제
+- 는데
+- 건
+- ▁대
+- 부
+- 화
+- 전
+- ▁전
+- ▁이렇게
+- ▁일
+- ▁근데
+- 들이
+- ▁그래서
+- 데
+- 했
+- 치
+- 선
+- 드
+- ▁많이
+- 세
+- 진
+- 연
+- 여
+- 관
+- 분
+- ▁네
+- 마
+- 오
+- 미
+- 위
+- 죠
+- 습니다
+- 계
+- 식
+- 무
+- 있
+- 문
+- 당
+- 재
+- 년
+- 체
+- ▁나
+- 와
+- 우
+- 라고
+- 실
+- ▁때
+- 단
+- 통
+- 영
+- ▁주
+- 적
+- 명
+- ▁않
+- ▁말
+- ▁오
+- ▁있다
+- 해서
+- 려
+- ▁어떤
+- 방
+- 산
+- ▁우리
+- 차
+- ▁저
+- 물
+- 니
+- ▁아니
+- ▁더
+- ▁사
+- 반
+- 니다
+- 점
+- ▁비
+- 트
+- ▁음
+- 용
+- 업
+- 경
+- 생
+- 적으로
+- 공
+- ▁내
+- ▁그리고
+- 국
+- 러
+- 안
+- 비
+- 까지
+- 니까
+- 금
+- 운
+- ▁이게
+- ▁공
+- 내
+- 회
+- ▁잘
+- 하게
+- 행
+- 조
+- 모
+- 감
+- 가지고
+- ▁막
+- 집
+- 된
+- 것
+- 발
+- 학
+- 심
+- 던
+- 백
+- ▁유
+- 라는
+- 남
+- ▁때문에
+- ▁그러니까
+- 되는
+- 입니다
+- 타
+- 교
+- ▁들어
+- ▁없
+- 어요
+- 법
+- 적인
+- 역
+- ▁생각
+- 매
+- 민
+- 한다
+- ▁같은
+- ▁그냥
+- 배
+- 르
+- ▁되
+- 부분
+- 육
+- ▁얘기
+- 호
+- 프
+- 날
+- ▁못
+- ▁사실
+- 거든요
+- 천
+- 등
+- ▁어떻게
+- ▁제
+- 지만
+- 히
+- ▁제가
+- ▁그렇게
+- 더
+- 권
+- 하면
+- 출
+- 다고
+- 달
+- 겠
+- 작
+- 입
+- ▁저는
+- 해야
+- ▁부
+- ▁진짜
+- 표
+- 직
+- 양
+- ▁바
+- 합니다
+- 살
+- 력
+- 었
+- 했다
+- ▁너무
+- ▁가장
+- ▁조
+- 팔
+- 중
+- 님
+- ▁내가
+- 유
+- 래
+- 버
+- 번
+- 개
+- 후
+- 잖아요
+- 하지
+- 피
+- 종
+- 네
+- 현
+- ▁있습니다
+- ▁좋
+- 맞
+- 난
+- 같
+- ▁굉장히
+- ▁중
+- 추
+- 월
+- 에는
+- 청
+- 속
+- ▁사람
+- 받
+- 질
+- 노
+- 형
+- ▁걸
+- 군
+- 였
+- 파
+- 디
+- 본
+- 돼
+- 너
+- ▁그러면
+- ▁불
+- ▁두
+- ▁오늘
+- ▁개
+- 최
+- ▁삼
+- 크
+- 됐
+- 편
+- 쪽
+- 판
+- 때
+- ▁되게
+- ▁나는
+- 부터
+- 랑
+- ▁그거
+- ▁대해서
+- ▁정도
+- 레
+- ▁김
+- ▁이거
+- ▁있고
+- ▁강
+- ▁대한
+- 으면
+- ▁그게
+- ▁문제
+- 포
+- 목
+- 결
+- 준
+- 태
+- ▁하나
+- 외
+- 씨
+- 잖아
+- 임
+- 칠
+- 열
+- 변
+- 된다
+- 예요
+- 키
+- 박
+- ▁그렇
+- 까
+- ▁말씀
+- ▁조금
+- 터
+- ▁우리가
+- 약
+- 인데
+- 긴
+- 많
+- 하기
+- 든
+- ▁약간
+- ▁있었
+- ▁될
+- 격
+- 워
+- 들은
+- 하다
+- ▁다른
+- 먹
+- ▁정말
+- ▁왜
+- 면서
+- 술
+- 합
+- 증
+- ▁계속
+- 카
+- ▁경우
+- 평
+- 냐
+- 이다
+- 봤
+- 들을
+- 석
+- 각
+- 보다
+- 분들
+- 근
+- 린
+- 볼
+- 급
+- 알
+- 설
+- 았
+- 되
+- 초
+- 쓰
+- 음
+- ▁나오
+- 으
+- 올
+- 져
+- 책
+- 확
+- 갈
+- 돈
+- ▁있는데
+- 복
+- 응
+- 되고
+- 줄
+- ▁많은
+- 령
+- 향
+- 거죠
+- ▁보면
+- 루
+- 언
+- 절
+- 에서는
+- 티
+- ▁한국
+- 토
+- 한테
+- ▁맞아
+- 에게
+- ▁그런데
+- 다는
+- ▁상황
+- ▁그러
+- 이라고
+- 료
+- 이나
+- ▁여기
+- 바
+- ▁아이
+- 애
+- 대로
+- ▁거기
+- ▁좋아
+- 참
+- 고요
+- 그
+- 면은
+- 삼
+- 구요
+- 름
+- 처럼
+- 담
+- ▁있을
+- ▁좋은
+- 품
+- 저
+- 승
+- ▁미국
+- ▁같애
+- 하시
+- 병
+- 환
+- ▁필요
+- ▁사람들
+- 지는
+- 악
+- ▁한번
+- ▁인제
+- 론
+- 순
+- 온
+- 처
+- 졌
+- 셨
+- ▁그때
+- 두
+- 갔
+- 손
+- 울
+- 벌
+- 코
+- ▁그니까
+- 취
+- ▁있어
+- 전에
+- ▁것이
+- 누
+- ▁사람들이
+- ▁자기
+- 렸
+- ▁아니라
+- 예
+- 투
+- 습니까
+- ▁일단
+- ▁없는
+- 큰
+- ▁생각을
+- 른
+- 새
+- 길
+- 택
+- 플
+- 겁
+- ▁요즘
+- ▁그럼
+- 머
+- ▁뭔가
+- 싶
+- 검
+- 메
+- 거나
+- 란
+- 독
+- 몇
+- 왔
+- 북
+- 했습니다
+- ▁그래
+- 곳
+- 족
+- 겨
+- 빠
+- ▁보니까
+- ▁정부
+- 망
+- 있는
+- 나요
+- 움
+- ▁사람이
+- ▁얘기를
+- 놓
+- 특
+- ▁것도
+- ▁이야기
+- 광
+- 며
+- 강
+- 하면서
+- 록
+- 말
+- 브
+- ▁관련
+- ▁시작
+- 글
+- 했던
+- ▁경제
+- 완
+- 겠다
+- 겠습니다
+- ▁친구
+- ▁국민
+- ▁그것
+- 봐
+- 활
+- 높
+- ▁있어요
+- 이라는
+- ▁다시
+- ▁여러
+- 총
+- 잡
+- 능
+- 항
+- 류
+- 규
+- 따
+- 채
+- 존
+- 립
+- 친
+- 쟁
+- 늘
+- 범
+- 별
+- 측
+- 테
+- 철
+- 딱
+- 엔
+- 억
+- 끝
+- 락
+- 릴
+- 창
+- 극
+- 줘
+- 협
+- 패
+- 커
+- 앞
+- 돌
+- 충
+- 색
+- 눈
+- 셔
+- 익
+- 접
+- 송
+- 힘
+- 났
+- 꾸
+- 께
+- 싸
+- 될
+- 답
+- 험
+- 침
+- 율
+- 럽
+- 페
+- 걸
+- 뒤
+- 희
+- 켜
+- 몰
+- 혀
+- 써
+- 팀
+- 션
+- 축
+- 량
+- 혼
+- 쳐
+- 득
+- 밀
+- 베
+- 황
+- 폭
+- 녀
+- 쉽
+- 틀
+- 효
+- 골
+- 불
+- 람
+- 례
+- 느
+- 즈
+- 블
+- 놀
+- 함
+- 떨
+- 텔
+- 허
+- 논
+- 궁
+- 림
+- 탄
+- 럴
+- 견
+- 씩
+- 런
+- 떠
+- 넘
+- 풀
+- 죽
+- 죄
+- 습
+- 핵
+- 귀
+- 옛
+- 윤
+- 홍
+- 끼
+- 농
+- 련
+- 갖
+- 첫
+- 둘
+- 혹
+- 엠
+- 징
+- 훈
+- 탈
+- 케
+- 꼭
+- 률
+- 혁
+- 섯
+- 착
+- 휴
+- 봉
+- 클
+- 염
+- 밝
+- 풍
+- 슬
+- 붙
+- 곡
+- 얼
+- 찍
+- 뿐
+- 짜
+- 몸
+- 잠
+- 넣
+- 랜
+- 쉬
+- 듯
+- 널
+- 랐
+- 및
+- 왕
+- 퍼
+- 압
+- 맛
+- 낮
+- 탁
+- 액
+- 줬
+- 찬
+- 째
+- 필
+- 슈
+- 센
+- 낙
+- 폐
+- 뜻
+- 갑
+- 욕
+- 폰
+- 읽
+- 없
+- 튼
+- 웃
+- 맨
+- 층
+- 찾
+- 숙
+- 퇴
+- 굴
+- 균
+- 웠
+- 흥
+- 념
+- 듣
+- 옷
+- 냈
+- 흔
+- 혜
+- 암
+- 객
+- 엘
+- 뉴
+- 깨
+- 뭘
+- 끌
+- 뛰
+- 싫
+- 끔
+- 캐
+- 닐
+- 겼
+- 앙
+- 흐
+- 략
+- 벽
+- 얘
+- 막
+- 꺼
+- 짓
+- 즐
+- 찰
+- 먼
+- 쓸
+- 덕
+- 깐
+- 밥
+- 엇
+- 뜨
+- 춰
+- 봅
+- 믿
+- 렇
+- 칙
+- 낸
+- 밤
+- 짝
+- 얻
+- 잔
+- 쁘
+- 킬
+- 털
+- 욱
+- 값
+- 링
+- 좌
+- 빌
+- 컨
+- 롭
+- 헌
+- 걔
+- 쿠
+- 팅
+- 빼
+- 숨
+- 츠
+- 엄
+- 혔
+- 땅
+- 꿈
+- 닥
+- 낼
+- 곱
+- 삶
+- 맥
+- 즌
+- 옆
+- 않
+- 괴
+- 빈
+- 턴
+- 옥
+- 웨
+- 킨
+- 릭
+- 팬
+- 헤
+- 휘
+- 섭
+- 멀
+- 칭
+- 쁜
+- 납
+- 뇌
+- 척
+- 굳
+- 썼
+- 듭
+- 껴
+- 맡
+- 쇼
+- 곤
+- 빨
+- 쳤
+- 앨
+- 쯤
+- 댓
+- 녹
+- 즉
+- 콘
+- 늦
+- 빛
+- 혈
+- 뽑
+- 깊
+- 딸
+- 쓴
+- 꽃
+- 펜
+- 끊
+- 펴
+- 랍
+- 홈
+- 냉
+- 픈
+- 눠
+- 탕
+- 밑
+- 깔
+- 뢰
+- 찌
+- 렀
+- 핑
+- 흘
+- 칼
+- 쭉
+- 싱
+- 슷
+- 덜
+- 꿔
+- 뭔
+- 랙
+- 삭
+- 푸
+- 롯
+- 딩
+- 콩
+- 획
+- 봇
+- 텐
+- 룹
+- 맹
+- 팝
+- 싼
+- 졸
+- 벤
+- 끄
+- 렌
+- 랫
+- 뮤
+- 혐
+- 킹
+- 쌓
+- 옵
+- 힌
+- 켓
+- 펀
+- 폴
+- 젠
+- 벗
+- 촉
+- 곧
+- 겪
+- 넓
+- 잃
+- 벨
+- 놨
+- 봄
+- 묻
+- 랄
+- 멘
+- 컬
+- 흡
+- 춘
+- 멋
+- 촌
+- 델
+- 섬
+- 챙
+- 켰
+- 깝
+- 핸
+- 홉
+- 쵸
+- 콜
+- 꽤
+- 짐
+- 숫
+- 즘
+- 둔
+- 컵
+- 솔
+- 긍
+- 랬
+- 폼
+- 녁
+- 떻
+- 팩
+- 떡
+- 꼬
+- 힙
+- 샀
+- 쩔
+- 꼈
+- 탐
+- 캠
+- 슴
+- 뿌
+- 짚
+- 쇄
+- 묘
+- 릿
+- 앤
+- 홀
+- 셋
+- 톡
+- 섰
+- 잊
+- 둥
+- 닫
+- 춤
+- 빙
+- 몬
+- 꼼
+- 램
+- 빵
+- 슨
+- 럼
+- 펼
+- 셀
+- 롤
+- 렬
+- 탑
+- 쎄
+- 넷
+- 뒷
+- 엑
+- 럭
+- 컴
+- 똑
+- 닝
+- 헬
+- 첨
+- 뤄
+- 딜
+- 깜
+- 틱
+- 띄
+- 샤
+- 빅
+- 렴
+- 젝
+- 쩌
+- 쌀
+- 밍
+- 흑
+- 놔
+- 걷
+- 멸
+- 톤
+- 엽
+- 큐
+- 촬
+- 쭤
+- 튜
+- 힐
+- 좋
+- 륙
+- 빚
+- 쾌
+- 꿀
+- 핀
+- 롱
+- 닌
+- 떼
+- 멈
+- 땐
+- 퀴
+- 김
+- 릅
+- 끈
+- 눌
+- 쌍
+- 묵
+- 딴
+- 잉
+- 므
+- 덩
+- 웅
+- 엉
+- 낫
+- 튀
+- 왼
+- 냄
+- 꼽
+- 겸
+- 밖
+- 넌
+- 셈
+- 냥
+- 꾼
+- 놈
+- 멍
+- 몽
+- 붕
+- 겹
+- 밴
+- 쥐
+- 낀
+- 뭐
+- 룰
+- 렉
+- 땡
+- 뚜
+- 룸
+- 벼
+- 닉
+- 맘
+- 템
+- 닷
+- 딘
+- 낭
+- 섞
+- 웬
+- 칸
+- 잇
+- 좁
+- 릉
+- 앱
+- 맺
+- 훼
+- 뻔
+- 갤
+- 뀐
+- 훌
+- 낄
+- 덮
+- 쏘
+- 끗
+- 뼈
+- 쪼
+- 잘
+- 묶
+- 녔
+- 픽
+- 첩
+- 컸
+- 닭
+- 융
+- 쇠
+- 틴
+- 덴
+- 줍
+- 텍
+- 뷔
+- 웹
+- 샵
+- 닿
+- 뷰
+- 덧
+- 믹
+- 덤
+- 됬
+- 잖
+- 곽
+- 괄
+- 괜
+- 룬
+- 릇
+- 뵙
+- 띠
+- 룡
+- 녕
+- 듬
+- 못
+- 꼴
+- 뚝
+- 렁
+- 찮
+- 또
+- 륭
+- 셜
+- 팟
+- 팽
+- 뻐
+- 싹
+- 탓
+- 둑
+- 톱
+- 콤
+- 뚱
+- 긋
+- 멤
+- 맙
+- 젤
+- 윈
+- 겐
+- 햇
+- 빗
+- 곰
+- 깥
+- 멜
+- 낯
+- 옹
+- 쿨
+- 볶
+- 숲
+- 덥
+- 밟
+- 틸
+- 틈
+- 딪
+- 깎
+- 겉
+- 칩
+- 뒀
+- 윗
+- 삐
+- 앵
+- 넥
+- 꿨
+- 뭉
+- 숭
+- 팡
+- 뱅
+- 핫
+- 흉
+- 캔
+- 둬
+- 땀
+- 씻
+- 횡
+- 쿄
+- 밭
+- 썩
+- 뀔
+- 갱
+- 밸
+- 픔
+- 좀
+- 톨
+- 얀
+- 빡
+- 껏
+- 뉘
+- 닮
+- 뇨
+- 턱
+- 댄
+- 흠
+- 랭
+- 잎
+- 렵
+- 뺏
+- 쫙
+- 냅
+- 앗
+- 쩍
+- 흰
+- 굉
+- 햄
+- 궤
+- 깃
+- 줌
+- 샘
+- 땜
+- 샌
+- 췄
+- 탱
+- 킥
+- 벅
+- 쏠
+- 읍
+- 볍
+- 툰
+- 쨌
+- 븐
+- 돕
+- 텀
+- 짤
+- 컷
+- 삽
+- 꽂
+- 렷
+- 섹
+- 핏
+- 헨
+- 굽
+- 룩
+- 춥
+- 닦
+- 랩
+- 푼
+- 왠
+- 돋
+- 팍
+- 찔
+- 뜬
+- 헷
+- 몫
+- 펙
+- 붓
+- 탠
+- 뜯
+- 셉
+- 궐
+- 똥
+- 깁
+- 탔
+- 멕
+- 젖
+- 듀
+- 퓨
+- 맵
+- 얇
+- 쁨
+- 껍
+- 갓
+- 넉
+- 짱
+- 칫
+- 흙
+- 꽉
+- 씁
+- 됨
+- 펠
+- 뽀
+- 갇
+- 쑥
+- 헐
+- 늙
+- 씀
+- 뱀
+- 똘
+- 썰
+- 툼
+- 륜
+- 롬
+- 뻗
+- 팁
+- 풋
+- 쉴
+- 캡
+- 떄
+- 샷
+- 씹
+- 잣
+- 쏴
+- 뭇
+- 쉰
+- 렛
+- 왜
+- 휩
+- 썬
+- 엎
+- 헛
+- 뿔
+- 쉼
+- 젓
+- 뜩
+- 윙
+- 슛
+- 셰
+- 솟
+- 짠
+- 훔
+- 웰
+- 옴
+- 펄
+- 꽁
+- 뜰
+- 뽕
+- 늬
+- 찜
+- 펑
+- 뮬
+- 첼
+- 퉁
+- 떴
+- 늄
+- 늑
+- 켈
+- 킴
+- 쏙
+- 캘
+- 굼
+- 툭
+- 륨
+- 뛸
+- 엿
+- 옐
+- 붐
+- 잭
+- 댕
+- 꿉
+- 콧
+- 푹
+- 윌
+- 쿼
+- 겟
+- 쁠
+- 엮
+- 횟
+- 굿
+- 깡
+- 닙
+- 싣
+- 콕
+- 뱃
+- 얹
+- 짬
+- 툴
+- 뻥
+- 큼
+- 슐
+- 잦
+- 휠
+- 솜
+- 펌
+- 쩡
+- 헝
+- 톰
+- 샐
+- 긁
+- 팜
+- 빔
+- 돗
+- 갯
+- 켄
+- 럿
+- 댁
+- 댐
+- 앰
+- 탭
+- 뺐
+- 댈
+- 닛
+- 훅
+- 빽
+- 넬
+- 짖
+- 둠
+- 캄
+- 둡
+- 쫄
+- 딨
+- 벡
+- 잤
+- 퀄
+- 뿜
+- 갭
+- 돔
+- 콰
+- 왓
+- 쥬
+- 댔
+- 떳
+- 낱
+- 텨
+- 볕
+- 뎌
+- 팎
+- 궈
+- 킵
+- 귄
+- 찐
+- 찝
+- 깍
+- 랴
+- 텅
+- 뺀
+- 팥
+- 뵈
+- 멧
+- 씬
+- 벙
+- 벳
+- 솥
+- 젯
+- 뛴
+- 쭈
+- 렐
+- 쉐
+- 껄
+- 얄
+- 엣
+- 쌤
+- 쏜
+- 쿵
+- 킷
+- 왈
+- 띤
+- 빴
+- 뺄
+- 꿇
+- 딥
+- 땄
+- 렘
+- 핍
+- 썸
+- 떤
+- 눕
+- 맷
+- 찼
+- 쌈
+- 늠
+- 즙
+- 꼰
+- 덱
+- 숍
+- 엊
+- 삿
+- 꾀
+- 맣
+- 잼
+- 걀
+- 퀘
+- 쑤
+- 뾰
+- 쩐
+- 뭄
+- 귤
+- 랗
+- 쨋
+- 컥
+- 꿰
+- 섣
+- 썹
+- 폈
+- 탬
+- 늪
+- 뜸
+- 캉
+- 몹
+- 슘
+- 륵
+- 쓱
+- 훗
+- 맏
+- 텝
+- 딛
+- 찹
+- 뮌
+- 츄
+- 펭
+- 빤
+- 낌
+- 뻘
+- 웁
+- 꾹
+- 눅
+- 웍
+- 퓰
+- 쩜
+- 숟
+- 겔
+- 퀸
+- 콥
+- 룻
+- 딕
+- 뺑
+- 셧
+- 컫
+- 쎈
+- 뼘
+- 넨
+- 챌
+- 펫
+- 펐
+- 쯔
+- 헉
+- 튬
+- 맴
+- 얌
+- 텃
+- 욜
+- 뻑
+- 캅
+- 밋
+- 앴
+- 튕
+- 눔
+- 샹
+- 밉
+- 걱
+- 깅
+- 쐈
+- 폄
+- 숄
+- 듈
+- 뻣
+- 밧
+- 갠
+- 퐁
+- 꽝
+- 츰
+- 쿡
+- 쿤
+- 켐
+- 껌
+- 칵
+- 뚤
+- 챠
+- 귓
+- 넛
+- 훑
+- 퍽
+- 쌩
+- 깼
+- 캣
+- 뺨
+- 훨
+- 랏
+- 첸
+- 샬
+- 쬐
+- 깬
+- 쪄
+- 엌
+- 끽
+- 짰
+- 갸
+- 귈
+- 뎅
+- 띈
+- 걍
+- 낍
+- 쾅
+- 탤
+- 텼
+- 댑
+- 찻
+- 괘
+- 윽
+- 쌉
+- 딧
+- 랠
+- 찡
+- 꿋
+- 뀌
+- 뭣
+- 딤
+- 홋
+- 룽
+- 팸
+- 헥
+- 꺽
+- 꿍
+- 큘
+- 컹
+- 갛
+- 깰
+- 쌔
+- 띵
+- 훤
+- 씽
+- 텁
+- 뤼
+- 숏
+- 짭
+- 믄
+- 쉘
+- 팻
+- 껐
+- 곶
+- 됀
+- 셌
+- 쪘
+- 왁
+- 줏
+- 췌
+- 팰
+- 짊
+- 옌
+- 썽
+- 젼
+- 휙
+- 멱
+- 슥
+- 켠
+- 눗
+- 쥔
+- 싯
+- 랖
+- 벵
+- 샛
+- 쟈
+- 쭐
+- 춧
+- 뗐
+- 챗
+- 셸
+- 웜
+- 밈
+- 퉈
+- 핼
+- 뽈
+- 엥
+- 뵌
+- 꽈
+- 쌰
+- 뵜
+- 꼿
+- 빳
+- 잰
+- 튠
+- 옅
+- 껀
+- 썻
+- 씸
+- 쫀
+- 뗀
+- 뿡
+- 좆
+- 쐬
+- 띡
+- 샨
+- 궂
+- 갰
+- 빕
+- 쳇
+- 땔
+- 멩
+- 멎
+- 뮈
+- 냇
+- 퀀
+- 퀵
+- 듐
+- 튿
+- 앳
+- 튤
+- 돛
+- 옇
+- 훠
+- 떵
+- 볐
+- 깽
+- 궜
+- 숑
+- 믈
+- 뵀
+- 켤
+- 늉
+- 챈
+- 숯
+- 밨
+- 쫑
+- 뎀
+- 헹
+- 렙
+- 넸
+- 녜
+- 슝
+- 쏭
+- 핌
+- 얏
+- 맸
+- 잽
+- 뽁
+- 쑨
+- 욘
+- 넙
+- 맬
+- 톈
+- 몄
+- 괸
+- 뫼
+- 쫒
+- 녘
+- 쥘
+- 겄
+- 깠
+- 뺴
+- 넵
+- 뿍
+- 뀠
+- 펩
+- 셴
+- 챘
+- 놉
+- 촐
+- 엡
+- 뎁
+- 삥
+- 콸
+- 죤
+- 콱
+- 띌
+- 볏
+- 갬
+- 낵
+- 욤
+- 챕
+- 깻
+- 쨰
+- 뇽
+- 쎌
+- 뺌
+- 겅
+- 윅
+- 캇
+- 잴
+- 캬
+- 윔
+- 띨
+- 넜
+- 뭍
+- 붇
+- 캥
+- 뎃
+- 쟀
+- 뜀
+- 뷴
+- 얍
+- 됄
+- 퀼
+- 텄
+- 뷸
+- 롄
+- 젭
+- 윰
+- 훙
+- 봬
+- 홧
+- 촨
+- 긱
+- 떰
+- 뭅
+- 헀
+- 꿎
+- 멉
+- 촥
+- 캤
+- 햐
+- 웡
+- 첵
+- 펍
+- 씰
+- 숀
+- 츤
+- 숩
+- 솝
+- 쎘
+- 힉
+- 뻬
+- 휼
+- 냔
+- 샜
+- 넴
+- 삔
+- 헸
+- 겜
+- 숴
+- 젬
+- 곈
+- 넝
+- 떈
+- 좔
+- 헴
+- 옜
+- 쥴
+- 짼
+- 갗
+- 떙
+- 맟
+- 멓
+- 쩝
+- 읏
+- 팹
+- 슉
+- 꼐
+- 샾
+- 쎼
+- 폿
+- 풉
+- 곘
+- 쑹
+- 겋
+- 룔
+- 횐
+- 밎
+- 휜
+- 냠
+- 헙
+- 꺠
+- 뼉
+- 좃
+- 샥
+- 듸
+- 렝
+- 믐
+- 귿
+- 냘
+- 됏
+- 웩
+- 쨈
+- 쭘
+- 둣
+- 돠
+- 큭
+- 샙
+- 핬
+- 씼
+- 옙
+- 쎔
+- 쨉
+- 뗴
+- 맜
+- 셍
+- 펨
+- 짹
+- 똔
+- 겻
+- 죈
+- 뙤
+- 찟
+- 껜
+- 툽
+- 깟
+- 졍
+- 롸
+- 틉
+- 밌
+- 굔
+- 꼇
+- 땃
+- 렜
+- 롷
+- 롹
+- 쌕
+- 쬬
+- 왑
+- 힝
+- 푠
+- 긷
+- 먄
+- 꺄
+- 싰
+- 웟
+- 흣
+- 뮨
+- 뾱
+- 쉈
+- 젔
+- 킁
+- 썅
+- 삣
+- 곯
+- 삵
+- 넹
+- 쬔
+- 깹
+- 꽌
+- 톳
+- 폅
+- 쿱
+- 죗
+- 칡
+- 쫍
+- 벧
+- 똠
+- 떔
+- 툇
+- 잛
+- 삘
+- 쑈
+- 묀
+- 솎
+- 뗍
+- 꽹
+- 옯
+- 늡
+- 붑
+- 괞
+- 갂
+- 빻
+- 좍
+- 썪
+- 쌘
+- 찿
+- 곗
+- 휑
+- 찧
+- 띔
+- 떫
+- 젋
+- 옭
+- 혓
+- 쉿
+- 웸
+- 퉜
+- 탉
+- 뮐
+- 뗏
+- 쫘
+- 앎
+- 닻
+- 쩄
+- 뜁
+- 얜
+- 쇳
+- 끕
+- 홑
+- 탯
+- 쯧
+- 뉩
+- 튄
+- 흄
+- 뉠
+- 윷
+- 묽
+- 탰
+- 삑
+- 걘
+- 햅
+- 뺍
+- 곪
+- 횃
+- 틔
+- 짢
+- 벛
+- 뿅
+- 엷
+- 낑
+- 섀
+- 갉
+- 꿩
+- 윳
+- 쉑
+- 틋
+- 읊
+- 뒹
+- 괭
+- 뼛
+- 뜹
+- 좇
+- 뀜
+- 빰
+- 뎠
+- 잿
+- 넋
+- 튈
+- 듦
+- 핥
+- 띕
+- 슭
+- 샅
+- 쐐
+- 끙
+- 픕
+- 숱
+- 쨍
+- 닳
+- 덫
+- 뵐
+- 쁩
+- 뀝
+- 괌
+- 얗
+- 쭙
+- 뽐
+- 뻤
+- 얕
+- 쌌
+- 뗄
+- 벚
+- 샴
+- 뱉
+- 쫌
+- 짙
+- 굶
+- 흩
+- 뉜
+- 촘
+- 낡
+- 씌
+- 눴
+- 찢
+- 팠
+- 껑
+- 얽
+- 굵
+- 큽
+- 앓
+- 뤘
+- 곁
+- 쟤
+- 붉
+- 끓
+- 맑
+- 릎
+- 낚
+- 촛
+- 꺾
+- 갚
+- 챔
+- 뭡
+- 땠
+- 뚫
+- 옳
+- 쫓
+- 쏟
+- 옮
+- 덟
+- 낳
+- 앉
+- 젊
+- 짧
+- 됩
+- 켯
+- 튐
+- <nb-NO>
+- ene
+- ▁ble
+- ikk
+- opp
+- ▁Han
+- ▁Den
+- unn
+- ▁han
+- asjon
+- ▁word
+- ▁werd
+- <nn-NO>
+- eg
+- ▁ikkje
+- ▁bok
+- lik
+- ▁eit
+- så
+- kk
+- ▁nok
+- ▁god
+- ▁lese
+- dde
+- inga
+- ▁denn
+- inn
+- kkje
+- dig
+- tid
+- ▁bøke
+- ord
+- ▁tru
+- skje
+- ▁sei
+- ller
+- ▁fle
+- skriv
+- ▁heil
+- wy
+- Ś
+- Ł
+- Ź
+- Ż
+- car
+- tão
+- ia
+- ▁foi
+- ito
+- ram
+- fa
+- ▁meu
+- ça
+- ▁dois
+- ação
+- ▁ter
+- nça
+- ▁compra
+- ▁mil
+- ▁minha
+- ▁passa
+- ▁casa
+- Ã
+- ·
+- <pt-PT>
+- das
+- ▁são
+- ▁Pa
+- tura
+- ▁ser
+- ▁Ele
+- forma
+- ▁Esta
+- ões
+- ▁pelo
+- tua
+- ▁pela
+- mar
+- ▁Foi
+- ▁foram
+- este
+- ▁Um
+- ▁São
+- ▁entre
+- fun
+- agem
+- gua
+- ▁Brasil
+- ▁grande
+- icos
+- ▁cidade
+- inda
+- ▁Este
+- ▁maior
+- ▁brasileiro
+- ▁município
+- ▁nome
+- ▁encontra
+- ambém
+- ▁Sua
+- ▁três
+- ▁С
+- ▁А
+- ▁К
+- бе
+- ▁О
+- се
+- ▁П
+- ▁мне
+- ▁он
+- ца
+- ние
+- жа
+- сть
+- пу
+- мы
+- ска
+- са
+- ▁тебя
+- ги
+- ▁фильм
+- тре
+- гра
+- мер
+- ша
+- ▁Включи
+- лся
+- щи
+- ▁сезон
+- ▁Как
+- ▁смотрешке
+- ▁Сбер
+- ▁Тв
+- ▁Не
+- ▁Джой
+- ▁один
+- ▁Афина
+- ▁Ма
+- ▁семь
+- ▁Та
+- ▁Салют
+- больш
+- ский
+- ▁пять
+- ▁сериал
+- ▁четыре
+- ключ
+- ▁шесть
+- ится
+- ▁восемь
+- ▁вообще
+- ▁Покажи
+- ▁потому
+- ▁двадцать
+- ▁канал
+- ▁включи
+- ▁работ
+- ▁карт
+- ишь
+- ▁день
+- Ы
+- ska
+- var
+- <th-TH>
+- ▁า
+- ▁น
+- ▁ร
+- ▁ก
+- ▁อ
+- เ
+- ▁่
+- ▁ง
+- ั
+- ▁ม
+- ▁้
+- ▁ย
+- ▁ี
+- ▁ล
+- ▁ว
+- ▁ด
+- ▁ท
+- ▁ส
+- ▁ต
+- ▁ิ
+- ▁บ
+- ▁ป
+- ▁ะ
+- ▁ห
+- แ
+- ▁ค
+- ▁จ
+- ▁ข
+- ใ
+- ไ
+- ื
+- ▁พ
+- ▁ช
+- ▁็
+- ▁ู
+- ▁ุ
+- ▁์
+- โ
+- ํ
+- ▁ึ
+- ▁ศ
+- ▁ถ
+- ▁ซ
+- ผ
+- ▁ภ
+- ▁ษ
+- ▁ณ
+- ▁ธ
+- ▁ญ
+- า
+- น
+- ▁ฟ
+- ร
+- ก
+- อ
+- ่
+- ง
+- ม
+- ้
+- ฉ
+- ย
+- ▁ฐ
+- ี
+- ล
+- ว
+- ด
+- ท
+- ▁ฝ
+- ส
+- ต
+- ิ
+- บ
+- ▁ฮ
+- ป
+- ะ
+- ห
+- ฤ
+- ค
+- จ
+- ▁ฏ
+- ฒ
+- ข
+- พ
+- ช
+- ็
+- ู
+- ุ
+- ์
+- ๊
+- ▁ฬ
+- ▁ฎ
+- ฑ
+- ึ
+- ศ
+- ถ
+- ซ
+- ภ
+- ▁๋
+- ษ
+- ณ
+- ธ
+- ญ
+- ▁ฆ
+- ฟ
+- ฐ
+- ฝ
+- ฮ
+- ฌ
+- ฏ
+- ฬ
+- ฎ
+- ๅ
+- ๋
+- ฆ
+- ▁ๆ
+- ฃ
+- ฺ
+- ฅ
+- ๆ
+- <tr-TR>
+- ş
+- ğ
+- ya
+- ▁ve
+- lar
+- ▁bir
+- lı
+- dı
+- ler
+- ye
+- sı
+- ları
+- leri
+- ında
+- tı
+- ▁bu
+- lan
+- ara
+- ▁Bu
+- inde
+- ını
+- yı
+- yo
+- dü
+- ▁olarak
+- ▁için
+- maktadır
+- arı
+- ▁baş
+- Ş
+- Ğ
+- <zh-CN>
+- ▁须
+- ▁质
+- ▁户
+- ▁云
+- ▁楼
+- ▁石
+- ▁审
+- ▁显
+- ▁留
+- ▁尽
+- ▁雷
+- ▁斗
+- ▁智
+- ▁杀
+- ▁括
+- ▁执
+- ▁效
+- ▁青
+- ▁善
+- ▁礼
+- ▁靠
+- ▁李
+- ▁黄
+- ▁响
+- ▁营
+- ▁补
+- ▁势
+- ▁足
+- ▁极
+- ▁江
+- ▁省
+- ▁香
+- ▁究
+- ▁追
+- ▁维
+- ▁群
+- ▁升
+- ▁米
+- ▁亿
+- ▁帝
+- ▁票
+- ▁宝
+- ▁拍
+- ▁愿
+- ▁灵
+- ▁武
+- ▁敢
+- ▁巴
+- ▁句
+- ▁律
+- ▁尔
+- ▁狗
+- ▁检
+- ▁轻
+- ▁企
+- ▁策
+- ⁇
+- 阮
+- 氢
+- 叵
+- 衙
+- 泸
+- 邯
+- 鱿
+- 闰
+- 沂
+- 匕
+- 桠
+- 邡
+- 馥
+- 濮
+- 颍
+- 岌
+- 兢
+- 荀
+- 翟
+- 蚯
+- 洼
+- 羌
+- 扼
+- 蕃
+- 蛟
+- 鬓
+- 攸
+- 帧
+- 遐
+- 臻
+- 懊
+- 涟
+- 氯
+- 溧
+- 镰
+- 孪
+- 麾
+- 悌
+- 恬
+- 诙
+- 庾
+- 跻
+- 淄
+- 玷
+- 恻
+- 藐
+- 倜
+- 徇
+- 鄞
+- 惋
+- 忐
+- 漩
+- 蟾
+- 俨
+- 弼
+- 槐
+- 缭
+- 绚
+- 缜
+- 迥
+- 掖
+- 亳
+- 剐
+- 吭
+- 碉
+- 蛊
+- 捎
+- 谚
+- 嗑
+- 毗
+- 璀
+- 侏
+- 蜿
+- 蜒
+- 轱
+- 憔
+- 唏
+- 氰
+- 芍
+- 鞅
+- 嘈
+- 蚌
+- 谌
+- 邋
+- 搀
+- 讥
+- 蹿
+- 惆
+- 撂
+- 赡
+- 裘
+- 踞
+- 滁
+- 佯
+- 涪
+- 龈
+- 湄
+- 觊
+- 娲
+- 昙
+- 莒
+- 酗
+- 铎
+- 潦
+- 罡
+- 咆
+- 犁
+- 郴
+- 娓
+- 恿
+- 炽
+- 撅
+- 疟
+- 蔻
+- 荞
+- 钳
+- 奚
+- 豺
+- 伉
+- 弑
+- 汞
+- 蜚
+- 捋
+- 睽
+- 臃
+- 骊
+- 涝
+- 芷
+- 蛰
+- 剽
+- 挎
+- 耷
+- 腼
+- 芪
+- 瘙
+- 麝
+- 嬴
+- 恪
+- 迢
+- 掣
+- 翱
+- 鳕
+- 邬
+- 鬃
+- 菡
+- 遨
+- 坻
+- 拄
+- 醺
+- 鸵
+- 孢
+- 衢
+- 涿
+- 谙
+- 兖
+- 荃
+- 靳
+- 晟
+- 漯
+- 蛐
+- 蛳
+- 銮
+- 妩
+- 殒
+- 罂
+- 耒
+- 谆
+- 谀
+- 轲
+- 霓
+- 莴
+- 隽
+- 潺
+- 踌
+- 郫
+- 啕
+- 矗
+- 窈
+- 觞
+- 铬
+- 颌
+- 嶂
+- 涣
+- 湉
+- 臊
+- 唢
+- 怦
+- 骥
+- 滦
+- 盱
+- 麋
+- 卞
+- 舀
+- 酮
+- 鏖
+- 锚
+- 骡
+- 黔
+- 泱
+- 珞
+- 瓯
+- 瞿
+- 鲶
+- 慵
+- 梆
+- 滢
+- 赝
+- 婀
+- 氦
+- 淬
+- 牍
+- 琊
+- 葆
+- 埭
+- 蜇
+- 陂
+- 拈
+- 睑
+- 绥
+- 跛
+- 鄢
+- 嘹
+- 崂
+- 搪
+- 敝
+- 豉
+- 赅
+- 飒
+- 岑
+- 箩
+- 螨
+- 渌
+- 阚
+- 馊
+- 灏
+- 炷
+- 焯
+- 甬
+- 蝈
+- 嗤
+- 岷
+- 抿
+- 涞
+- 疸
+- 瞟
+- 纰
+- 瀛
+- 痉
+- 瘁
+- 荨
+- 裆
+- 鹑
+- 孬
+- 簋
+- 绉
+- 茱
+- 莜
+- 蛔
+- 栀
+- 狰
+- 碣
+- 邝
+- 铆
+- 沭
+- 胥
+- 薏
+- 襁
+- 轶
+- 锷
+- 偌
+- 埂
+- 怵
+- 泔
+- 胛
+- 咂
+- 噶
+- 崧
+- 戾
+- 砝
+- 贮
+- 朕
+- 杳
+- 灞
+- 稷
+- 踮
+- 锆
+- 吮
+- 攥
+- 毓
+- 沣
+- 藿
+- 裱
+- 俚
+- 冽
+- 矬
+- 蔫
+- 馏
+- 砒
+- 覃
+- 踉
+- 钜
+- 垤
+- 淞
+- 褚
+- 蹒
+- 蹩
+- 郜
+- 汨
+- 畈
+- 痨
+- 砣
+- 硚
+- 谟
+- 锨
+- 坳
+- 垭
+- 孑
+- 嵋
+- 嶙
+- 晌
+- 晔
+- 桎
+- 沅
+- 淅
+- 滘
+- 煊
+- 犄
+- 纨
+- 膈
+- 镣
+- 儋
+- 凇
+- 崃
+- 忤
+- 怄
+- 樨
+- 琰
+- 痼
+- 舸
+- 蔺
+- 蟋
+- 钨
+- 铨
+- 鲳
+- 黝
+- 侑
+- 崆
+- 榫
+- 犸
+- 琬
+- 绫
+- 赈
+- 邛
+- 馕
+- 驷
+- 囍
+- 垡
+- 姝
+- 搔
+- 淝
+- 潸
+- 烃
+- 玳
+- 珮
+- 皋
+- 腴
+- 跬
+- 鲠
+- 鼬
+- 伢
+- 偃
+- 嵊
+- 悱
+- 揩
+- 昶
+- 泫
+- 涠
+- 湫
+- 硌
+- 窨
+- 绔
+- 羸
+- 腈
+- 虱
+- 贰
+- 趵
+- 钎
+- 铷
+- 伫
+- 垩
+- 埝
+- 妯
+- 娉
+- 扪
+- 掮
+- 洮
+- 浃
+- 煳
+- 獾
+- 珲
+- 疃
+- 砀
+- 筱
+- 綦
+- 艮
+- 茆
+- 褛
+- 诓
+- 貔
+- 逯
+- 郧
+- 厝
+- 囔
+- 塍
+- 墉
+- 媞
+- 徜
+- 掇
+- 掸
+- 晞
+- 暹
+- 泮
+- 溟
+- 潞
+- 犇
+- 璟
+- 睇
+- 苋
+- 菀
+- 葳
+- 跚
+- 郅
+- 钴
+- 鼹
+- 仟
+- 侗
+- 俾
+- 叁
+- 圻
+- 垅
+- 妤
+- 旌
+- 枳
+- 楔
+- 楸
+- 溆
+- 濂
+- 矸
+- 绻
+- 缱
+- 腓
+- 蓥
+- 谑
+- 谕
+- 踱
+- 邙
+- 钯
+- 锒
+- 闳
+- 阡
+- 颢
+- 骐
+- 鲭
+- 鲷
+- 鹞
+- 劭
+- 啵
+- 嵇
+- 庹
+- 拚
+- 旻
+- 柞
+- 樯
+- 溏
+- 澍
+- 琏
+- 睢
+- 砷
+- 祚
+- 竽
+- 苡
+- 荇
+- 莅
+- 蕲
+- 蜱
+- 蟊
+- 裨
+- 觐
+- 诃
+- 谧
+- 邕
+- 郓
+- 酰
+- 铖
+- 铟
+- 镌
+- 阆
+- 阕
+- 雒
+- 霁
+- 髋
+- 鲅
+- 鲑
+- 鲢
+- 麸
+- 刽
+- 唑
+- 喟
+- 嗪
+- 噘
+- 囹
+- 圪
+- 垚
+- 埸
+- 堇
+- 嫫
+- 嬗
+- 孛
+- 孳
+- 峁
+- 嵬
+- 弋
+- 悻
+- 扞
+- 摈
+- 撺
+- 擘
+- 朐
+- 栎
+- 沏
+- 浠
+- 淦
+- 渑
+- 潋
+- 炔
+- 焗
+- 焘
+- 煨
+- 琤
+- 琮
+- 瑷
+- 疝
+- 疽
+- 窠
+- 粼
+- 纾
+- 缙
+- 罔
+- 腭
+- 茌
+- 茯
+- 荠
+- 萸
+- 螈
+- 衲
+- 谯
+- 踺
+- 轫
+- 邳
+- 郯
+- 铣
+- 铩
+- 铰
+- 锲
+- 阖
+- 霈
+- 骠
+- 黍
+- 䶮
+- 仡
+- 偓
+- 刍
+- 剜
+- 吖
+- 咝
+- 咻
+- 哂
+- 唷
+- 喁
+- 嗄
+- 嘭
+- 噙
+- 圹
+- 坩
+- 埇
+- 埕
+- 埚
+- 妫
+- 娌
+- 嫚
+- 孱
+- 宓
+- 尅
+- 嶝
+- 弭
+- 怆
+- 怿
+- 恁
+- 恸
+- 扦
+- 枋
+- 椋
+- 樾
+- 毂
+- 汊
+- 汩
+- 泠
+- 洹
+- 浈
+- 焓
+- 牾
+- 玹
+- 珙
+- 疣
+- 疴
+- 瘳
+- 眬
+- 矽
+- 秣
+- 笳
+- 篦
+- 籼
+- 粲
+- 绀
+- 绋
+- 芩
+- 蓦
+- 蠡
+- 褴
+- 訾
+- 讣
+- 诘
+- 趺
+- 踯
+- 蹚
+- 躅
+- 轸
+- 逡
+- 酐
+- 钇
+- 钲
+- 铧
+- 锉
+- 锟
+- 闩
+- 隗
+- 颀
+- 飧
+- 髂
+- 魉
+- 鳟
+- 鸢
+- Ａ
+- 馀
+- 陬
+- 褔
+- 疖
+- 棂
+- 晷
+- 搽
+- 逑
+- 苷
+- 砼
+- 盅
+- 瑭
+- 憷
+- 忿
+- 屐
+- 尕
+- 塬
+- 倌
+- 跹
+- 葚
+- 殓
+- 冼
+- 僮
+- 轳
+- 跶
+- 跎
+- 貅
+- 茛
+- 珺
+- 柒
+- 佶
+- 铡
+- 粳
+- 燮
+- 枰
+- 呻
+- 锴
+- 峒
+- 唛
+- 鲟
+- 骝
+- 靛
+- 趸
+- 耙
+- 碴
+- 燊
+- 淖
+- 钏
+- 衮
+- 琨
+- 徉
+- 唁
+- 胗
+- 绌
+- 婊
+- 咭
+- 骅
+- 祎
+- 癣
+- 狒
+- 邺
+- 蟀
+- 稞
+- 湎
+- 斛
+- 梏
+- 枞
+- 镉
+- 箴
+- 煦
+- 嗔
+- 苣
+- 翊
+- 癜
+- 蹼
+- 蛆
+- 瑁
+- 昀
+- 骞
+- 矾
+- 璞
+- 桉
+- 嵘
+- 噢
+- 讴
+- 皑
+- 珉
+- 荚
+- 翎
+- 婵
+- 赓
+- 缰
+- 缨
+- 瘠
+- 懋
+- 碜
+- 烩
+- 嬷
+- 呲
+- 鹌
+- 阄
+- 镕
+- 筠
+- 炀
+- 氟
+- 圩
+- 熠
+- 漪
+- 歆
+- 擀
+- 骜
+- 镭
+- 赊
+- 菁
+- 篪
+- 眈
+- 忻
+- 孀
+- 藜
+- 烷
+- 宸
+- 偎
+- 锹
+- 铉
+- 褓
+- 皎
+- 犷
+- 犒
+- 嗖
+- 鹜
+- 锌
+- 珏
+- 藓
+- 跄
+- 榭
+- 嫔
+- 娣
+- 贻
+- 蜍
+- 缄
+- 眸
+- 眙
+- 鹫
+- 蜴
+- 膺
+- 瘪
+- 沓
+- 斓
+- 擞
+- 崮
+- 镁
+- 纫
+- 碚
+- 桢
+- 飚
+- 萋
+- 焱
+- 樵
+- 坯
+- 嘶
+- 镊
+- 衩
+- 蛹
+- 莠
+- 砾
+- 渍
+- 毡
+- 旯
+- 垛
+- 锰
+- 酚
+- 鳍
+- 饨
+- 铀
+- 峋
+- 骛
+- 腩
+- 畊
+- 唰
+- 仞
+- 阉
+- 狞
+- 昱
+- 搡
+- 轧
+- 臧
+- 窕
+- 砚
+- 烊
+- 楣
+- 忡
+- 鹂
+- 桨
+- 摞
+- 愫
+- 钛
+- 祺
+- 蹶
+- 恃
+- 呷
+- 笆
+- 抡
+- 忱
+- 嬅
+- 刎
+- 钵
+- 讧
+- 蛀
+- 杈
+- 餮
+- 钊
+- 缎
+- 镍
+- 觎
+- 婧
+- 颧
+- 颚
+- 蝌
+- 脍
+- 嗲
+- 匣
+- 龊
+- 苞
+- 鲫
+- 躏
+- 袅
+- 绢
+- 婺
+- 铿
+- 蚱
+- 篑
+- 铤
+- 脓
+- 媲
+- 铄
+- 箫
+- 娆
+- 佘
+- 邰
+- 莺
+- 缢
+- 搐
+- 酯
+- 萦
+- 漾
+- 汾
+- 毽
+- 褂
+- 暄
+- 鸾
+- 鬟
+- 缇
+- 篓
+- 泾
+- 赳
+- 腆
+- 鳝
+- 韬
+- 锏
+- 诩
+- 秸
+- 戬
+- 觑
+- 蕙
+- 鹭
+- 蚤
+- 芊
+- 砌
+- 獒
+- 殇
+- 奂
+- 钣
+- 膑
+- 糗
+- 盹
+- 玥
+- 邃
+- 蜓
+- 燎
+- 啧
+- 罄
+- 蜻
+- 睬
+- 猬
+- 馄
+- 皖
+- 兀
+- 霎
+- 蓓
+- 瘴
+- 痫
+- 镐
+- 褶
+- 跺
+- 烬
+- 泓
+- 锵
+- 讷
+- 蚪
+- 秆
+- 泞
+- 鳗
+- 蜥
+- 炅
+- 旮
+- 掂
+- 壑
+- 咣
+- 魇
+- 碘
+- 皙
+- 寐
+- 瘀
+- 怅
+- 蚝
+- 莘
+- 寰
+- 茬
+- 冢
+- 鳞
+- 镳
+- 辍
+- 骋
+- 薰
+- 筵
+- 盎
+- 榈
+- 咘
+- 侬
+- 辘
+- 脯
+- 楞
+- 饽
+- 苯
+- 骰
+- 霏
+- 蜢
+- 浔
+- 挛
+- 娄
+- 悴
+- 婕
+- 喳
+- 啾
+- 讪
+- 帛
+- 孺
+- 诋
+- 诿
+- 磺
+- 皓
+- 拴
+- 炜
+- 幄
+- 崽
+- 傥
+- 鳅
+- 铮
+- 涧
+- 钾
+- 膛
+- 紊
+- 痧
+- 犊
+- 浚
+- 酣
+- 摹
+- 幢
+- 峭
+- 姣
+- 吆
+- 纭
+- 茁
+- 滇
+- 佗
+- 逵
+- 湍
+- 谩
+- 荫
+- 窖
+- 煜
+- 饕
+- 遢
+- 枭
+- 惦
+- 轼
+- 篱
+- 窿
+- 祛
+- 哽
+- 鹃
+- 籁
+- 榷
+- 昵
+- 噗
+- 褥
+- 瘸
+- 泯
+- 孜
+- 讹
+- 蔷
+- 犟
+- 岖
+- 鞑
+- 釉
+- 蹋
+- 粑
+- 涓
+- 泷
+- 鲈
+- 颊
+- 洙
+- 锭
+- 焖
+- 惬
+- 驮
+- 馋
+- 榕
+- 饯
+- 靶
+- 镂
+- 沱
+- 摒
+- 哐
+- 黯
+- 诧
+- 撬
+- 铐
+- 菏
+- 噱
+- 芮
+- 玟
+- 涮
+- 铂
+- 胭
+- 瑙
+- 屹
+- 嗝
+- 鳖
+- 阂
+- 嚓
+- 蚣
+- 籽
+- 炕
+- 嚏
+- 迩
+- 馁
+- 狈
+- 挝
+- 闵
+- 谏
+- 篆
+- 疡
+- 淼
+- 挞
+- 懦
+- 恙
+- 彝
+- 奘
+- 伶
+- 淌
+- 鳌
+- 胯
+- 汴
+- 钗
+- 跤
+- 棣
+- 晗
+- 忑
+- 囱
+- 琅
+- 徙
+- 羚
+- 檐
+- 蔼
+- 茴
+- 馗
+- 谛
+- 瑄
+- 桦
+- 撵
+- 鸥
+- 螳
+- 绛
+- 纣
+- 穗
+- 榻
+- 楂
+- 恺
+- 夯
+- 哮
+- 鸯
+- 惺
+- 鄱
+- 辄
+- 噼
+- 厮
+- 匾
+- 倔
+- 眶
+- 栩
+- 晏
+- 嗒
+- 佼
+- 捶
+- 骁
+- 锄
+- 胫
+- 饷
+- 箍
+- 烨
+- 袒
+- 畸
+- 惮
+- 獗
+- 滕
+- 帼
+- 璨
+- 晾
+- 跷
+- 抨
+- 瓮
+- 苇
+- 戛
+- 蹬
+- 啬
+- 佟
+- 岚
+- 嬛
+- 镯
+- 羁
+- 飓
+- 遛
+- 溅
+- 锢
+- 莆
+- 掳
+- 煲
+- 隘
+- 潍
+- 诣
+- 屉
+- 孚
+- 佰
+- 驯
+- 暨
+- 俑
+- 荟
+- 峪
+- 颐
+- 醛
+- 拣
+- 蟒
+- 沥
+- 悖
+- 髦
+- 掷
+- 仨
+- 馍
+- 铠
+- 痊
+- 濑
+- 嘣
+- 蚓
+- 砰
+- 跆
+- 浒
+- 峥
+- 亢
+- 猩
+- 汶
+- 禺
+- 珑
+- 叼
+- 蘸
+- 鸠
+- 翩
+- 缤
+- 簧
+- 瑾
+- 唬
+- 璋
+- 梧
+- 痱
+- 驭
+- 琛
+- 氪
+- 蒿
+- 磷
+- 钝
+- 辫
+- 蓟
+- 粱
+- 枸
+- 蜗
+- 窘
+- 饵
+- 刨
+- 瘩
+- 哆
+- 裴
+- 聋
+- 猖
+- 胧
+- 悚
+- 袄
+- 荤
+- 胺
+- 栅
+- 忒
+- 阑
+- 辗
+- 踝
+- 濒
+- 洱
+- 橱
+- 驿
+- 筝
+- 藉
+- 绞
+- 毋
+- 胰
+- 烽
+- 瀚
+- 辙
+- 嫦
+- 潼
+- 渎
+- 渲
+- 嗷
+- 稠
+- 嫖
+- 戮
+- 殃
+- 驸
+- 赘
+- 嚷
+- 娴
+- 喆
+- 茧
+- 缪
+- 鹉
+- 骼
+- 缕
+- 巍
+- 鹦
+- 赃
+- 蜕
+- 溥
+- 笃
+- 锯
+- 钰
+- 驹
+- 貂
+- 癫
+- 疚
+- 蜈
+- 吒
+- 霄
+- 隍
+- 鸳
+- 绊
+- 涡
+- 帷
+- 铛
+- 俪
+- 霖
+- 蔗
+- 椭
+- 溉
+- 峦
+- 娅
+- 匮
+- 榔
+- 俐
+- 吝
+- 诬
+- 韭
+- 俞
+- 烯
+- 坍
+- 疙
+- 沮
+- 睐
+- 汕
+- 傣
+- 颅
+- 虞
+- 阙
+- 璇
+- 诟
+- 斟
+- 腮
+- 炯
+- 歼
+- 郸
+- 痹
+- 曦
+- 擂
+- 锥
+- 躬
+- 眯
+- 豌
+- 诽
+- 惫
+- 鹊
+- 蕊
+- 慑
+- 绅
+- 擒
+- 捂
+- 绽
+- 孰
+- 晤
+- 崭
+- 潢
+- 幂
+- 拧
+- 肮
+- 酶
+- 氮
+- 噬
+- 颓
+- 舜
+- 栾
+- 锣
+- 蛤
+- 髅
+- 闫
+- 泵
+- 饪
+- 怂
+- 腌
+- 鲸
+- 甭
+- 垦
+- 冀
+- 磅
+- 弩
+- 祯
+- 梭
+- 昕
+- 侥
+- 愣
+- 瞪
+- 涤
+- 棱
+- 绯
+- 澜
+- 姗
+- 藕
+- 霾
+- 锂
+- 镀
+- 汹
+- 鲤
+- 湃
+- 簇
+- 渺
+- 遴
+- 乍
+- 扳
+- 耘
+- 鄂
+- 疮
+- 骷
+- 蚀
+- 聂
+- 疤
+- 淤
+- 坷
+- 秽
+- 瞩
+- 韶
+- 钧
+- 蟑
+- 茵
+- 芜
+- 戌
+- 劵
+- 唠
+- 绮
+- 浊
+- 漓
+- 殡
+- 眨
+- 惭
+- 倪
+- 煞
+- 滔
+- 倘
+- 枫
+- 澈
+- 孽
+- 雳
+- 氨
+- 绰
+- 辕
+- 镑
+- 熄
+- 恤
+- 挚
+- 颤
+- 瞌
+- 囧
+- 讳
+- 痪
+- 烁
+- 羔
+- 秃
+- 慷
+- 岔
+- 漳
+- 痞
+- 彤
+- 榨
+- 盏
+- 沐
+- 棠
+- 崴
+- 坞
+- 吩
+- 栈
+- 柠
+- 敖
+- 侈
+- 羯
+- 渝
+- 绷
+- 纶
+- 糯
+- 荔
+- 淆
+- 陡
+- 俏
+- 墩
+- 粽
+- 柬
+- 嘀
+- 厥
+- 剔
+- 逾
+- 羲
+- 诫
+- 缀
+- 坨
+- 赂
+- 怼
+- 噩
+- 陇
+- 钦
+- 钠
+- 唧
+- 凿
+- 嗡
+- 吱
+- 卉
+- 呕
+- 汛
+- 弈
+- 秧
+- 糙
+- 焕
+- 涩
+- 絮
+- 璐
+- 涕
+- 疵
+- 脐
+- 氓
+- 羿
+- 谤
+- 蝙
+- 遏
+- 蝠
+- 灶
+- 枉
+- 咩
+- 懵
+- 婪
+- 惕
+- 诅
+- 喀
+- 挠
+- 靓
+- 郝
+- 泻
+- 韧
+- 憋
+- 铝
+- 睿
+- 冉
+- 窍
+- 碾
+- 惶
+- 潇
+- 巅
+- 陨
+- 玺
+- 赣
+- 鲍
+- 哗
+- 粤
+- 娥
+- 囤
+- 瀑
+- 棕
+- 叽
+- 焊
+- 鸽
+- 抒
+- 剿
+- 苟
+- 酝
+- 聆
+- 硅
+- 睹
+- 螂
+- 扒
+- 亵
+- 锈
+- 丐
+- 猝
+- 陋
+- 衅
+- 妞
+- 呸
+- 缚
+- 骇
+- 龚
+- 剁
+- 玮
+- 瞅
+- 俘
+- 榆
+- 婶
+- 瘟
+- 敛
+- 蝇
+- 俭
+- 镖
+- 骏
+- 凳
+- 倚
+- 啸
+- 筷
+- 绸
+- 沪
+- 衫
+- 瑕
+- 洽
+- 觅
+- 膊
+- 佬
+- 缮
+- 掺
+- 胳
+- 皂
+- 邢
+- 绒
+- 碱
+- 窥
+- 暧
+- 懈
+- 槟
+- 嚣
+- 粪
+- 钙
+- 葫
+- 刁
+- 哒
+- 邹
+- 橡
+- 腥
+- 馅
+- 矶
+- 鳄
+- 呛
+- 憬
+- 皱
+- 喱
+- 阎
+- 嗦
+- 雯
+- 啰
+- 窜
+- 馒
+- 敞
+- 赁
+- 禀
+- 搂
+- 劈
+- 耸
+- 蕴
+- 篷
+- 豁
+- 舔
+- 毙
+- 窦
+- 噜
+- 詹
+- 瘫
+- 彪
+- 掀
+- 铲
+- 顽
+- 篡
+- 乓
+- 阀
+- 娟
+- 鑫
+- 帜
+- 丫
+- 髓
+- 沦
+- 叨
+- 镶
+- 嗓
+- 诲
+- 咏
+- 饺
+- 鸦
+- 榄
+- 庐
+- 虏
+- 骆
+- 蝎
+- 哔
+- 轿
+- 揍
+- 憨
+- 侄
+- 酥
+- 踹
+- 橄
+- 纺
+- 兮
+- 烛
+- 悯
+- 螃
+- 萤
+- 厢
+- 沧
+- 啃
+- 辜
+- 罕
+- 饲
+- 谜
+- 卤
+- 浇
+- 埔
+- 琦
+- 葩
+- 恳
+- 笋
+- 咐
+- 屿
+- 钞
+- 诀
+- 雏
+- 掰
+- 阐
+- 屎
+- 咕
+- 摧
+- 黏
+- 摁
+- 恕
+- 缉
+- 渤
+- 纬
+- 撸
+- 萍
+- 攒
+- 擎
+- 睁
+- 炳
+- 乒
+- 竖
+- 缔
+- 仑
+- 闸
+- 诡
+- 啤
+- 琐
+- 蚂
+- 蝴
+- 奕
+- 谴
+- 揽
+- 叮
+- 绎
+- 矫
+- 捣
+- 歇
+- 袍
+- 谍
+- 枣
+- 喵
+- 鲨
+- 诏
+- 奠
+- 倩
+- 蹭
+- 撩
+- 翘
+- 侨
+- 辐
+- 瞒
+- 焰
+- 饥
+- 咦
+- 袜
+- 捍
+- 樊
+- 闽
+- 铸
+- 壶
+- 蘑
+- 缸
+- 邵
+- 盔
+- 炖
+- 澎
+- 谬
+- 淇
+- 铅
+- 崛
+- 耿
+- 揣
+- 甄
+- 坝
+- 亩
+- 阱
+- 隧
+- 甸
+- 尧
+- 磕
+- 戳
+- 滤
+- 讶
+- 畴
+- 酿
+- 舆
+- 岂
+- 嫂
+- 灿
+- 衬
+- 痘
+- 莓
+- 咚
+- 忏
+- 颂
+- 锡
+- 嘻
+- 冈
+- 绣
+- 贱
+- 纱
+- 雍
+- 飙
+- 眷
+- 瞄
+- 冕
+- 廖
+- 拢
+- 掐
+- 浑
+- 槃
+- 钉
+- 撇
+- 驴
+- 滥
+- 裹
+- 呜
+- 帐
+- 竭
+- 贿
+- 浆
+- 脖
+- 匆
+- 驼
+- 薛
+- 魄
+- 诵
+- 垒
+- 缅
+- 蹦
+- 霉
+- 揪
+- 垄
+- 匀
+- 纤
+- 搅
+- 坎
+- 稻
+- 桩
+- 玫
+- 荧
+- 窑
+- 哑
+- 搓
+- 铭
+- 兑
+- 肆
+- 咔
+- 坟
+- 囊
+- 驰
+- 瞧
+- 壤
+- 寞
+- 颇
+- 拎
+- 旷
+- 蜡
+- 羡
+- 喔
+- 涅
+- 钥
+- 熙
+- 撕
+- 烫
+- 驳
+- 缆
+- 蹈
+- 瞻
+- 瑰
+- 衔
+- 耻
+- 蚁
+- 闺
+- 捆
+- 顷
+- 塘
+- 瑶
+- 谭
+- 莹
+- 琼
+- 拦
+- 穆
+- 菠
+- 咪
+- 棵
+- 讽
+- 嫩
+- 诛
+- 垮
+- 咙
+- 鹤
+- 瓷
+- 鹰
+- 倡
+- 呱
+- 陌
+- 悄
+- 烘
+- 拱
+- 拯
+- 舱
+- 熹
+- 巩
+- 浏
+- 甩
+- 颈
+- 屡
+- 拽
+- 塌
+- 贬
+- 蠢
+- 芬
+- 绵
+- 匈
+- 搏
+- 赎
+- 斋
+- 谐
+- 蔬
+- 耍
+- 碟
+- 菇
+- 丛
+- 巢
+- 帘
+- 莽
+- 寇
+- 裙
+- 豫
+- 擅
+- 佣
+- 噻
+- 饶
+- 渗
+- 锻
+- 诠
+- 蒂
+- 勺
+- 隶
+- 婷
+- 趟
+- 搁
+- 嘟
+- 坠
+- 奎
+- 腊
+- 泼
+- 匪
+- 锐
+- 哩
+- 艰
+- 吨
+- 谣
+- 姬
+- 侣
+- 澡
+- 槛
+- 荆
+- 狠
+- 渣
+- 陕
+- 掏
+- 弗
+- 谊
+- 颁
+- 攀
+- 愤
+- 妒
+- 钩
+- 胀
+- 扛
+- 扔
+- 凑
+- 炫
+- 垫
+- 钮
+- 垃
+- 鹅
+- 愧
+- 僵
+- 渴
+- 挪
+- 谅
+- 铃
+- 笼
+- 跪
+- 瑜
+- 溃
+- 悬
+- 贾
+- 歹
+- 齿
+- 趁
+- 掩
+- 讼
+- 贩
+- 滩
+- 锤
+- 盯
+- 扑
+- 牺
+- 壳
+- 圾
+- 勋
+- 哼
+- 瘾
+- 苍
+- 妮
+- 颖
+- 阔
+- 熏
+- 瞎
+- 渊
+- 坤
+- 鸣
+- 愈
+- 逊
+- 腻
+- 骄
+- 贞
+- 唤
+- 韵
+- 婴
+- 沾
+- 韦
+- 颠
+- 棍
+- 乔
+- 屌
+- 肃
+- 胁
+- 彭
+- 磊
+- 啪
+- 厦
+- 琪
+- 绳
+- 姊
+- 骚
+- 纲
+- 辖
+- 虾
+- 谎
+- 袁
+- 缠
+- 罐
+- 寨
+- 庞
+- 闯
+- 娇
+- 蹲
+- 叭
+- 帕
+- 萧
+- 吁
+- 瑟
+- 氛
+- 莎
+- 摔
+- 盼
+- 媳
+- 闷
+- 捞
+- 俱
+- 鸿
+- 鹏
+- 馈
+- 畅
+- 谦
+- 唉
+- 抠
+- 迈
+- 筛
+- 贺
+- 萝
+- 谨
+- 纽
+- 爹
+- 肾
+- 骤
+- 冯
+- 扭
+- 喇
+- 砖
+- 诞
+- 斩
+- 狮
+- 罢
+- 诱
+- 咒
+- 硕
+- 缝
+- 捅
+- 驱
+- 喻
+- 盐
+- 辽
+- 哄
+- 酱
+- 拨
+- 叹
+- 惩
+- 泛
+- 妆
+- 阁
+- 滨
+- 侦
+- 怡
+- 奸
+- 圳
+- 笨
+- 躺
+- 兹
+- 歧
+- 仗
+- 翅
+- 窝
+- 翰
+- 岗
+- 裤
+- 绘
+- 诈
+- 饱
+- 譬
+- 轩
+- 贫
+- 矣
+- 挣
+- 柯
+- 跃
+- 钓
+- 揭
+- 捡
+- 姨
+- 臂
+- 趴
+- 飘
+- 仿
+- 轴
+- 夹
+- 疏
+- 砸
+- 钻
+- 咧
+- 肿
+- 饿
+- 扯
+- 纹
+- 摊
+- 伪
+- 谱
+- 贯
+- 肚
+- 缴
+- 荡
+- 抛
+- 肠
+- 吕
+- 岭
+- 碳
+- 邻
+- 驻
+- 鸭
+- 抚
+- 兔
+- 纠
+- 龟
+- 熬
+- 吵
+- 浓
+- 倾
+- 厕
+- 涂
+- 俩
+- 邓
+- 雾
+- 纵
+- 卧
+- 肤
+- 丧
+- 胶
+- 胖
+- 捷
+- 涵
+- 赠
+- 赌
+- 邮
+- 晕
+- 篮
+- 卢
+- 绑
+- 坛
+- 祸
+- 莲
+- 杠
+- 猎
+- 轰
+- 叠
+- 尸
+- 柜
+- 堡
+- 剂
+- 恼
+- 删
+- 奋
+- 抖
+- 烤
+- 彻
+- 醉
+- 锋
+- 糟
+- 杆
+- 伞
+- 纷
+- 厌
+- 框
+- 栏
+- 佩
+- 劝
+- 逛
+- 醋
+- 详
+- 艳
+- 炼
+- 刮
+- 恢
+- 夸
+- 递
+- 玛
+- 尘
+- 赐
+- 迟
+- 菲
+- 赋
+- 疯
+- 综
+- 荐
+- 泪
+- 尴
+- 偿
+- 挤
+- 储
+- 迁
+- 陷
+- 驶
+- 舰
+- 呗
+- 犹
+- 劲
+- 扎
+- 册
+- 牵
+- 筹
+- 傻
+- 辉
+- 晨
+- 仓
+- 踢
+- 饰
+- 罩
+- 冻
+- 绕
+- 喷
+- 绪
+- 赔
+- 砍
+- 贡
+- 踩
+- 撑
+- 侧
+- 闲
+- 辩
+- 歉
+- 宪
+- 铜
+- 链
+- 氧
+- 腾
+- 龄
+- 娱
+- 辆
+- 贪
+- 览
+- 墙
+- 鉴
+- 啡
+- 脉
+- 吓
+- 狱
+- 兽
+- 窗
+- 弯
+- 炮
+- 咨
+- 忧
+- 雕
+- 宠
+- 尬
+- 渔
+- 聪
+- 矿
+- 铺
+- 桌
+- 毁
+- 朵
+- 袭
+- 扰
+- 娜
+- 锦
+- 挡
+- 栋
+- 逻
+- 郑
+- 嚎
+- 凯
+- 轨
+- 庙
+- 凭
+- 拟
+- 尝
+- 啥
+- 嗨
+- 泽
+- 猜
+- 傅
+- 允
+- 闹
+- 默
+- 穷
+- 呦
+- 缓
+- 鸟
+- 缩
+- 贸
+- 躲
+- 赏
+- 扬
+- 糕
+- 撞
+- 贷
+- 夺
+- 舒
+- 忆
+- 洁
+- 懒
+- 汇
+- 辅
+- 拖
+- 译
+- 碎
+- 伙
+- 仪
+- 咖
+- 渐
+- 贤
+- 脏
+- 饮
+- 摸
+- 邀
+- 辈
+- 嘿
+- 晓
+- 拥
+- 颗
+- 娃
+- 帅
+- 赖
+- 拆
+- 废
+- 烂
+- 阅
+- 骑
+- 污
+- 插
+- 迪
+- 苹
+- 诊
+- 账
+- 暂
+- 稣
+- 驾
+- 拼
+- 顿
+- 骂
+- 诺
+- 沉
+- 喂
+- 宾
+- 抬
+- 债
+- 凤
+- 趋
+- 厅
+- 爷
+- 桥
+- 摄
+- 扩
+- 锅
+- 订
+- 锁
+- 乌
+- 丰
+- 霸
+- 伦
+- 扫
+- 诚
+- 鲜
+- 遗
+- 齐
+- 摆
+- 吴
+- 隐
+- 础
+- 宽
+- 圆
+- 碰
+- 惯
+- 仍
+- 惊
+- 敌
+- 饼
+- 挥
+- 杰
+- 鲁
+- 绩
+- 抢
+- 贼
+- 庆
+- 汤
+- 嘎
+- 贝
+- 弃
+- 挖
+- 镜
+- 喊
+- 剩
+- 偷
+- 阵
+- 颜
+- 荣
+- 罚
+- 哟
+- 辑
+- 阴
+- 纯
+- 签
+- 滚
+- 蓝
+- 缘
+- 询
+- 涉
+- 骗
+- 竞
+- 跌
+- 坡
+- 访
+- 灾
+- 闭
+- 页
+- 钢
+- 估
+- 苏
+- 币
+- 剑
+- 库
+- 灭
+- 挂
+- 违
+- 售
+- 宁
+- 扣
+- 坚
+- 杨
+- 赢
+- 丝
+- 喽
+- 枪
+- 赚
+- 圈
+- 纳
+- 贴
+- 疗
+- 厉
+- 软
+- 沟
+- 诗
+- 赞
+- 烟
+- 败
+- 虑
+- 旁
+- 损
+- 咯
+- 杂
+- 缺
+- 奶
+- 岛
+- 乡
+- 织
+- 烧
+- 额
+- 净
+- 键
+- 镇
+- 脸
+- 稳
+- 档
+- 载
+- 她
+- 稍
+- 诸
+- 编
+- 赵
+- 猴
+- 摇
+- 兰
+- 咱
+- 仅
+- 刘
+- 谋
+- 竟
+- 启
+- 梦
+- 伟
+- 临
+- 络
+- 孙
+- 韩
+- 轮
+- 涨
+- 寻
+- 销
+- 误
+- 厂
+- 释
+- 绍
+- 亏
+- 阶
+- 训
+- 购
+- 闪
+- 搜
+- 陆
+- 劳
+- 丽
+- 弹
+- 恶
+- 县
+- 码
+- 丢
+- 异
+- 货
+- 毕
+- 频
+- 萨
+- 抓
+- 奖
+- 笔
+- 怀
+- 输
+- 树
+- 纪
+- 饭
+- 烦
+- 绿
+- 冰
+- 胜
+- 择
+- 爸
+- 击
+- 闻
+- 坏
+- 铁
+- 获
+- 顾
+- 围
+- 责
+- 您
+- 适
+- 归
+- 评
+- 盘
+- 鸡
+- 幺
+- 职
+- 积
+- 艺
+- 针
+- 赶
+- 脑
+- 兴
+- 财
+- 农
+- 紧
+- 顺
+- 园
+- 测
+- 讯
+- 录
+- 贵
+- 压
+- 银
+- 范
+- 陈
+- 剧
+- 练
+- 监
+- 协
+- 减
+- 词
+- 呐
+- 优
+- 钟
+- 岁
+- 严
+- 细
+- 汉
+- 负
+- 盖
+- 药
+- 亚
+- 顶
+- 伤
+- 层
+- 热
+- 轻
+- 检
+- 尔
+- 灵
+- 亿
+- 维
+- 极
+- 补
+- 营
+- 响
+- 靠
+- 效
+- 执
+- 杀
+- 显
+- 审
+- 质
+- 须
+- 构
+- 圣
+- 谓
+- 卖
+- 哥
+- 亲
+- 济
+- 绝
+- 鱼
+- 险
+- 读
+- 课
+- 罗
+- 虽
+- 飞
+- 孩
+- 卡
+- 卫
+- 值
+- 护
+- 谈
+- 怕
+- 验
+- 赛
+- 戏
+- 继
+- 联
+- 阳
+- 划
+- 创
+- 晚
+- 增
+- 诉
+- 试
+- 识
+- 跑
+- 预
+- 环
+- 许
+- 懂
+- 态
+- 项
+- 团
+- 宫
+- 备
+- 离
+- 龙
+- 讨
+- 际
+- 简
+- 养
+- 导
+- 举
+- 块
+- 队
+- 连
+- 术
+- 历
+- 图
+- 则
+- 证
+- 语
+- 拜
+- 专
+- 红
+- 换
+- 众
+- 步
+- 级
+- 权
+- 习
+- 查
+- 复
+- 儿
+- 况
+- 决
+- 领
+- 达
+- 标
+- 欢
+- 组
+- 搞
+- 类
+- 续
+- 另
+- 妈
+- 广
+- 华
+- 乐
+- 规
+- 传
+- 确
+- 节
+- 义
+- 嘞
+- 错
+- 约
+- 视
+- 军
+- 哇
+- 战
+- 强
+- 议
+- 收
+- 观
+- 谁
+- 价
+- 转
+- 运
+- 拿
+- 务
+- 掉
+- 并
+- 网
+- 远
+- 满
+- 线
+- 难
+- 总
+- 钱
+- 统
+- 帮
+- 计
+- 风
+- 门
+- 爱
+- 张
+- 呀
+- 马
+- 找
+- 气
+- 办
+- 设
+- 带
+- 买
+- 处
+- 报
+- 选
+- 认
+- 论
+- 书
+- 见
+- 车
+- 结
+- 单
+- 记
+- 每
+- 够
+- 调
+- 产
+- 听
+- 啦
+- 谢
+- 诶
+- 员
+- 嗯
+- 较
+- 电
+- 资
+- 变
+- 无
+- 别
+- 场
+- 哎
+- 吗
+- 让
+- 该
+- 从
+- 吧
+- 业
+- 题
+- 怎
+- 间
+- 东
+- 嘛
+- 应
+- 长
+- 进
+- 刚
+- 动
+- 关
+- 边
+- 觉
+- 而
+- 发
+- 经
+- 话
+- 种
+- 讲
+- 开
+- 它
+- 实
+- 给
+- 做
+- 跟
+- 现
+- 过
+- 呃
+- 很
+- 哦
+- 时
+- 还
+- 呢
+- 说
+- 为
+- 么
+- 们
+- 啊
+- 你
+- 这
+- 㶧
+- 佚
+- 佝
+- 俟
+- 偈
+- 偻
+- 勐
+- 匏
+- 卲
+- 吋
+- 哕
+- 唳
+- 啲
+- 啶
+- 嗫
+- 嗬
+- 嘏
+- 囗
+- 囫
+- 囯
+- 囵
+- 圄
+- 坭
+- 垌
+- 堃
+- 夔
+- 奁
+- 妪
+- 娈
+- 嫒
+- 嵛
+- 幔
+- 忪
+- 怫
+- 悭
+- 懑
+- 戍
+- 戗
+- 搧
+- 敕
+- 旖
+- 昝
+- 暌
+- 暾
+- 曈
+- 枥
+- 柃
+- 栌
+- 桴
+- 桷
+- 椁
+- 椟
+- 椤
+- 椴
+- 榉
+- 槭
+- 橐
+- 檗
+- 欸
+- 歙
+- 殁
+- 殚
+- 氚
+- 氤
+- 氲
+- 泖
+- 泺
+- 洺
+- 浐
+- 涑
+- 滹
+- 漭
+- 潆
+- 澧
+- 澶
+- 烀
+- 熵
+- 牠
+- 猁
+- 猹
+- 獭
+- 玑
+- 珥
+- 瘢
+- 癞
+- 矍
+- 砭
+- 硒
+- 硖
+- 磴
+- 稹
+- 笸
+- 篼
+- 纡
+- 缛
+- 缬
+- 羧
+- 耄
+- 耋
+- 耜
+- 耪
+- 肱
+- 臬
+- 艋
+- 艿
+- 芗
+- 芾
+- 茳
+- 茼
+- 荛
+- 荸
+- 菘
+- 蒯
+- 蓁
+- 薷
+- 藠
+- 蚬
+- 蚴
+- 蛉
+- 蝽
+- 蟆
+- 蠊
+- 觥
+- 诤
+- 诹
+- 谖
+- 谘
+- 谮
+- 谶
+- 豇
+- 豢
+- 貉
+- 贲
+- 赉
+- 蹁
+- 蹉
+- 辊
+- 逋
+- 遑
+- 郇
+- 酞
+- 钐
+- 钒
+- 钼
+- 铋
+- 铍
+- 铑
+- 锑
+- 镏
+- 镔
+- 闾
+- 陉
+- 霪
+- 靑
+- 韫
+- 颦
+- 餍
+- 饴
+- 馑
+- 骈
+- 骓
+- 骺
+- 髌
+- 髯
+- 魟
+- 鲼
+- 鳃
+- 鸩
+- 鸪
+- 鸫
+- 鹁
+- 鹧
+- 鹳
+- ，
+- <vi-VN>
+- ▁t
+- ▁đ
+- nh
+- ▁th
+- ▁ch
+- ▁nh
+- ▁kh
+- ▁ng
+- ▁g
+- ông
+- ▁ph
+- ▁r
+- ▁gi
+- ời
+- ên
+- ▁cá
+- ▁và
+- ▁có
+- iệ
+- ột
+- ▁không
+- ôi
+- iế
+- ▁một
+- ới
+- ủa
+- ▁của
+- ▁x
+- ười
+- ượ
+- ình
+- ất
+- ại
+- uy
+- ày
+- ▁người
+- ong
+- anh
+- ược
+- iề
+- ▁được
+- ▁nó
+- ững
+- ▁cho
+- ấy
+- ▁như
+- ▁ngh
+- ▁mà
+- ▁tôi
+- ươ
+- ải
+- ▁những
+- ▁thì
+- ây
+- ao
+- ▁đã
+- ần
+- ▁cái
+- ▁đó
+- ▁đi
+- ▁với
+- ướ
+- ▁trong
+- ▁các
+- iều
+- ▁này
+- ũng
+- úng
+- ăm
+- ồi
+- ạn
+- ▁anh
+- ư
+- ế
+- ạ
+- ộ
+- ờ
+- ả
+- ấ
+- ố
+- ớ
+- ệ
+- ề
+- ể
+- ơ
+- ủ
+- ậ
+- ợ
+- ầ
+- ị
+- ữ
+- ứ
+- ự
+- ọ
+- ồ
+- ở
+- ắ
+- ừ
+- ụ
+- ũ
+- ổ
+- ặ
+- ẽ
+- ằ
+- Đ
+- ỉ
+- ỏ
+- ử
+- ĩ
+- ỗ
+- ẫ
+- ẹ
+- ẩ
+- ễ
+- ẻ
+- ẳ
+- ỹ
+- ỡ
+- ỳ
+- ỷ
+- ẵ
+- Ở
+- ỵ
+- Ấ
+- Ý
+- Ừ
+- Ă
+- Ờ
+- Ả
+- Ồ
+- Ơ
+- Ư
+- Ứ
+- Ố
+- Ớ
+- Ủ
+- Ẩ
+- Ắ
+- Ổ
+- Ỷ
+- Ế
+- Ỳ
+num_prompts: 128
+target: nemo.collections.asr.models.rnnt_bpe_models_prompt.EncDecRNNTBPEModelWithPrompt
+nemo_version: 2.8.0rc0
