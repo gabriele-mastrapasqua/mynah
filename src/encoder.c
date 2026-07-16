@@ -170,26 +170,34 @@ static void attention(const mynah_encoder *enc, const mynah_enc_layer *L, const 
         cblas_sgemm(CblasRowMajor, CblasNoTrans, CblasTrans, T, T, dk,
                     1.0f, qb, dk, k + ho, d, 0.0f, scores, T);
 
-        /* scores = (ac + rel_shift(bd)) * scaling, mask chunked_limited, softmax */
+        /* scores = (ac + rel_shift(bd)) * scaling + softmax, SOLO sulla finestra
+         * chunked_limited — che per riga è contigua: jc in [tc-lc, tc]
+         * => j in [ (tc-lc)*chunk, (tc+1)*chunk ). Niente -inf (UB con -ffast-math),
+         * niente lavoro sui masked (prior-art §A: finestra nei limiti del loop). */
         for (int t = 0; t < T; t++) {
             float *srow = scores + (size_t)t * (size_t)T;
             const float *brow = bd + (size_t)t * (size_t)P;
             const int tc = t / chunk;
-            float maxv = -INFINITY;
-            for (int j = 0; j < T; j++) {
-                const int jc = j / chunk, dchunk = tc - jc;
-                if (dchunk < 0 || dchunk > lc) { srow[j] = -INFINITY; continue; }
+            int j0 = (tc - lc) * chunk;
+            if (j0 < 0) j0 = 0;
+            int j1 = (tc + 1) * chunk;
+            if (j1 > T) j1 = T;
+
+            float maxv = -3.0e38f;
+            for (int j = j0; j < j1; j++) {
                 /* rel_shift in forma chiusa: bd_shifted[t,j] = bd[t, T-1 + j - t] */
                 srow[j] = (srow[j] + brow[T - 1 + j - t]) * scaling;
                 if (srow[j] > maxv) maxv = srow[j];
             }
             float sum = 0.0f;
-            for (int j = 0; j < T; j++) {
-                srow[j] = (srow[j] == -INFINITY) ? 0.0f : expf(srow[j] - maxv);
+            for (int j = j0; j < j1; j++) {
+                srow[j] = expf(srow[j] - maxv);
                 sum += srow[j];
             }
             const float inv = 1.0f / sum;
-            for (int j = 0; j < T; j++) srow[j] *= inv;
+            for (int j = 0; j < j0; j++) srow[j] = 0.0f;
+            for (int j = j0; j < j1; j++) srow[j] *= inv;
+            for (int j = j1; j < T; j++) srow[j] = 0.0f;
         }
 
         /* ctx_h = scores @ v_h (v strided per head) */

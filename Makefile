@@ -33,12 +33,15 @@ tests/%: tests/%.o tests/npy.o $(OBJ)
 
 # Parità C vs oracolo. Skip (exit 77) se mancano modello o dump golden.
 # Rigenera i dump con: make golden-dump
-test: $(TESTS)
+test: $(TESTS) mynah
 	@for t in $(TESTS); do \
 	  $$t $(MODEL_DIR) tests/audio/test_it.wav tests/golden/test_it; rc=$$?; \
 	  if [ $$rc -eq 77 ]; then echo "SKIP $$t: modello o golden assenti (make golden-dump)"; \
 	  elif [ $$rc -ne 0 ]; then exit $$rc; fi; \
 	done
+	@sh tests/test_e2e.sh $(MODEL_DIR); rc=$$?; \
+	  if [ $$rc -eq 77 ]; then echo "SKIP e2e: modello assente"; \
+	  elif [ $$rc -ne 0 ]; then exit $$rc; fi
 
 golden-dump:
 	cd tools && uv run python -m oracle.transcribe ../$(MODEL_DIR) ../tests/audio/test_it.wav \
