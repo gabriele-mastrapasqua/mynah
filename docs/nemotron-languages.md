@@ -53,6 +53,13 @@ nn-NO (104)
 > quasi vuoto anche su audio pulito** — serve davvero il fine-tuning che la card
 > raccomanda. mt-MT e nn-NO non testati (nessun sample audio libero reperito).
 
+## Coverage della suite (`make test-nemo-langs`)
+
+**38/40 locale esercitati, 37 OK** (2026-07-16): 33 lingue base + le 4 varianti
+regionali (en-GB, es-US, fr-CA, pt-PT — prompt id propri, testate sugli stessi
+sample della lingua base) tutte OK; th-TH WEAK (atteso); mt-MT e nn-NO senza audio.
+102 sample reali: Tatoeba (CC, 21 lingue) + FLEURS validation (CC-BY-4.0, 13 lingue).
+
 ## Language detection e tag in output
 
 - Con `auto` (id 101) il modello rileva la lingua e **emette il tag locale** (es. `<it-IT>`)

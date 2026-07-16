@@ -23,6 +23,10 @@ ROOT = Path(__file__).resolve().parent.parent.parent
 # fine-tuning). Segnalate come WEAK, non contano come fallimento della suite.
 ADAPTATION_TIER = {"el-GR", "lt-LT", "lv-LV", "mt-MT", "sl-SI", "he-IL", "th-TH", "nn-NO"}
 
+# Varianti regionali (prompt id diversi, stessa lingua): testate riusando i
+# sample della lingua base con il prompt della variante. 40 locale = 36 lingue.
+VARIANTS = {"en-GB": "en-US", "es-US": "es-ES", "fr-CA": "fr-FR", "pt-PT": "pt-BR"}
+
 
 def normalize(s: str) -> str:
     s = re.sub(r"<[^<>]{1,12}>", " ", s)   # tag lingua spelled-out dal modello
@@ -67,10 +71,16 @@ def main() -> None:
     # Criterio primario: CER con lingua ESPLICITA (l'ASR funziona per la lingua?).
     # Secondario/informativo: language detection con "auto" (sui clip corti il
     # modello può non rilevare la lingua e non emettere nulla: comportamento noto).
+    # varianti regionali: stessi sample della lingua base, prompt della variante
+    jobs = dict(sorted(manifest.items()))
+    for variant, base in VARIANTS.items():
+        if base in manifest:
+            jobs[variant] = manifest[base]
+
     n_lang_ok = n_lang_fail = 0
     failures = []
     print(f"{'locale':8} {'sample':>6} {'CER ok':>7} {'CER medio':>10} {'auto-lang':>10}  esito")
-    for locale, entries in sorted(manifest.items()):
+    for locale, entries in jobs.items():
         cers, auto_hits = [], 0
         for e in entries:
             wav = ROOT / "tests/audio/langs" / e["wav"]
