@@ -1,5 +1,6 @@
 #include "audio.h"
 
+#include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -76,5 +77,39 @@ float *mynah_wav_load(const char *path, size_t *n_samples, int *sample_rate) {
 
     *n_samples = frames;
     *sample_rate = sr;
+    return out;
+}
+
+float *mynah_resample(const float *in, size_t n_in, int sr_in, int sr_out, size_t *n_out) {
+    if (sr_in == sr_out) {
+        float *copy = malloc(n_in * sizeof(float));
+        if (!copy) return NULL;
+        memcpy(copy, in, n_in * sizeof(float));
+        *n_out = n_in;
+        return copy;
+    }
+    const double ratio = (double)sr_out / (double)sr_in;
+    /* in downsampling il sinc va tagliato alla nuova Nyquist */
+    const double fc = ratio < 1.0 ? ratio : 1.0;
+    const int taps = 32;
+    const size_t N = (size_t)((double)n_in * ratio);
+    float *out = malloc(N * sizeof(float));
+    if (!out) return NULL;
+
+    for (size_t i = 0; i < N; i++) {
+        const double center = (double)i / ratio;   /* posizione nel segnale sorgente */
+        const long i0 = (long)floor(center) - taps + 1;
+        double acc = 0.0, wsum = 0.0;
+        for (long j = i0; j < i0 + 2 * taps; j++) {
+            const double x = ((double)j - center) * fc;
+            const double sinc = x == 0.0 ? 1.0 : sin(M_PI * x) / (M_PI * x);
+            const double hw = 0.5 + 0.5 * cos(M_PI * ((double)j - center) / (double)taps);
+            const double w = sinc * hw;
+            wsum += w;
+            if (j >= 0 && (size_t)j < n_in) acc += w * (double)in[j];
+        }
+        out[i] = (float)(acc / (wsum > 1e-9 ? wsum : 1.0));
+    }
+    *n_out = N;
     return out;
 }

@@ -92,24 +92,20 @@ float *mynah_log_mel(const mynah_feat_cfg *cfg, const float *audio, size_t n_sam
 
 /* ------------------------------------------------------------- mel streaming */
 
-/* Calcola un singolo frame mel dal segnale preemfatizzato (coordinate campione,
- * pad sinistro/destro letti come zero). Condiviso concettualmente con l'offline:
- * frame t = finestra [t*hop - n_fft/2, t*hop + n_fft/2). */
-static void mel_one_frame(const mynah_feat_cfg *cfg, const double *sig, size_t n_sig,
-                          int t, float *row) {
+/* Calcola un singolo frame mel dal segnale preemfatizzato in finestra scorrevole
+ * (indici assoluti; fuori da [base, base+len) si legge zero — pad sx/dx).
+ * Frame t = finestra [t*hop - n_fft/2, t*hop + n_fft/2). */
+static void mel_one_frame(const mynah_mel_stream *ms, long t, float *row) {
+    const mynah_feat_cfg *cfg = ms->cfg;
     const int n_fft = cfg->n_fft, n_bins = n_fft / 2 + 1, n_mels = cfg->n_mels;
-    const long start = (long)t * cfg->hop_length - n_fft / 2;
+    const long start = t * cfg->hop_length - n_fft / 2;
 
     double re[4096], im[4096], power[2049];
-    double win[4096];
-    const int off = (n_fft - cfg->win_length) / 2;
-    memset(win, 0, (size_t)n_fft * sizeof(double));
-    for (int i = 0; i < cfg->win_length; i++) win[off + i] = (double)cfg->window[i];
-
     for (int i = 0; i < n_fft; i++) {
         const long s = start + i;
-        const double v = (s >= 0 && (size_t)s < n_sig) ? sig[s] : 0.0;
-        re[i] = v * win[i];
+        const long rel = s - (long)ms->base;
+        const double v = (s >= 0 && rel >= 0 && (size_t)rel < ms->buf_len) ? ms->buf[rel] : 0.0;
+        re[i] = v * ms->win[i];
         im[i] = 0.0;
     }
     fft_radix2(re, im, n_fft);
@@ -126,52 +122,74 @@ int mynah_mel_stream_init(mynah_mel_stream *ms, const mynah_feat_cfg *cfg) {
     memset(ms, 0, sizeof(*ms));
     if (cfg->n_fft > 4096) return -1;
     ms->cfg = cfg;
-    ms->cap = 65536;
-    ms->samples = malloc(ms->cap * sizeof(double));
-    return ms->samples ? 0 : -1;
+    ms->buf_cap = 65536;
+    ms->buf = malloc(ms->buf_cap * sizeof(double));
+    ms->win = calloc((size_t)cfg->n_fft, sizeof(double));
+    if (!ms->buf || !ms->win) return -1;
+    const int off = (cfg->n_fft - cfg->win_length) / 2;
+    for (int i = 0; i < cfg->win_length; i++) ms->win[off + i] = (double)cfg->window[i];
+    return 0;
 }
 
-void mynah_mel_stream_free(mynah_mel_stream *ms) { free(ms->samples); ms->samples = NULL; }
+void mynah_mel_stream_free(mynah_mel_stream *ms) {
+    free(ms->buf); free(ms->win);
+    ms->buf = NULL; ms->win = NULL;
+}
+
+/* Scarta dal buffer i campioni ormai inutili (prima di next_frame*hop - n_fft/2). */
+static void mel_stream_compact(mynah_mel_stream *ms) {
+    const long min_keep = ms->next_frame * ms->cfg->hop_length - ms->cfg->n_fft / 2;
+    if (min_keep <= (long)ms->base) return;
+    const size_t drop = (size_t)min_keep - ms->base;
+    if (drop >= ms->buf_len) {
+        ms->base += ms->buf_len;
+        ms->buf_len = 0;
+        ms->base = (size_t)min_keep; /* buffer vuoto: riallinea */
+        return;
+    }
+    memmove(ms->buf, ms->buf + drop, (ms->buf_len - drop) * sizeof(double));
+    ms->buf_len -= drop;
+    ms->base += drop;
+}
 
 int mynah_mel_stream_feed(mynah_mel_stream *ms, const float *audio, size_t n,
                           float *out, int cap_frames) {
     const mynah_feat_cfg *cfg = ms->cfg;
-    if (ms->n_samples + n > ms->cap) {
-        while (ms->n_samples + n > ms->cap) ms->cap *= 2;
-        double *nb = realloc(ms->samples, ms->cap * sizeof(double));
+    if (ms->buf_len + n > ms->buf_cap) {
+        while (ms->buf_len + n > ms->buf_cap) ms->buf_cap *= 2;
+        double *nb = realloc(ms->buf, ms->buf_cap * sizeof(double));
         if (!nb) return 0;
-        ms->samples = nb;
+        ms->buf = nb;
     }
     for (size_t i = 0; i < n; i++) {
-        const float prev = (ms->n_samples + i == 0) ? 0.0f : ms->last_raw;
-        const double pre = (ms->n_samples + i == 0)
+        const double pre = (ms->total + i == 0)
                                ? (double)audio[i]
-                               : (double)audio[i] - cfg->preemphasis * (double)prev;
-        ms->samples[ms->n_samples + i] = pre;
+                               : (double)audio[i] - cfg->preemphasis * (double)ms->last_raw;
+        ms->buf[ms->buf_len + i] = pre;
         ms->last_raw = audio[i];
     }
-    ms->n_samples += n;
+    ms->buf_len += n;
+    ms->total += n;
 
     /* frame t pronto quando il segnale copre t*hop + n_fft/2 */
     int emitted = 0;
     while (emitted < cap_frames) {
         const size_t need = (size_t)ms->next_frame * (size_t)cfg->hop_length + (size_t)cfg->n_fft / 2;
-        if (need > ms->n_samples) break;
-        mel_one_frame(cfg, ms->samples, ms->n_samples, ms->next_frame,
-                      out + (size_t)emitted * (size_t)cfg->n_mels);
+        if (need > ms->total) break;
+        mel_one_frame(ms, ms->next_frame, out + (size_t)emitted * (size_t)cfg->n_mels);
         ms->next_frame++;
         emitted++;
     }
+    mel_stream_compact(ms);
     return emitted;
 }
 
 int mynah_mel_stream_finish(mynah_mel_stream *ms, float *out, int cap_frames) {
     const mynah_feat_cfg *cfg = ms->cfg;
-    const int valid = (int)(ms->n_samples / (size_t)cfg->hop_length);
+    const long valid = (long)(ms->total / (size_t)cfg->hop_length);
     int emitted = 0;
     while (ms->next_frame < valid && emitted < cap_frames) {
-        mel_one_frame(cfg, ms->samples, ms->n_samples, ms->next_frame,
-                      out + (size_t)emitted * (size_t)cfg->n_mels);
+        mel_one_frame(ms, ms->next_frame, out + (size_t)emitted * (size_t)cfg->n_mels);
         ms->next_frame++;
         emitted++;
     }

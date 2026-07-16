@@ -33,11 +33,13 @@ float *mynah_log_mel(const mynah_feat_cfg *cfg, const float *audio, size_t n_sam
  * gli zeri del pad destro. */
 typedef struct {
     const mynah_feat_cfg *cfg;
-    double *samples;        /* segnale preemfatizzato accumulato (v1: cresce O(S);
-                               ring buffer in backlog) */
-    size_t n_samples, cap;
-    float last_raw;         /* carry per la preemphasis tra feed */
-    int next_frame;         /* prossimo frame mel da emettere */
+    double *buf;            /* finestra scorrevole di segnale preemfatizzato   */
+    size_t buf_len, buf_cap;
+    size_t base;            /* indice assoluto del campione buf[0]             */
+    size_t total;           /* campioni totali visti                           */
+    double *win;            /* finestra Hann center-paddata a n_fft (precomp.) */
+    float last_raw;         /* carry per la preemphasis tra feed               */
+    long next_frame;        /* prossimo frame mel da emettere                  */
     int finished;
 } mynah_mel_stream;
 

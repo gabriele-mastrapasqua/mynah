@@ -9,4 +9,8 @@
  * e scrive *n_samples e *sample_rate. NULL su errore (messaggio su stderr). */
 float *mynah_wav_load(const char *path, size_t *n_samples, int *sample_rate);
 
+/* Resampling windowed-sinc (Hann, 32 tap per lato) a sr_out. Ritorna il nuovo
+ * buffer (malloc) e scrive *n_out. NULL su errore. */
+float *mynah_resample(const float *in, size_t n_in, int sr_in, int sr_out, size_t *n_out);
+
 #endif

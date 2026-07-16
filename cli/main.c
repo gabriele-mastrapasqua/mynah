@@ -45,9 +45,13 @@ static int cmd_transcribe(int argc, char **argv) {
     float *samples = mynah_wav_load(wav, &n_samples, &sr);
     if (!samples) { mynah_free(m); return 1; }
     if (sr != 16000) {
-        fprintf(stderr, "mynah: servono 16 kHz, il file è a %d Hz (resampler in arrivo)\n", sr);
-        free(samples); mynah_free(m);
-        return 1;
+        fprintf(stderr, "[resample %d Hz -> 16000 Hz]\n", sr);
+        size_t n_rs;
+        float *rs = mynah_resample(samples, n_samples, sr, 16000, &n_rs);
+        free(samples);
+        if (!rs) { mynah_free(m); return 1; }
+        samples = rs;
+        n_samples = n_rs;
     }
 
     char lang_out[16];

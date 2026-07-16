@@ -6,9 +6,11 @@ LDFLAGS ?=
 UNAME_S := $(shell uname -s)
 ifeq ($(UNAME_S),Darwin)
   LDFLAGS += -framework Accelerate
+  BLAS_DEF := MYNAH_BLAS_ACCELERATE
   CFLAGS  += -DMYNAH_BLAS_ACCELERATE -DACCELERATE_NEW_LAPACK
 else
   LDFLAGS += -lopenblas -lm -lpthread
+  BLAS_DEF := MYNAH_BLAS_OPENBLAS
   CFLAGS  += -DMYNAH_BLAS_OPENBLAS
 endif
 
@@ -47,7 +49,26 @@ golden-dump:
 	cd tools && uv run python -m oracle.transcribe ../$(MODEL_DIR) ../tests/audio/test_it.wav \
 	  --lang it-IT --dump-dir ../tests/golden/test_it
 
-clean:
-	rm -f mynah $(OBJ) cli/main.o tests/*.o $(TESTS)
+# libreria statica (senza CLI)
+lib: libmynah.a
+libmynah.a: $(OBJ)
+	ar rcs $@ $^
 
-.PHONY: all clean test golden-dump
+# build alternative
+debug:
+	$(MAKE) clean && $(MAKE) CFLAGS="-std=c11 -O0 -g -Wall -Wextra -Isrc -D$(BLAS_DEF)"
+asan:
+	$(MAKE) clean && $(MAKE) CFLAGS="-std=c11 -O1 -g -fsanitize=address,undefined \
+	  -fno-omit-frame-pointer -Wall -Wextra -Isrc -D$(BLAS_DEF)" \
+	  LDFLAGS="$(LDFLAGS) -fsanitize=address,undefined"
+
+# bench: RTF offline sui fixture (3 run, cache calda)
+bench: mynah
+	@for i in 1 2 3; do \
+	  ./mynah transcribe -m $(MODEL_DIR) -i tests/audio/test_it.wav --lang it-IT >/dev/null; \
+	done
+
+clean:
+	rm -f mynah libmynah.a $(OBJ) cli/main.o tests/*.o $(TESTS)
+
+.PHONY: all clean test golden-dump lib debug asan bench
