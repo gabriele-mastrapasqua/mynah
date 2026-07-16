@@ -26,7 +26,7 @@ mynah: $(OBJ) cli/main.o
 %.o: %.c $(HDR)
 	$(CC) $(CFLAGS) -c $< -o $@
 
-TESTS := tests/test_features tests/test_subsampling
+TESTS := tests/test_features tests/test_subsampling tests/test_encoder
 
 tests/%: tests/%.o tests/npy.o $(OBJ)
 	$(CC) $(CFLAGS) -o $@ $^ $(LDFLAGS)
