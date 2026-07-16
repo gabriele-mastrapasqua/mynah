@@ -74,6 +74,15 @@ bench: mynah
 	  ./mynah transcribe -m $(MODEL_DIR) -i tests/audio/test_it.wav --lang it-IT >/dev/null; \
 	done
 
+# Suite multilingua: sample audio reali (Tatoeba, CC) per ogni lingua supportata,
+# verifica language detection + CER vs testo di riferimento.
+# Prima volta: make fetch-lang-samples (richiede ffmpeg + tools/ uv).
+test-nemo-langs: mynah
+	cd tools && uv run python -m eval.test_langs
+
+fetch-lang-samples:
+	cd tools && uv run python fetch_lang_samples.py 3
+
 # leak check veloce su macOS (tool nativo `leaks`, nessuna rebuild — su Mac ASan
 # è lentissimo: usarlo solo in CI Linux. Stesso pattern di qwen-tts).
 leaks: mynah tests/test_streaming
@@ -85,4 +94,4 @@ leaks: mynah tests/test_streaming
 clean:
 	rm -f mynah libmynah.a $(OBJ) cli/main.o tests/*.o $(TESTS)
 
-.PHONY: all clean test golden-dump lib debug ubsan asan bench leaks
+.PHONY: all clean test golden-dump lib debug ubsan asan bench leaks test-nemo-langs fetch-lang-samples

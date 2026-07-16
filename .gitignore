@@ -26,3 +26,6 @@ tools/.venv/
 
 # golden dumps: derivati da modello+wav, rigenerabili con make golden-dump
 tests/golden/
+
+# sample per-lingua scaricati (Tatoeba, licenze varie): non committare
+tests/audio/langs/
