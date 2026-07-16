@@ -33,8 +33,60 @@ LOCALES = {
     "nn-NO": "nno",
 }
 
-API = "https://api.tatoeba.org/unstable/sentences?lang={code}&has_audio=yes&sort=created&limit=30"
-AUDIO = "https://audio.tatoeba.org/sentences/{code}/{sid}.mp3"
+API = "https://api.tatoeba.org/unstable/audios?lang={code}&limit=80"
+AUDIO = "https://tatoeba.org/en/audio/download/{aid}"
+
+# Fallback per lingue senza audio su Tatoeba: FLEURS (CC-BY-4.0), split validation
+# via datasets-server rows API (il test split supera il limite di scan).
+FLEURS = {
+    "hi-IN": "hi_in", "ko-KR": "ko_kr", "vi-VN": "vi_vn", "nb-NO": "nb_no",
+    "da-DK": "da_dk", "bg-BG": "bg_bg", "hr-HR": "hr_hr", "sk-SK": "sk_sk",
+    "et-EE": "et_ee", "el-GR": "el_gr", "lt-LT": "lt_lt", "lv-LV": "lv_lv",
+    "mt-MT": "mt_mt", "sl-SI": "sl_si",
+}
+FLEURS_API = ("https://datasets-server.huggingface.co/rows?dataset=google/fleurs"
+              "&config={cfg}&split=validation&offset=0&length={n}")
+
+
+def fetch_fleurs(locale: str, cfg: str, n: int, lang_dir: Path) -> list[dict]:
+    entries = []
+    rows = []
+    for attempt in range(4):                # il datasets-server dà 5xx transitori
+        try:
+            rows = fetch_json(FLEURS_API.format(cfg=cfg, n=n * 2)).get("rows", [])
+            break
+        except Exception as e:
+            if attempt == 3:
+                print(f"{locale}: FLEURS API errore ({e})")
+                return entries
+            time.sleep(3.0 * (attempt + 1))
+    for r in rows:
+        if len(entries) >= n:
+            break
+        row = r.get("row", {})
+        text = row.get("raw_transcription", "")
+        srcs = row.get("audio") or []
+        if not text or not srcs:
+            continue
+        rid = row.get("id", len(entries))
+        wav = lang_dir / f"fleurs_{rid}.wav"
+        if not wav.exists():
+            tmp = lang_dir / f"fleurs_{rid}.dl"
+            try:
+                urllib.request.urlretrieve(srcs[0]["src"], tmp)
+                subprocess.run(["ffmpeg", "-v", "quiet", "-y", "-i", str(tmp),
+                                "-ar", "16000", "-ac", "1", str(wav)], check=True)
+            except Exception:
+                continue
+            finally:
+                tmp.unlink(missing_ok=True)
+        entries.append({
+            "wav": f"{locale}/fleurs_{rid}.wav",
+            "text": text,
+            "source": "google/fleurs validation (CC-BY-4.0)",
+            "fleurs_id": rid,
+        })
+    return entries
 
 
 def fetch_json(url: str):
@@ -55,43 +107,49 @@ def main() -> None:
         got = 0
         try:
             data = fetch_json(API.format(code=code)).get("data", [])
-        except Exception as e:
-            report.append(f"{locale}: API errore ({e})")
-            continue
+        except Exception:
+            data = []   # nessun continue: lascia lavorare il fallback FLEURS
 
+        # CJK/Thai: frasi brevi in caratteri ma dense — soglia ridotta
+        min_len = 4 if code in {"jpn", "cmn", "kor", "tha"} else 12
         entries = []
-        for s in data:
+        for a in data:
             if got >= n_per_lang:
                 break
-            text = s.get("text", "")
-            if len(text) < 12:          # frasi troppo corte non testano nulla
+            sent = a.get("sentence") or {}
+            text = sent.get("text", "")
+            if len(text) < min_len or sent.get("lang") != code:
                 continue
-            sid = s["id"]
-            wav = lang_dir / f"{sid}.wav"
+            aid = a["id"]
+            wav = lang_dir / f"{aid}.wav"
             if not wav.exists():
-                mp3 = lang_dir / f"{sid}.mp3"
+                mp3 = lang_dir / f"{aid}.mp3"
                 try:
-                    urllib.request.urlretrieve(AUDIO.format(code=code, sid=sid), mp3)
+                    urllib.request.urlretrieve(AUDIO.format(aid=aid), mp3)
                     subprocess.run(
                         ["ffmpeg", "-v", "quiet", "-y", "-i", str(mp3), "-ar", "16000",
                          "-ac", "1", str(wav)],
                         check=True,
                     )
                 except Exception:
-                    mp3.unlink(missing_ok=True)
                     continue
                 finally:
                     mp3.unlink(missing_ok=True)
             entries.append({
-                "wav": f"{locale}/{sid}.wav",
+                "wav": f"{locale}/{aid}.wav",
                 "text": text,
-                "tatoeba_id": sid,
-                "sentence_license": s.get("license"),
-                "owner": s.get("owner"),
+                "tatoeba_audio_id": aid,
+                "tatoeba_sentence_id": sent.get("id"),
+                "audio_license": a.get("license"),
+                "author": a.get("author"),
+                "attribution_url": a.get("attribution_url"),
             })
             got += 1
             time.sleep(0.2)
 
+        if not entries and locale in FLEURS:
+            entries = fetch_fleurs(locale, FLEURS[locale], n_per_lang, lang_dir)
+            got = len(entries)
         if entries:
             manifest[locale] = entries
         report.append(f"{locale}: {got} sample")
