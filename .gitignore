@@ -1,0 +1,18 @@
+# Build artifacts
+*.o
+*.d
+mynah
+mynah-server
+
+# Models & audio di lavoro
+models/
+*.wav
+*.npy
+
+# Python
+.venv/
+__pycache__/
+*.pyc
+
+# OS
+.DS_Store
