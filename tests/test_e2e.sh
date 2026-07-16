@@ -16,5 +16,8 @@ check() { # wav, lang, expected substring
 check tests/audio/test_it.wav auto  "Ciao, questo è un test di riconoscimento vocale in italiano."
 check tests/audio/test_it.wav it-IT "Il gatto dorme sul divano."
 check tests/audio/test_en.wav auto  "Hello, this is a speech recognition test."
+check tests/audio/test_de.wav auto  "die Besprechung beginnt um neun Uhr"
+check tests/audio/test_fr.wav auto  "la réunion commence à neuf heures"
+check tests/audio/test_es.wav auto  "la reunión empieza"
 
 exit $fail
