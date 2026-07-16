@@ -169,6 +169,64 @@ static void dequant_row(const mynah_qmat *m, int i, float *dst) {
 /* soglia righe: sotto -> dot diretto (bandwidth-bound), sopra -> dequant+GEMM */
 #define QMAT_SMALL_T 16
 
+/* ------------------------------------------------------------- kernel NEON */
+#if defined(__ARM_NEON) || defined(__aarch64__)
+#include <arm_neon.h>
+
+/* dot f32 x int8 (riga intera, scala unica) */
+static float dot_q8_neon(const float *x, const int8_t *q, int k) {
+    float32x4_t acc0 = vdupq_n_f32(0.0f), acc1 = vdupq_n_f32(0.0f);
+    float32x4_t acc2 = vdupq_n_f32(0.0f), acc3 = vdupq_n_f32(0.0f);
+    for (int j = 0; j < k; j += 16) {
+        const int8x16_t qb = vld1q_s8(q + j);
+        const int16x8_t lo = vmovl_s8(vget_low_s8(qb));
+        const int16x8_t hi = vmovl_s8(vget_high_s8(qb));
+        acc0 = vfmaq_f32(acc0, vld1q_f32(x + j),      vcvtq_f32_s32(vmovl_s16(vget_low_s16(lo))));
+        acc1 = vfmaq_f32(acc1, vld1q_f32(x + j + 4),  vcvtq_f32_s32(vmovl_s16(vget_high_s16(lo))));
+        acc2 = vfmaq_f32(acc2, vld1q_f32(x + j + 8),  vcvtq_f32_s32(vmovl_s16(vget_low_s16(hi))));
+        acc3 = vfmaq_f32(acc3, vld1q_f32(x + j + 12), vcvtq_f32_s32(vmovl_s16(vget_high_s16(hi))));
+    }
+    return vaddvq_f32(vaddq_f32(vaddq_f32(acc0, acc1), vaddq_f32(acc2, acc3)));
+}
+
+/* dot f32 x int4 (gruppi da 32 nibble packed: byte j = elementi 2j | 2j+1<<4).
+ * vld2q_f32 deinterleava x in lane pari/dispari, allineate ai nibble lo/hi. */
+static float dot_q4_neon(const float *x, const uint8_t *q, const float *scales,
+                         int k) {
+    const int8x16_t off = vdupq_n_s8(8);
+    const uint8x16_t maskv = vdupq_n_u8(0x0F);
+    float acc = 0.0f;
+    for (int g = 0; g < k / MYNAH_Q4_GROUP; g++) {
+        const uint8x16_t b = vld1q_u8(q + g * 16);
+        const int8x16_t lo = vsubq_s8(vreinterpretq_s8_u8(vandq_u8(b, maskv)), off);
+        const int8x16_t hi = vsubq_s8(vreinterpretq_s8_u8(vshrq_n_u8(b, 4)), off);
+
+        const float32x4x2_t x0 = vld2q_f32(x + g * 32);       /* pari/dispari 0..7  */
+        const float32x4x2_t x1 = vld2q_f32(x + g * 32 + 8);   /* 8..15  */
+        const float32x4x2_t x2 = vld2q_f32(x + g * 32 + 16);  /* 16..23 */
+        const float32x4x2_t x3 = vld2q_f32(x + g * 32 + 24);  /* 24..31 */
+
+        const int16x8_t lo16a = vmovl_s8(vget_low_s8(lo));
+        const int16x8_t lo16b = vmovl_s8(vget_high_s8(lo));
+        const int16x8_t hi16a = vmovl_s8(vget_low_s8(hi));
+        const int16x8_t hi16b = vmovl_s8(vget_high_s8(hi));
+
+        float32x4_t ga = vmulq_f32(x0.val[0], vcvtq_f32_s32(vmovl_s16(vget_low_s16(lo16a))));
+        ga = vfmaq_f32(ga, x0.val[1], vcvtq_f32_s32(vmovl_s16(vget_low_s16(hi16a))));
+        ga = vfmaq_f32(ga, x1.val[0], vcvtq_f32_s32(vmovl_s16(vget_high_s16(lo16a))));
+        ga = vfmaq_f32(ga, x1.val[1], vcvtq_f32_s32(vmovl_s16(vget_high_s16(hi16a))));
+        ga = vfmaq_f32(ga, x2.val[0], vcvtq_f32_s32(vmovl_s16(vget_low_s16(lo16b))));
+        ga = vfmaq_f32(ga, x2.val[1], vcvtq_f32_s32(vmovl_s16(vget_low_s16(hi16b))));
+        ga = vfmaq_f32(ga, x3.val[0], vcvtq_f32_s32(vmovl_s16(vget_high_s16(lo16b))));
+        ga = vfmaq_f32(ga, x3.val[1], vcvtq_f32_s32(vmovl_s16(vget_high_s16(hi16b))));
+
+        acc += vaddvq_f32(ga) * scales[g];
+    }
+    return acc;
+}
+#define MYNAH_HAVE_NEON 1
+#endif
+
 void mynah_qmat_mul(const mynah_qmat *m, const float *x, float *out, int T) {
     if (m->qtype == MYNAH_Q_F32) {
         cblas_sgemm(CblasRowMajor, CblasNoTrans, CblasTrans, T, m->n, m->k,
@@ -182,9 +240,13 @@ void mynah_qmat_mul(const mynah_qmat *m, const float *x, float *out, int T) {
                 float *o = out + (size_t)t * (size_t)m->n;
                 for (int i = 0; i < m->n; i++) {
                     const int8_t *qrow = m->q8 + (size_t)i * (size_t)m->k;
+#ifdef MYNAH_HAVE_NEON
+                    o[i] = dot_q8_neon(xr, qrow, m->k) * m->scales[i];
+#else
                     float acc = 0.0f;
                     for (int j = 0; j < m->k; j++) acc += xr[j] * (float)qrow[j];
                     o[i] = acc * m->scales[i];
+#endif
                 }
             }
         } else {
@@ -195,6 +257,9 @@ void mynah_qmat_mul(const mynah_qmat *m, const float *x, float *out, int T) {
                 for (int i = 0; i < m->n; i++) {
                     const uint8_t *qrow = m->q4 + (size_t)i * (size_t)(m->k / 2);
                     const float *srow = m->scales + (size_t)i * (size_t)groups;
+#ifdef MYNAH_HAVE_NEON
+                    o[i] = dot_q4_neon(xr, qrow, srow, m->k);
+#else
                     float acc = 0.0f;
                     for (int g = 0; g < groups; g++) {
                         float ga = 0.0f;
@@ -207,6 +272,7 @@ void mynah_qmat_mul(const mynah_qmat *m, const float *x, float *out, int T) {
                         acc += ga * srow[g];
                     }
                     o[i] = acc;
+#endif
                 }
             }
         }

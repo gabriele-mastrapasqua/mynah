@@ -19,12 +19,13 @@
 | file pesi | 2.55 GB | **0.79 GB** | **0.57 GB** |
 | load | ~0.04 s (mmap) | **0.01 s** | **0.01 s** |
 | offline RTF | 0.17 | **0.10** | 0.15 |
-| streaming (5.2 s, wall) | 9.2 s | **3.1 s** | 8.4 s ⚠️ |
+| streaming (5.2 s, wall) | 9.2 s | **3.1–3.5 s** | 5.0 s (NEON) |
 | testo fixture | riferimento | **identico** | quasi identico (una maiuscola, un "it"/"this") |
 
-⚠️ Lo streaming int4 oggi è lento: il kernel dot con unpack dei nibble è scalare
-(ottimizzazione NEON in TODO). Raccomandazione: **int8 per lo streaming**, int4 dove
-conta solo il footprint su disco/rete.
+I dot small-T (streaming/decode) hanno kernel **NEON** su ARM (vld2q per il
+deinterleave pari/dispari dei nibble); int4 resta ~1.4× più lento di int8 (più unpack
+per byte) — il prossimo salto è SDOT con quantizzazione delle attivazioni (in TODO).
+Raccomandazione: **int8 per lo streaming**, int4 dove conta il footprint su disco/rete.
 
 ## Cosa viene quantizzato
 
