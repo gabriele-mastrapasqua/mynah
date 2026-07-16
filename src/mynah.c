@@ -53,14 +53,25 @@ mynah_model *mynah_load_quant(const char *model_dir, int quant) {
     m->cfg = load_json(model_dir, "mynah.json");
     if (!m->cfg) goto fail;
 
-    snprintf(path, sizeof(path), "%s/%s", model_dir,
-             cJSON_GetObjectItem(m->cfg, "weights")->valuestring);
-    m->weights = mynah_st_open(path);
+    /* pre-quantizzato su disco? (mynah quantize) -> load istantaneo, niente f32 */
+    const char *wfile = cJSON_GetObjectItem(m->cfg, "weights")->valuestring;
+    m->weights = NULL;
+    if (quant != MYNAH_QUANT_F32) {
+        snprintf(path, sizeof(path), "%s/model.%s.safetensors", model_dir,
+                 quant == MYNAH_QUANT_INT8 ? "int8" : "int4");
+        m->weights = mynah_st_open_quiet(path);
+        if (m->weights)
+            fprintf(stderr, "mynah: checkpoint pre-quantizzato %s\n", path);
+    }
+    if (!m->weights) {
+        snprintf(path, sizeof(path), "%s/%s", model_dir, wfile);
+        m->weights = mynah_st_open(path);
+    }
     snprintf(path, sizeof(path), "%s/mel_filters.safetensors", model_dir);
     m->mel_filters = mynah_st_open(path);
     if (!m->weights || !m->mel_filters) goto fail;
 
-    if (mynah_encoder_init(&m->enc, m->weights, quant == MYNAH_QUANT_INT8) != 0) {
+    if (mynah_encoder_init(&m->enc, m->weights, quant) != 0) {
         fprintf(stderr, "mynah: encoder init fallita\n");
         goto fail;
     }
@@ -69,7 +80,7 @@ mynah_model *mynah_load_quant(const char *model_dir, int quant) {
     if (mynah_decoder_init(&m->dec, m->weights,
                            cJSON_GetObjectItem(jdec, "blank_id")->valueint,
                            cJSON_GetObjectItem(jdec, "max_symbols_per_step")->valueint,
-                           quant == MYNAH_QUANT_INT8) != 0) {
+                           quant) != 0) {
         fprintf(stderr, "mynah: decoder init fallita\n");
         goto fail;
     }

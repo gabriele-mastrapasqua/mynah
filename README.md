@@ -50,10 +50,13 @@ make
 scripts/download_model.sh
 cd tools && uv sync && uv run python convert_nemo.py ../models/nemotron-3.5-asr-streaming-0.6b && cd ..
 
-# 3. trascrivi
-./mynah transcribe -m models/nemotron-3.5-asr-streaming-0.6b -i file.wav --lang auto
+# 3. (opzionale) checkpoint quantizzato: 0.79 GB invece di 2.55, load istantaneo
+./mynah quantize -m models/nemotron-3.5-asr-streaming-0.6b --quant int8
 
-# 4. streaming da microfono/pipe (raw s16le 16 kHz mono su stdin)
+# 4. trascrivi
+./mynah transcribe -m models/nemotron-3.5-asr-streaming-0.6b -i file.wav --lang auto  # --quant int8
+
+# 5. streaming da microfono/pipe (raw s16le 16 kHz mono su stdin)
 ffmpeg -v quiet -i qualsiasi.mp3 -f s16le -ar 16000 -ac 1 - | \
   ./mynah stream -m models/nemotron-3.5-asr-streaming-0.6b --lookahead 3
 ```

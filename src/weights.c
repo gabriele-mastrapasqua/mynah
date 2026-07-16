@@ -23,7 +23,16 @@ static int dtype_of(const char *s, mynah_dtype *out) {
     if (strcmp(s, "F64") == 0) { *out = MYNAH_DT_F64; return 0; }
     if (strcmp(s, "BF16") == 0) { *out = MYNAH_DT_BF16; return 0; }
     if (strcmp(s, "F16") == 0) { *out = MYNAH_DT_F16; return 0; }
+    if (strcmp(s, "I8") == 0) { *out = MYNAH_DT_I8; return 0; }
+    if (strcmp(s, "U8") == 0) { *out = MYNAH_DT_U8; return 0; }
     return -1;
+}
+
+mynah_safetensors *mynah_st_open_quiet(const char *path) {
+    int fd = open(path, O_RDONLY);
+    if (fd < 0) return NULL;
+    close(fd);
+    return mynah_st_open(path);
 }
 
 mynah_safetensors *mynah_st_open(const char *path) {
@@ -111,3 +120,7 @@ const mynah_tensor *mynah_st_get(const mynah_safetensors *st, const char *name) 
 }
 
 size_t mynah_st_count(const mynah_safetensors *st) { return st->n_tensors; }
+
+const mynah_tensor *mynah_st_at(const mynah_safetensors *st, size_t i) {
+    return i < st->n_tensors ? &st->tensors[i] : NULL;
+}

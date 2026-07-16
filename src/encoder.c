@@ -47,18 +47,17 @@ int mynah_encoder_init(mynah_encoder *enc, const mynah_safetensors *st, int quan
     memset(enc, 0, sizeof(*enc));
     if (mynah_subsampling_init(&enc->ss, st) != 0) return -1;
 
-    /* dimensioni dalle shape */
+    /* dimensioni dalle shape (ffn_dim dopo l'init del primo qmat: nel file
+     * pre-quantizzato il f32 di linear1 non esiste) */
     const mynah_tensor *bu = mynah_st_get(st, "encoder.layers.0.self_attn.bias_u");
-    const mynah_tensor *ff1 = mynah_st_get(st, "encoder.layers.0.feed_forward1.linear1.weight");
     const mynah_tensor *dw = mynah_st_get(st, "encoder.layers.0.conv.depthwise_conv.weight");
     const mynah_tensor *ep = mynah_st_get(st, "encoder_projector.weight");
     const mynah_tensor *p1 = mynah_st_get(st, "prompt_projector.linear_1.weight");
-    if (!bu || !ff1 || !dw || !ep || !p1) return -1;
+    if (!bu || !dw || !ep || !p1) return -1;
 
     enc->d_model = enc->ss.d_model;
     enc->n_heads = (int)bu->shape[0];
     enc->d_head = (int)bu->shape[1];
-    enc->ffn_dim = (int)ff1->shape[0];
     enc->conv_k = (int)dw->shape[2];
     enc->d_out = (int)ep->shape[0];
     enc->prompt_inter = (int)p1->shape[0];
@@ -71,7 +70,6 @@ int mynah_encoder_init(mynah_encoder *enc, const mynah_safetensors *st, int quan
     enc->layers = calloc((size_t)n, sizeof(mynah_enc_layer));
     if (!enc->layers || n == 0) return -1;
 
-    const int d = enc->d_model, fdim = enc->ffn_dim;
     const char *F = "encoder.layers.%d.%s";
     for (int li = 0; li < n; li++) {
         mynah_enc_layer *L = &enc->layers[li];
@@ -95,23 +93,30 @@ int mynah_encoder_init(mynah_encoder *enc, const mynah_safetensors *st, int quan
             fprintf(stderr, "encoder: tensori mancanti al layer %d\n", li);
             return -1;
         }
-        /* grandi linear: qmat (int8 opzionale) */
+        /* grandi linear: qmat — cerca prima la forma pre-quantizzata (.q8/.q4) */
         int rc = 0;
-        rc |= mynah_qmat_init(&L->ff1_w1, T_(st, F, li, "feed_forward1.linear1.weight"), fdim, d, quantize);
-        rc |= mynah_qmat_init(&L->ff1_w2, T_(st, F, li, "feed_forward1.linear2.weight"), d, fdim, quantize);
-        rc |= mynah_qmat_init(&L->ff2_w1, T_(st, F, li, "feed_forward2.linear1.weight"), fdim, d, quantize);
-        rc |= mynah_qmat_init(&L->ff2_w2, T_(st, F, li, "feed_forward2.linear2.weight"), d, fdim, quantize);
-        rc |= mynah_qmat_init(&L->q_w, T_(st, F, li, "self_attn.q_proj.weight"), d, d, quantize);
-        rc |= mynah_qmat_init(&L->k_w, T_(st, F, li, "self_attn.k_proj.weight"), d, d, quantize);
-        rc |= mynah_qmat_init(&L->v_w, T_(st, F, li, "self_attn.v_proj.weight"), d, d, quantize);
-        rc |= mynah_qmat_init(&L->o_w, T_(st, F, li, "self_attn.o_proj.weight"), d, d, quantize);
-        rc |= mynah_qmat_init(&L->pw1_w, T_(st, F, li, "conv.pointwise_conv1.weight"), 2 * d, d, quantize);
-        rc |= mynah_qmat_init(&L->pw2_w, T_(st, F, li, "conv.pointwise_conv2.weight"), d, d, quantize);
-        if (rc != 0 || !L->ff1_w1.f32 || !L->q_w.f32 || !L->pw1_w.f32) {
+        char qn[160];
+        #define QM(field, suffix) \
+            (snprintf(qn, sizeof(qn), "encoder.layers.%d." suffix, li), \
+             mynah_qmat_init_st(&L->field, st, qn, quantize))
+        rc |= QM(ff1_w1, "feed_forward1.linear1.weight");
+        rc |= QM(ff1_w2, "feed_forward1.linear2.weight");
+        rc |= QM(ff2_w1, "feed_forward2.linear1.weight");
+        rc |= QM(ff2_w2, "feed_forward2.linear2.weight");
+        rc |= QM(q_w, "self_attn.q_proj.weight");
+        rc |= QM(k_w, "self_attn.k_proj.weight");
+        rc |= QM(v_w, "self_attn.v_proj.weight");
+        rc |= QM(o_w, "self_attn.o_proj.weight");
+        rc |= QM(pw1_w, "conv.pointwise_conv1.weight");
+        rc |= QM(pw2_w, "conv.pointwise_conv2.weight");
+        #undef QM
+        if (rc != 0) {
             fprintf(stderr, "encoder: init qmat fallita al layer %d\n", li);
             return -1;
         }
     }
+
+    enc->ffn_dim = enc->layers[0].ff1_w1.n;
 
     enc->prompt_l1_w = (const float *)p1->data;
     enc->prompt_l1_b = (const float *)mynah_st_get(st, "prompt_projector.linear_1.bias")->data;

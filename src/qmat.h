@@ -1,33 +1,57 @@
-/* Matrice pesi con quantizzazione INT8 opzionale (per-riga simmetrica, al load).
+/* Matrice pesi con quantizzazione INT8/INT4 (al load o pre-quantizzata su disco).
  * Politica da prior-art (parakeet.cpp/qwen-tts): si quantizzano SOLO i grandi
  * linear consumati dalle GEMM; conv 2D, LSTM, norm, bias, embedding restano f32.
  *
+ * Schemi:
+ *  - INT8: per-riga simmetrica, scale [n]
+ *  - INT4: per-gruppo (32 valori) simmetrica, nibble packed 2-per-byte,
+ *          scale [n * k/32] (stile Q4_0)
+ *
  * Dispatch del prodotto:
- *  - f32: cblas_sgemm (invariato)
- *  - int8, T piccolo (streaming/decode): kernel dot diretto — legge 4x meno byte,
- *    vince dove il matvec è bandwidth-bound
- *  - int8, T grande (offline/batch): dequant in scratch + sgemm (compute-bound) */
+ *  - f32: cblas_sgemm
+ *  - quantizzata, T piccolo (streaming/decode): kernel dot diretto (bandwidth)
+ *  - quantizzata, T grande (offline/batch): dequant in scratch + sgemm */
 #ifndef MYNAH_QMAT_H
 #define MYNAH_QMAT_H
 
 #include <stddef.h>
 #include <stdint.h>
 
+#include "weights.h"
+
+enum { MYNAH_Q_F32 = 0, MYNAH_Q_INT8 = 1, MYNAH_Q_INT4 = 2 };
+
+#define MYNAH_Q4_GROUP 32
+
 typedef struct {
-    const float *f32;   /* pesi originali [n, k] (mmap) — usati se q == NULL */
-    int8_t *q;          /* quantizzati [n, k], NULL se non quantizzata */
-    float *scales;      /* [n] scale per riga */
+    const float *f32;       /* pesi originali [n, k] — usati se qtype == F32 */
+    const int8_t *q8;       /* INT8 [n, k] */
+    const uint8_t *q4;      /* INT4 packed [n, k/2] */
+    const float *scales;    /* INT8: [n]; INT4: [n, k/32] */
+    void *owned_q, *owned_s;/* buffer nostri (quantizzazione al load), da liberare */
+    int qtype;
     int n, k;
 } mynah_qmat;
 
-/* Inizializza da pesi f32 row-major [n, k]. quantize != 0 => costruisce l'int8. */
-int mynah_qmat_init(mynah_qmat *m, const float *w, int n, int k, int quantize);
+/* Inizializza cercando prima la forma pre-quantizzata nel safetensors
+ * ("<name>.q8"/"<name>.q4" + "<name>.scales" — zero-copy dal mmap), poi il tensore
+ * f32 "<name>" (quantizzato al volo se qtype != F32). 0 = ok, -1 tensore assente. */
+int mynah_qmat_init_st(mynah_qmat *m, const mynah_safetensors *st, const char *name,
+                       int qtype);
+
+/* Inizializzazione diretta da f32 (usata dal tool quantize e dai fallback). */
+int mynah_qmat_init(mynah_qmat *m, const float *w, int n, int k, int qtype);
+
 void mynah_qmat_free(mynah_qmat *m);
 
 /* out[T, n] = x[T, k] @ W^T (layout linear PyTorch). */
 void mynah_qmat_mul(const mynah_qmat *m, const float *x, float *out, int T);
 
-/* Bytes residenti dei pesi di questa matrice (per report). */
-size_t mynah_qmat_bytes(const mynah_qmat *m);
+/* Quantizza un buffer f32 [n,k] in out_q/out_scales (buffer del caller):
+ * INT8: out_q [n*k] int8, out_scales [n]
+ * INT4: out_q [n*k/2] uint8, out_scales [n*k/32]
+ * Usata dal tool `mynah quantize`. */
+void mynah_quantize_int8(const float *w, int n, int k, int8_t *out_q, float *out_scales);
+void mynah_quantize_int4(const float *w, int n, int k, uint8_t *out_q, float *out_scales);
 
 #endif

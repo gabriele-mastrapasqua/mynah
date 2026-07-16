@@ -17,9 +17,8 @@ int mynah_decoder_init(mynah_decoder *dec, const mynah_safetensors *st,
     const mynah_tensor *emb = mynah_st_get(st, "decoder.embedding.weight");
     const mynah_tensor *proj_w = mynah_st_get(st, "decoder.decoder_projector.weight");
     const mynah_tensor *proj_b = mynah_st_get(st, "decoder.decoder_projector.bias");
-    const mynah_tensor *head_w = mynah_st_get(st, "joint.head.weight");
     const mynah_tensor *head_b = mynah_st_get(st, "joint.head.bias");
-    if (!emb || !proj_w || !proj_b || !head_w || !head_b) return -1;
+    if (!emb || !proj_w || !proj_b || !head_b) return -1;
 
     dec->embedding = (const float *)emb->data;
     dec->proj_w = (const float *)proj_w->data;
@@ -27,8 +26,7 @@ int mynah_decoder_init(mynah_decoder *dec, const mynah_safetensors *st,
     dec->head_b = (const float *)head_b->data;
     dec->vocab = (int)emb->shape[0];
     dec->hidden = (int)emb->shape[1];
-    if (mynah_qmat_init(&dec->head, (const float *)head_w->data,
-                        dec->vocab, dec->hidden, quantize) != 0) return -1;
+    if (mynah_qmat_init_st(&dec->head, st, "joint.head.weight", quantize) != 0) return -1;
     dec->blank = blank;
     dec->max_symbols = max_symbols;
 

@@ -20,4 +20,15 @@ check tests/audio/test_de.wav auto  "die Besprechung beginnt um neun Uhr"
 check tests/audio/test_fr.wav auto  "la réunion commence à neuf heures"
 check tests/audio/test_es.wav auto  "la reunión empieza"
 
+# checkpoint pre-quantizzati (se generati con: mynah quantize)
+checkq() { # quant, expected substring
+    out=$(./mynah transcribe -m "$MODEL_DIR" -i tests/audio/test_it.wav --lang it-IT --quant "$1" 2>/dev/null)
+    case "$out" in
+        *"$2"*) printf 'e2e quant-%-6s OK: %s\n' "$1" "$out" ;;
+        *) printf 'e2e quant-%-6s FAIL: %s\n' "$1" "$out"; fail=1 ;;
+    esac
+}
+[ -f "$MODEL_DIR/model.int8.safetensors" ] && checkq int8 "riconoscimento vocale in italiano"
+[ -f "$MODEL_DIR/model.int4.safetensors" ] && checkq int4 "riconoscimento vocale in italiano"
+
 exit $fail
