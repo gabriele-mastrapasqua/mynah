@@ -19,13 +19,16 @@
 | file pesi | 2.55 GB | **0.79 GB** | **0.57 GB** |
 | load | ~0.04 s (mmap) | **0.01 s** | **0.01 s** |
 | offline RTF | 0.17 | **0.10** | 0.15 |
-| streaming (5.2 s, wall) | 9.2 s | **3.1–3.5 s** | 5.0 s (NEON) |
+| streaming (5.2 s, wall) | 9.2 s | **~2.1 s** | **~1.9 s** |
 | testo fixture | riferimento | **identico** | quasi identico (una maiuscola, un "it"/"this") |
 
-I dot small-T (streaming/decode) hanno kernel **NEON** su ARM (vld2q per il
-deinterleave pari/dispari dei nibble); int4 resta ~1.4× più lento di int8 (più unpack
-per byte) — il prossimo salto è SDOT con quantizzazione delle attivazioni (in TODO).
-Raccomandazione: **int8 per lo streaming**, int4 dove conta il footprint su disco/rete.
+I dot small-T (streaming/decode) usano **int8×int8 nativo**: quantizzazione delle
+attivazioni per-riga (ricetta qwen-tts) + **SDOT** su ARMv8.2 (`vdotq_s32`, q8 e q4 —
+nibble deinterleavati con `vld2q_s8`), **VNNI** (`dpbusd`) o **AVX2** (trick sign/abs
+llama.cpp) su x86 per q8; fallback NEON-f32/scalare altrove. Kernel validati da
+`tests/test_qmat` (self-test senza modello, gira anche in CI x86).
+Streaming int4: RTF ~0.37 (~0.11 s/chunk su budget 0.32) — il formato più leggero è
+anche il più veloce, come dev'essere.
 
 ## Cosa viene quantizzato
 

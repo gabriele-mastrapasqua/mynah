@@ -168,6 +168,110 @@ static void dequant_row(const mynah_qmat *m, int i, float *dst) {
 
 /* soglia righe: sotto -> dot diretto (bandwidth-bound), sopra -> dequant+GEMM */
 #define QMAT_SMALL_T 16
+#define QMAT_K_MAX 8192
+
+/* ------------------------------------------------- quantizzazione attivazioni
+ * Per-riga absmax -> int8 (ricetta qwen-tts, qualità verificata in produzione):
+ * abilita il dot int8xint8 nativo (SDOT/VNNI) senza dequant per-peso. */
+static float quantize_act_int8(int8_t *qx, const float *x, int n) {
+    float amax = 0.0f;
+    for (int i = 0; i < n; i++) {
+        const float a = fabsf(x[i]);
+        if (a > amax) amax = a;
+    }
+    if (amax == 0.0f) { memset(qx, 0, (size_t)n); return 0.0f; }
+    const float inv = 127.0f / amax;
+    for (int i = 0; i < n; i++) {
+        const float v = x[i] * inv;
+        int q = (int)(v >= 0.0f ? v + 0.5f : v - 0.5f);
+        if (q > 127) q = 127;
+        if (q < -127) q = -127;
+        qx[i] = (int8_t)q;
+    }
+    return amax / 127.0f;
+}
+
+/* ---------------------------------------------------- kernel SDOT (ARMv8.2+)
+ * int8xint8 nativo: 4 MAC per lane per istruzione, zero conversioni f32.
+ * Pattern da qwen-tts (int8_matvec_sdot), esteso al q4 con vld2q_s8 per il
+ * deinterleave pari/dispari dei nibble (l'ordine nel dot non conta, ma i lane
+ * di SDOT devono allinearsi elemento per elemento). */
+#if defined(__ARM_FEATURE_DOTPROD)
+#include <arm_neon.h>
+
+static float dot_q8_sdot(const int8_t *qx, float sx, const int8_t *w, float ws, int k) {
+    int32x4_t acc = vdupq_n_s32(0);
+    int j = 0;
+    for (; j + 15 < k; j += 16)
+        acc = vdotq_s32(acc, vld1q_s8(w + j), vld1q_s8(qx + j));
+    int32_t s = vaddvq_s32(acc);
+    for (; j < k; j++) s += (int32_t)w[j] * qx[j];
+    return (float)s * ws * sx;
+}
+
+static float dot_q4_sdot(const int8_t *qx, float sx, const uint8_t *q,
+                         const float *scales, int k) {
+    const int8x16_t off = vdupq_n_s8(8);
+    const uint8x16_t maskv = vdupq_n_u8(0x0F);
+    float acc = 0.0f;
+    for (int g = 0; g < k / MYNAH_Q4_GROUP; g++) {
+        const uint8x16_t b = vld1q_u8(q + g * 16);
+        const int8x16_t lo = vsubq_s8(vreinterpretq_s8_u8(vandq_u8(b, maskv)), off);
+        const int8x16_t hi = vsubq_s8(vreinterpretq_s8_u8(vshrq_n_u8(b, 4)), off);
+        const int8x16x2_t xg = vld2q_s8(qx + g * 32);  /* val[0]=pari, val[1]=dispari */
+        int32x4_t ig = vdotq_s32(vdotq_s32(vdupq_n_s32(0), lo, xg.val[0]), hi, xg.val[1]);
+        acc += (float)vaddvq_s32(ig) * scales[g];
+    }
+    return acc * sx;
+}
+#define MYNAH_HAVE_SDOT 1
+#endif
+
+/* --------------------------------------------- kernel VNNI/AVX2 (x86, q8)
+ * dpbusd/maddubs moltiplicano u8 x s8: ua = qx+128 e correzione -128*Σw
+ * (pattern qwen-tts int8_matvec_vnni). Validati da tests/test_qmat in CI. */
+#if defined(__AVX512VNNI__)
+#include <immintrin.h>
+static float dot_q8_vnni(const int8_t *qx, float sx, const int8_t *w, float ws, int k) {
+    const __m512i v128 = _mm512_set1_epi8((char)128);
+    const __m512i ones = _mm512_set1_epi8(1);
+    __m512i acc = _mm512_setzero_si512(), wsum = _mm512_setzero_si512();
+    int j = 0;
+    for (; j + 64 <= k; j += 64) {
+        const __m512i ua = _mm512_add_epi8(_mm512_loadu_si512((const void *)(qx + j)), v128);
+        const __m512i wv = _mm512_loadu_si512((const void *)(w + j));
+        acc = _mm512_dpbusd_epi32(acc, ua, wv);
+        wsum = _mm512_dpbusd_epi32(wsum, ones, wv);
+    }
+    int s = _mm512_reduce_add_epi32(acc) - 128 * _mm512_reduce_add_epi32(wsum);
+    for (; j < k; j++) s += (int)w[j] * qx[j];
+    return (float)s * ws * sx;
+}
+#define MYNAH_HAVE_X86_DOT dot_q8_vnni
+#elif defined(__AVX2__)
+#include <immintrin.h>
+/* trick sign/abs (llama.cpp): maddubs(|w|, qx*sign(w)) — coppie <= 32258,
+ * niente saturazione int16 e niente termine di correzione */
+static float dot_q8_avx2(const int8_t *qx, float sx, const int8_t *w, float ws, int k) {
+    const __m256i ones16 = _mm256_set1_epi16(1);
+    __m256i acc = _mm256_setzero_si256();
+    int j = 0;
+    for (; j + 32 <= k; j += 32) {
+        const __m256i xv = _mm256_loadu_si256((const __m256i *)(qx + j));
+        const __m256i wv = _mm256_loadu_si256((const __m256i *)(w + j));
+        const __m256i aw = _mm256_sign_epi8(wv, wv);   /* |w| come u8 */
+        const __m256i sxv = _mm256_sign_epi8(xv, wv);  /* qx * sign(w) */
+        acc = _mm256_add_epi32(acc, _mm256_madd_epi16(_mm256_maddubs_epi16(aw, sxv), ones16));
+    }
+    __m128i lo = _mm_add_epi32(_mm256_castsi256_si128(acc), _mm256_extracti128_si256(acc, 1));
+    lo = _mm_hadd_epi32(lo, lo);
+    lo = _mm_hadd_epi32(lo, lo);
+    int s = _mm_cvtsi128_si32(lo);
+    for (; j < k; j++) s += (int)w[j] * qx[j];
+    return (float)s * ws * sx;
+}
+#define MYNAH_HAVE_X86_DOT dot_q8_avx2
+#endif
 
 /* ------------------------------------------------------------- kernel NEON */
 #if defined(__ARM_NEON) || defined(__aarch64__)
@@ -234,6 +338,42 @@ void mynah_qmat_mul(const mynah_qmat *m, const float *x, float *out, int T) {
         return;
     }
     if (T <= QMAT_SMALL_T) {
+        /* dot int8xint8 nativo (SDOT/VNNI/AVX2): quantizza le attivazioni una
+         * volta per riga (per-riga absmax, ricetta qwen-tts) */
+#if (defined(MYNAH_HAVE_SDOT) || defined(MYNAH_HAVE_X86_DOT))
+        if (m->k <= QMAT_K_MAX) {
+            int8_t qx[QMAT_K_MAX];
+            for (int t = 0; t < T; t++) {
+                const float *xr = x + (size_t)t * (size_t)m->k;
+                float *o = out + (size_t)t * (size_t)m->n;
+                const float sx = quantize_act_int8(qx, xr, m->k);
+                if (m->qtype == MYNAH_Q_INT8) {
+                    for (int i = 0; i < m->n; i++) {
+                        const int8_t *qrow = m->q8 + (size_t)i * (size_t)m->k;
+#ifdef MYNAH_HAVE_SDOT
+                        o[i] = dot_q8_sdot(qx, sx, qrow, m->scales[i], m->k);
+#else
+                        o[i] = MYNAH_HAVE_X86_DOT(qx, sx, qrow, m->scales[i], m->k);
+#endif
+                    }
+                } else {
+#ifdef MYNAH_HAVE_SDOT
+                    const int groups = m->k / MYNAH_Q4_GROUP;
+                    for (int i = 0; i < m->n; i++)
+                        o[i] = dot_q4_sdot(qx, sx, m->q4 + (size_t)i * (size_t)(m->k / 2),
+                                           m->scales + (size_t)i * (size_t)groups, m->k);
+#else
+                    /* q4 su x86: fallback f32/scalare sotto (SDOT-equivalente in TODO) */
+                    goto small_t_f32;
+#endif
+                }
+            }
+            return;
+        }
+#endif
+#if !defined(MYNAH_HAVE_SDOT) && defined(MYNAH_HAVE_X86_DOT)
+small_t_f32:;
+#endif
         if (m->qtype == MYNAH_Q_INT8) {
             for (int t = 0; t < T; t++) {
                 const float *xr = x + (size_t)t * (size_t)m->k;

@@ -31,7 +31,7 @@ mynah-server: $(OBJ) server/main.o server/http_util.o
 %.o: %.c $(HDR)
 	$(CC) $(CFLAGS) -c $< -o $@
 
-TESTS := tests/test_features tests/test_subsampling tests/test_encoder tests/test_streaming tests/test_batch
+TESTS := tests/test_qmat tests/test_features tests/test_subsampling tests/test_encoder tests/test_streaming tests/test_batch
 
 tests/%: tests/%.o tests/npy.o $(OBJ)
 	$(CC) $(CFLAGS) -o $@ $^ $(LDFLAGS)
@@ -40,7 +40,8 @@ tests/%: tests/%.o tests/npy.o $(OBJ)
 # Rigenera i dump con: make golden-dump
 test: $(TESTS) mynah
 	@for t in $(TESTS); do \
-	  $$t $(MODEL_DIR) tests/audio/test_it.wav tests/golden/test_it; rc=$$?; \
+	  if [ $$t = tests/test_qmat ]; then $$t; rc=$$?; \
+	  else $$t $(MODEL_DIR) tests/audio/test_it.wav tests/golden/test_it; rc=$$?; fi; \
 	  if [ $$rc -eq 77 ]; then echo "SKIP $$t: modello o golden assenti (make golden-dump)"; \
 	  elif [ $$rc -ne 0 ]; then exit $$rc; fi; \
 	done
