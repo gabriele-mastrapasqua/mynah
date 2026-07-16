@@ -31,4 +31,11 @@ checkq() { # quant, expected substring
 [ -f "$MODEL_DIR/model.int8.safetensors" ] && checkq int8 "riconoscimento vocale in italiano"
 [ -f "$MODEL_DIR/model.int4.safetensors" ] && checkq int4 "riconoscimento vocale in italiano"
 
+# backend Metal (solo macOS; fallback CPU altrove rende il check comunque valido)
+out=$(./mynah transcribe -m "$MODEL_DIR" -i tests/audio/test_it.wav --lang it-IT --backend metal 2>/dev/null)
+case "$out" in
+    *"riconoscimento vocale in italiano"*) echo "e2e backend-metal OK: $out" ;;
+    *) echo "e2e backend-metal FAIL: $out"; fail=1 ;;
+esac
+
 exit $fail

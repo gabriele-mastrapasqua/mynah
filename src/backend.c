@@ -1,6 +1,7 @@
 #include "backend.h"
 
 #include <stdio.h>
+#include <math.h>
 #include <string.h>
 
 #ifdef MYNAH_BLAS_ACCELERATE
@@ -12,6 +13,11 @@
 #ifdef MYNAH_METAL
 int mynah_metal_available(void);
 int mynah_metal_gemm_wt(const float *x, const float *w, float *out, int T, int n, int k);
+int mynah_metal_ffn_wt(const float *x, const float *w1, int n1, const float *w2, int n2,
+                       float *out, int T, int k);
+int mynah_metal_gemm3_wt(const float *x, const float *wa, const float *wb,
+                         const float *wc, float *oa, float *ob, float *oc,
+                         int T, int n, int k);
 #endif
 #ifdef MYNAH_CUDA
 int mynah_cuda_available(void);
@@ -60,7 +66,7 @@ int mynah_backend(void) { return g_backend; }
 
 void mynah_gemm_wt(const float *x, const float *w, float *out, int T, int n, int k) {
 #ifdef MYNAH_METAL
-    if (g_backend == MYNAH_BACKEND_METAL && T >= METAL_MIN_T &&
+    if (g_backend == MYNAH_BACKEND_METAL &&
         mynah_metal_gemm_wt(x, w, out, T, n, k) == 0)
         return;
 #endif
@@ -71,4 +77,30 @@ void mynah_gemm_wt(const float *x, const float *w, float *out, int T, int n, int
 #endif
     cblas_sgemm(CblasRowMajor, CblasNoTrans, CblasTrans, T, n, k,
                 1.0f, x, k, w, k, 0.0f, out, n);
+}
+
+void mynah_ffn_wt(const float *x, const float *w1, int n1, const float *w2, int n2,
+                  float *out, int T, int k, float *scratch) {
+#ifdef MYNAH_METAL
+    if (g_backend == MYNAH_BACKEND_METAL &&
+        mynah_metal_ffn_wt(x, w1, n1, w2, n2, out, T, k) == 0)
+        return;
+#endif
+    mynah_gemm_wt(x, w1, scratch, T, n1, k);
+    const size_t nmid = (size_t)T * (size_t)n1;
+    for (size_t i = 0; i < nmid; i++)
+        scratch[i] = scratch[i] / (1.0f + expf(-scratch[i]));
+    mynah_gemm_wt(scratch, w2, out, T, n2, n1);
+}
+
+void mynah_gemm3_wt(const float *x, const float *wa, const float *wb, const float *wc,
+                    float *oa, float *ob, float *oc, int T, int n, int k) {
+#ifdef MYNAH_METAL
+    if (g_backend == MYNAH_BACKEND_METAL &&
+        mynah_metal_gemm3_wt(x, wa, wb, wc, oa, ob, oc, T, n, k) == 0)
+        return;
+#endif
+    mynah_gemm_wt(x, wa, oa, T, n, k);
+    mynah_gemm_wt(x, wb, ob, T, n, k);
+    mynah_gemm_wt(x, wc, oc, T, n, k);
 }

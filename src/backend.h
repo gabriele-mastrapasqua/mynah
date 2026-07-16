@@ -16,4 +16,13 @@ int mynah_backend(void);
  * viene copiato UNA volta in un MTLBuffer residente (cache per-pointer). */
 void mynah_gemm_wt(const float *x, const float *w, float *out, int T, int n, int k);
 
+/* FFN fusa: out[T,n2] = SiLU(x @ W1^T) @ W2^T. scratch: >= T*n1 float (usato
+ * solo nel fallback CPU). Su Metal l'intermedio resta in GPU (un solo sync). */
+void mynah_ffn_wt(const float *x, const float *w1, int n1, const float *w2, int n2,
+                  float *out, int T, int k, float *scratch);
+
+/* Tre GEMM sullo stesso input (q/k/v): su Metal un solo sync. */
+void mynah_gemm3_wt(const float *x, const float *wa, const float *wb, const float *wc,
+                    float *oa, float *ob, float *oc, int T, int n, int k);
+
 #endif

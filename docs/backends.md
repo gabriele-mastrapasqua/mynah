@@ -16,11 +16,12 @@ il backend più veloce oggi (AMX): offline RTF 0.10 (int8).
 `src/metal_mps.m`: MPSMatrixMultiplication con **pesi residenti** (MTLBuffer cacheato
 per pointer — pattern weight-cache di qwen-tts) e buffer I/O riusabili.
 
-**Stato onesto** (misurato su M-series, 63 s di audio): RTF 0.122 vs **0.102 CPU** —
-Accelerate/AMX vince ancora: il commit+wait sincrono per singola GEMM domina.
-Perché Metal superi la CPU servono (in TODO): encoding asincrono per layer/modello
-(un solo wait), fp16, e batch più grandi. Il backend resta utile come infrastruttura
-e su Mac con CPU deboli/occupate.
+**v2 (fp16 + fusioni)**: pesi residenti convertiti fp16 una volta; FFN fusa
+(GEMM→SiLU shader→GEMM in un command buffer, intermedio [T,4096] mai sceso dalla GPU)
+e q/k/v in un solo sync. Misurato su M-series, 63 s di audio:
+**RTF 0.066 vs 0.077 CPU** (−15%) — e il testo resta identico (fp16 innocuo qui).
+Sotto 24 righe (chunk streaming) si resta su CPU. Margini ulteriori: attention e
+conv su GPU (oggi CPU tra i sync), command buffer per-layer completo.
 
 ## CUDA (Linux, `make cuda`)
 

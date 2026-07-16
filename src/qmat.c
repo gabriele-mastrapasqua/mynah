@@ -479,3 +479,28 @@ small_t_f32:;
                 1.0f, x, m->k, wd, m->k, 0.0f, out, m->n);
     free(wd);
 }
+
+/* ------------------------------------------------------------ helper fusi */
+void mynah_qmat_ffn(const mynah_qmat *w1, const mynah_qmat *w2, const float *x,
+                    float *out, int T, float *scratch) {
+    if (w1->qtype == MYNAH_Q_F32 && w2->qtype == MYNAH_Q_F32) {
+        mynah_ffn_wt(x, w1->f32, w1->n, w2->f32, w2->n, out, T, w1->k, scratch);
+        return;
+    }
+    mynah_qmat_mul(w1, x, scratch, T);
+    const size_t nmid = (size_t)T * (size_t)w1->n;
+    for (size_t i = 0; i < nmid; i++)
+        scratch[i] = scratch[i] / (1.0f + expf(-scratch[i]));
+    mynah_qmat_mul(w2, scratch, out, T);
+}
+
+void mynah_qmat_qkv(const mynah_qmat *wq, const mynah_qmat *wk, const mynah_qmat *wv,
+                    const float *x, float *oq, float *ok, float *ov, int T) {
+    if (wq->qtype == MYNAH_Q_F32 && wk->qtype == MYNAH_Q_F32 && wv->qtype == MYNAH_Q_F32) {
+        mynah_gemm3_wt(x, wq->f32, wk->f32, wv->f32, oq, ok, ov, T, wq->n, wq->k);
+        return;
+    }
+    mynah_qmat_mul(wq, x, oq, T);
+    mynah_qmat_mul(wk, x, ok, T);
+    mynah_qmat_mul(wv, x, ov, T);
+}

@@ -172,9 +172,7 @@ static void attention(const mynah_encoder *enc, const mynah_enc_layer *L, const 
     float *ctx = malloc((size_t)T * (size_t)d * sizeof(float));
     if (!q || !rk || !scores || !bd || !qb || !ctx) { free(q); free(rk); free(scores); free(bd); free(qb); free(ctx); return; }
 
-    mynah_qmat_mul(&L->q_w, x, q, T);
-    mynah_qmat_mul(&L->k_w, x, k, T);
-    mynah_qmat_mul(&L->v_w, x, v, T);
+    mynah_qmat_qkv(&L->q_w, &L->k_w, &L->v_w, x, q, k, v, T);
     matmul_wt(pe, L->relk_w, rk, P, d, d);
 
     for (int h = 0; h < H; h++) {
@@ -280,11 +278,9 @@ int mynah_encoder_layer(const mynah_encoder *enc, int li, float *x, int T,
     float *tmp2 = malloc((size_t)T * (size_t)enc->ffn_dim * sizeof(float));
     if (!tmp || !tmp2) { free(tmp); free(tmp2); return -1; }
 
-    /* ½ FFN1 */
+    /* ½ FFN1 (path fuso: su Metal un solo sync) */
     layer_norm_f(x, L->ln_ff1_w, L->ln_ff1_b, tmp, T, d);
-    mynah_qmat_mul(&L->ff1_w1, tmp, tmp2, T);
-    silu_inplace(tmp2, (size_t)T * (size_t)enc->ffn_dim);
-    mynah_qmat_mul(&L->ff1_w2, tmp2, tmp, T);
+    mynah_qmat_ffn(&L->ff1_w1, &L->ff1_w2, tmp, tmp, T, tmp2);
     for (size_t i = 0; i < n; i++) x[i] += 0.5f * tmp[i];
 
     /* MHSA */
@@ -299,11 +295,9 @@ int mynah_encoder_layer(const mynah_encoder *enc, int li, float *x, int T,
     conv_module(enc, L, xn, tmp, T);
     for (size_t i = 0; i < n; i++) x[i] += tmp[i];
 
-    /* ½ FFN2 */
+    /* ½ FFN2 (fuso) */
     layer_norm_f(x, L->ln_ff2_w, L->ln_ff2_b, tmp, T, d);
-    mynah_qmat_mul(&L->ff2_w1, tmp, tmp2, T);
-    silu_inplace(tmp2, (size_t)T * (size_t)enc->ffn_dim);
-    mynah_qmat_mul(&L->ff2_w2, tmp2, tmp, T);
+    mynah_qmat_ffn(&L->ff2_w1, &L->ff2_w2, tmp, tmp, T, tmp2);
     for (size_t i = 0; i < n; i++) x[i] += 0.5f * tmp[i];
 
     /* LN out */
@@ -585,11 +579,9 @@ static int encoder_layer_batch(const mynah_encoder *enc, int li, float *x,
     float *xn = malloc(n * sizeof(float));
     if (!tmp || !tmp2 || !xn) { free(tmp); free(tmp2); free(xn); return -1; }
 
-    /* ½ FFN1 — packed */
+    /* ½ FFN1 — packed, fuso */
     layer_norm_f(x, L->ln_ff1_w, L->ln_ff1_b, tmp, T_total, d);
-    mynah_qmat_mul(&L->ff1_w1, tmp, tmp2, T_total);
-    silu_inplace(tmp2, (size_t)T_total * (size_t)enc->ffn_dim);
-    mynah_qmat_mul(&L->ff1_w2, tmp2, tmp, T_total);
+    mynah_qmat_ffn(&L->ff1_w1, &L->ff1_w2, tmp, tmp, T_total, tmp2);
     for (size_t i = 0; i < n; i++) x[i] += 0.5f * tmp[i];
 
     /* MHSA — per segmento */
@@ -606,11 +598,9 @@ static int encoder_layer_batch(const mynah_encoder *enc, int li, float *x,
                     t_enc[b]);
     for (size_t i = 0; i < n; i++) x[i] += tmp[i];
 
-    /* ½ FFN2 + LN out — packed */
+    /* ½ FFN2 + LN out — packed, fuso */
     layer_norm_f(x, L->ln_ff2_w, L->ln_ff2_b, tmp, T_total, d);
-    mynah_qmat_mul(&L->ff2_w1, tmp, tmp2, T_total);
-    silu_inplace(tmp2, (size_t)T_total * (size_t)enc->ffn_dim);
-    mynah_qmat_mul(&L->ff2_w2, tmp2, tmp, T_total);
+    mynah_qmat_ffn(&L->ff2_w1, &L->ff2_w2, tmp, tmp, T_total, tmp2);
     for (size_t i = 0; i < n; i++) x[i] += 0.5f * tmp[i];
     layer_norm_f(x, L->ln_out_w, L->ln_out_b, xn, T_total, d);
     memcpy(x, xn, n * sizeof(float));

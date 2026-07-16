@@ -47,6 +47,15 @@ void mynah_qmat_free(mynah_qmat *m);
 /* out[T, n] = x[T, k] @ W^T (layout linear PyTorch). */
 void mynah_qmat_mul(const mynah_qmat *m, const float *x, float *out, int T);
 
+/* FFN: out = SiLU(x @ W1^T) @ W2^T. scratch >= T*w1->n float.
+ * Se entrambe F32 usa il path fuso del backend (Metal: un solo sync GPU). */
+void mynah_qmat_ffn(const mynah_qmat *w1, const mynah_qmat *w2, const float *x,
+                    float *out, int T, float *scratch);
+
+/* q/k/v sullo stesso input; se tutte F32 usa il multi-GEMM fuso del backend. */
+void mynah_qmat_qkv(const mynah_qmat *wq, const mynah_qmat *wk, const mynah_qmat *wv,
+                    const float *x, float *oq, float *ok, float *ov, int T);
+
 /* Quantizza un buffer f32 [n,k] in out_q/out_scales (buffer del caller):
  * INT8: out_q [n*k] int8, out_scales [n]
  * INT4: out_q [n*k/2] uint8, out_scales [n*k/32]
