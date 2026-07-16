@@ -273,6 +273,52 @@ static float dot_q8_avx2(const int8_t *qx, float sx, const int8_t *w, float ws, 
 #define MYNAH_HAVE_X86_DOT dot_q8_avx2
 #endif
 
+/* ------------------------------------------------- kernel q4 x86 (AVX2 base,
+ * disponibile anche sulle macchine VNNI). Le ATTIVAZIONI vengono pre-permutate
+ * per gruppo ([pari(16) | dispari(16)]) una volta per riga, così l'unpack dei
+ * nibble [lo(16) | hi(16)] si allinea senza shuffle nel loop interno.
+ * |w| <= 8 => maddubs non satura mai (8*127*2 = 2032). */
+#if defined(__AVX2__) || defined(__AVX512VNNI__)
+#include <immintrin.h>
+#define MYNAH_HAVE_X86_Q4 1
+
+/* xq -> xq_perm: per ogni gruppo di 32, prima i pari poi i dispari */
+static void q4_permute_act(const int8_t *qx, int8_t *xp, int k) {
+    for (int g = 0; g < k / MYNAH_Q4_GROUP; g++) {
+        const int8_t *src = qx + g * 32;
+        int8_t *dst = xp + g * 32;
+        for (int j = 0; j < 16; j++) {
+            dst[j] = src[2 * j];
+            dst[16 + j] = src[2 * j + 1];
+        }
+    }
+}
+
+static float dot_q4_x86(const int8_t *xp /* permutate */, float sx, const uint8_t *q,
+                        const float *scales, int k) {
+    const __m128i mask4 = _mm_set1_epi8(0x0F);
+    const __m128i off8 = _mm_set1_epi8(8);
+    const __m256i ones16 = _mm256_set1_epi16(1);
+    float acc = 0.0f;
+    for (int g = 0; g < k / MYNAH_Q4_GROUP; g++) {
+        const __m128i b = _mm_loadu_si128((const __m128i *)(q + g * 16));
+        const __m128i lo = _mm_sub_epi8(_mm_and_si128(b, mask4), off8);
+        const __m128i hi = _mm_sub_epi8(_mm_and_si128(_mm_srli_epi16(b, 4), mask4), off8);
+        const __m256i wv = _mm256_set_m128i(hi, lo);              /* [lo(16) | hi(16)] */
+        const __m256i xv = _mm256_loadu_si256((const __m256i *)(xp + g * 32));
+        const __m256i aw = _mm256_sign_epi8(wv, wv);
+        const __m256i sxv = _mm256_sign_epi8(xv, wv);
+        const __m256i p32 = _mm256_madd_epi16(_mm256_maddubs_epi16(aw, sxv), ones16);
+        __m128i s = _mm_add_epi32(_mm256_castsi256_si128(p32),
+                                  _mm256_extracti128_si256(p32, 1));
+        s = _mm_hadd_epi32(s, s);
+        s = _mm_hadd_epi32(s, s);
+        acc += (float)_mm_cvtsi128_si32(s) * scales[g];
+    }
+    return acc * sx;
+}
+#endif
+
 /* ------------------------------------------------------------- kernel NEON */
 #if defined(__ARM_NEON) || defined(__aarch64__)
 #include <arm_neon.h>
@@ -357,13 +403,19 @@ void mynah_qmat_mul(const mynah_qmat *m, const float *x, float *out, int T) {
 #endif
                     }
                 } else {
-#ifdef MYNAH_HAVE_SDOT
+#if defined(MYNAH_HAVE_SDOT)
                     const int groups = m->k / MYNAH_Q4_GROUP;
                     for (int i = 0; i < m->n; i++)
                         o[i] = dot_q4_sdot(qx, sx, m->q4 + (size_t)i * (size_t)(m->k / 2),
                                            m->scales + (size_t)i * (size_t)groups, m->k);
+#elif defined(MYNAH_HAVE_X86_Q4)
+                    int8_t xp[QMAT_K_MAX];
+                    q4_permute_act(qx, xp, m->k);
+                    const int groups = m->k / MYNAH_Q4_GROUP;
+                    for (int i = 0; i < m->n; i++)
+                        o[i] = dot_q4_x86(xp, sx, m->q4 + (size_t)i * (size_t)(m->k / 2),
+                                          m->scales + (size_t)i * (size_t)groups, m->k);
 #else
-                    /* q4 su x86: fallback f32/scalare sotto (SDOT-equivalente in TODO) */
                     goto small_t_f32;
 #endif
                 }
@@ -371,7 +423,7 @@ void mynah_qmat_mul(const mynah_qmat *m, const float *x, float *out, int T) {
             return;
         }
 #endif
-#if !defined(MYNAH_HAVE_SDOT) && defined(MYNAH_HAVE_X86_DOT)
+#if !defined(MYNAH_HAVE_SDOT) && !defined(MYNAH_HAVE_X86_Q4) && defined(MYNAH_HAVE_X86_DOT)
 small_t_f32:;
 #endif
         if (m->qtype == MYNAH_Q_INT8) {
