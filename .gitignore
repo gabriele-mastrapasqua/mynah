@@ -17,3 +17,6 @@ __pycache__/
 # OS
 .DS_Store
 tools/.venv/
+
+# PDF di riferimento: restano locali
+*.pdf
