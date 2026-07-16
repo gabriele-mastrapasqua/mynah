@@ -11,72 +11,76 @@ static uint32_t rd_u32(const uint8_t *p) {
 }
 static uint16_t rd_u16(const uint8_t *p) { return (uint16_t)(p[0] | (p[1] << 8)); }
 
-float *mynah_wav_load(const char *path, size_t *n_samples, int *sample_rate) {
-    FILE *f = fopen(path, "rb");
-    if (!f) { fprintf(stderr, "audio: impossibile aprire %s\n", path); return NULL; }
-
-    uint8_t hdr[12];
-    if (fread(hdr, 1, 12, f) != 12 || memcmp(hdr, "RIFF", 4) != 0 || memcmp(hdr + 8, "WAVE", 4) != 0) {
-        fprintf(stderr, "audio: %s non è un WAV RIFF\n", path);
-        fclose(f);
+float *mynah_wav_parse(const unsigned char *data, size_t len, size_t *n_samples,
+                       int *sample_rate) {
+    if (len < 44 || memcmp(data, "RIFF", 4) != 0 || memcmp(data + 8, "WAVE", 4) != 0) {
+        fprintf(stderr, "audio: non è un WAV RIFF\n");
         return NULL;
     }
-
     int channels = 0, bits = 0, sr = 0;
-    uint8_t *data = NULL;
-    uint32_t data_len = 0;
+    const uint8_t *pcm = NULL;
+    uint32_t pcm_len = 0;
 
-    uint8_t chdr[8];
-    while (fread(chdr, 1, 8, f) == 8) {
+    size_t off = 12;
+    while (off + 8 <= len) {
+        const uint8_t *chdr = data + off;
         uint32_t sz = rd_u32(chdr + 4);
-        if (memcmp(chdr, "fmt ", 4) == 0) {
-            uint8_t fmt[16];
-            if (sz < 16 || fread(fmt, 1, 16, f) != 16) break;
-            if (sz > 16) fseek(f, sz - 16, SEEK_CUR);
-            uint16_t audio_format = rd_u16(fmt);
-            channels = rd_u16(fmt + 2);
-            sr = (int)rd_u32(fmt + 4);
-            bits = rd_u16(fmt + 14);
+        const uint8_t *body = chdr + 8;
+        if (off + 8 + sz > len) break;
+        if (memcmp(chdr, "fmt ", 4) == 0 && sz >= 16) {
+            uint16_t audio_format = rd_u16(body);
+            channels = rd_u16(body + 2);
+            sr = (int)rd_u32(body + 4);
+            bits = rd_u16(body + 14);
             if (audio_format != 1 /* PCM */) {
                 fprintf(stderr, "audio: formato WAV %u non supportato (solo PCM)\n", audio_format);
-                fclose(f);
                 return NULL;
             }
         } else if (memcmp(chdr, "data", 4) == 0) {
-            data = malloc(sz);
-            if (!data || fread(data, 1, sz, f) != sz) {
-                fprintf(stderr, "audio: chunk data troncato in %s\n", path);
-                free(data);
-                fclose(f);
-                return NULL;
-            }
-            data_len = sz;
-        } else {
-            fseek(f, sz + (sz & 1), SEEK_CUR); /* chunk dispari: pad byte */
+            pcm = body;
+            pcm_len = sz;
         }
+        off += 8 + sz + (sz & 1); /* chunk dispari: pad byte */
     }
-    fclose(f);
 
-    if (!data || channels <= 0 || bits != 16) {
-        fprintf(stderr, "audio: %s — atteso PCM16 con chunk fmt+data (ch=%d bits=%d)\n", path, channels, bits);
-        free(data);
+    if (!pcm || channels <= 0 || bits != 16) {
+        fprintf(stderr, "audio: atteso WAV PCM16 con chunk fmt+data (ch=%d bits=%d)\n",
+                channels, bits);
         return NULL;
     }
 
-    size_t frames = data_len / (size_t)(channels * 2);
+    size_t frames = pcm_len / (size_t)(channels * 2);
     float *out = malloc(frames * sizeof(float));
-    if (!out) { free(data); return NULL; }
+    if (!out) return NULL;
 
-    const int16_t *s = (const int16_t *)data;
+    const int16_t *s = (const int16_t *)pcm;
     for (size_t i = 0; i < frames; i++) {
         int32_t acc = 0;
         for (int c = 0; c < channels; c++) acc += s[i * (size_t)channels + (size_t)c];
         out[i] = (float)acc / (float)channels / 32768.0f;
     }
-    free(data);
-
     *n_samples = frames;
     *sample_rate = sr;
+    return out;
+}
+
+float *mynah_wav_load(const char *path, size_t *n_samples, int *sample_rate) {
+    FILE *f = fopen(path, "rb");
+    if (!f) { fprintf(stderr, "audio: impossibile aprire %s\n", path); return NULL; }
+    fseek(f, 0, SEEK_END);
+    long len = ftell(f);
+    fseek(f, 0, SEEK_SET);
+    if (len <= 0) { fclose(f); return NULL; }
+    unsigned char *buf = malloc((size_t)len);
+    if (!buf || fread(buf, 1, (size_t)len, f) != (size_t)len) {
+        fprintf(stderr, "audio: lettura fallita per %s\n", path);
+        free(buf);
+        fclose(f);
+        return NULL;
+    }
+    fclose(f);
+    float *out = mynah_wav_parse(buf, (size_t)len, n_samples, sample_rate);
+    free(buf);
     return out;
 }
 

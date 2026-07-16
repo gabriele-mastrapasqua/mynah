@@ -20,10 +20,13 @@ HDR := $(wildcard src/*.h)
 
 MODEL_DIR ?= models/nemotron-3.5-asr-streaming-0.6b
 
-all: mynah
+all: mynah mynah-server
 
 mynah: $(OBJ) cli/main.o
 	$(CC) $(CFLAGS) -o $@ $^ $(LDFLAGS)
+
+mynah-server: $(OBJ) server/main.o server/http_util.o
+	$(CC) $(CFLAGS) -o $@ $^ $(LDFLAGS) -lpthread
 
 %.o: %.c $(HDR)
 	$(CC) $(CFLAGS) -c $< -o $@
@@ -74,6 +77,12 @@ bench: mynah
 	  ./mynah transcribe -m $(MODEL_DIR) -i tests/audio/test_it.wav --lang it-IT >/dev/null; \
 	done
 
+# Test end-to-end del server (REST + concorrenza + WebSocket)
+test-server: mynah-server
+	@sh tests/test_server.sh $(MODEL_DIR); rc=$$?; \
+	  if [ $$rc -eq 77 ]; then echo "SKIP test-server: modello assente"; \
+	  elif [ $$rc -ne 0 ]; then exit $$rc; fi
+
 # Suite multilingua: sample audio reali (Tatoeba, CC) per ogni lingua supportata,
 # verifica language detection + CER vs testo di riferimento.
 # Prima volta: make fetch-lang-samples (richiede ffmpeg + tools/ uv).
@@ -92,6 +101,6 @@ leaks: mynah tests/test_streaming
 	  tests/golden/test_it 2>&1 | tail -3
 
 clean:
-	rm -f mynah libmynah.a $(OBJ) cli/main.o tests/*.o $(TESTS)
+	rm -f mynah mynah-server libmynah.a $(OBJ) cli/main.o server/*.o tests/*.o $(TESTS)
 
-.PHONY: all clean test golden-dump lib debug ubsan asan bench leaks test-nemo-langs fetch-lang-samples
+.PHONY: all clean test golden-dump lib debug ubsan asan bench leaks test-nemo-langs fetch-lang-samples test-server
