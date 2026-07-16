@@ -27,9 +27,12 @@ jobs:
         run: make test
 
   sanitizers:
-    runs-on: macos-14
+    # ASan solo su Linux: su macOS e' lentissimo (localmente: make leaks + make ubsan)
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - name: Install OpenBLAS
+        run: sudo apt-get update && sudo apt-get install -y libopenblas-dev
       - name: Build ASan/UBSan
         run: make asan
       - name: Smoke test

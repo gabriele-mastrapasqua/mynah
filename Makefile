@@ -54,12 +54,18 @@ lib: libmynah.a
 libmynah.a: $(OBJ)
 	ar rcs $@ $^
 
-# build alternative
+# build alternative.
+# Policy memoria/UB su macOS: `make leaks` (nativo, veloce) + `make ubsan` (overhead
+# basso). ASan è LENTISSIMO su Mac e tende a impallarsi col modello grande: solo CI Linux.
 debug:
 	$(MAKE) clean && $(MAKE) CFLAGS="-std=c11 -O0 -g -Wall -Wextra -Isrc -D$(BLAS_DEF)"
+ubsan:
+	$(MAKE) clean && $(MAKE) CFLAGS="-std=c11 -O2 -g -fsanitize=undefined \
+	  -fno-omit-frame-pointer -Wall -Wextra -Isrc -D$(BLAS_DEF) -DACCELERATE_NEW_LAPACK" \
+	  LDFLAGS="$(LDFLAGS) -fsanitize=undefined"
 asan:
 	$(MAKE) clean && $(MAKE) CFLAGS="-std=c11 -O1 -g -fsanitize=address,undefined \
-	  -fno-omit-frame-pointer -Wall -Wextra -Isrc -D$(BLAS_DEF)" \
+	  -fno-omit-frame-pointer -Wall -Wextra -Isrc -D$(BLAS_DEF) -DACCELERATE_NEW_LAPACK" \
 	  LDFLAGS="$(LDFLAGS) -fsanitize=address,undefined"
 
 # bench: RTF offline sui fixture (3 run, cache calda)
@@ -68,7 +74,15 @@ bench: mynah
 	  ./mynah transcribe -m $(MODEL_DIR) -i tests/audio/test_it.wav --lang it-IT >/dev/null; \
 	done
 
+# leak check veloce su macOS (tool nativo `leaks`, nessuna rebuild — su Mac ASan
+# è lentissimo: usarlo solo in CI Linux. Stesso pattern di qwen-tts).
+leaks: mynah tests/test_streaming
+	leaks --atExit -- ./mynah transcribe -m $(MODEL_DIR) -i tests/audio/test_it.wav \
+	  --lang it-IT 2>&1 | tail -3
+	leaks --atExit -- tests/test_streaming $(MODEL_DIR) tests/audio/test_it.wav \
+	  tests/golden/test_it 2>&1 | tail -3
+
 clean:
 	rm -f mynah libmynah.a $(OBJ) cli/main.o tests/*.o $(TESTS)
 
-.PHONY: all clean test golden-dump lib debug asan bench
+.PHONY: all clean test golden-dump lib debug ubsan asan bench leaks
