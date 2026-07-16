@@ -16,12 +16,18 @@ il backend più veloce oggi (AMX): offline RTF 0.10 (int8).
 `src/metal_mps.m`: MPSMatrixMultiplication con **pesi residenti** (MTLBuffer cacheato
 per pointer — pattern weight-cache di qwen-tts) e buffer I/O riusabili.
 
-**v2 (fp16 + fusioni)**: pesi residenti convertiti fp16 una volta; FFN fusa
-(GEMM→SiLU shader→GEMM in un command buffer, intermedio [T,4096] mai sceso dalla GPU)
-e q/k/v in un solo sync. Misurato su M-series, 63 s di audio:
-**RTF 0.066 vs 0.077 CPU** (−15%) — e il testo resta identico (fp16 innocuo qui).
-Sotto 24 righe (chunk streaming) si resta su CPU. Margini ulteriori: attention e
-conv su GPU (oggi CPU tra i sync), command buffer per-layer completo.
+**v2 (fp16 + fusioni)**: pesi residenti fp16; FFN fusa (GEMM→SiLU shader→GEMM,
+un sync) e q/k/v insieme → −15% vs CPU.
+
+**v3 (blocchi interi su GPU)**: attention completa in UN command buffer — qkv,
+bias_u/v (shader), relk, GEMM per-head su **viste MPS strided** (zero permute),
+softmax+rel_shift+finestra chunked in shader (accumulo float), ctx, o_proj — e conv
+module intero (pw1→GLU→dwconv9→LayerNorm→SiLU→pw2, tutti shader propri).
+**4 sync per layer** (erano ~10 in v1). Misurato back-to-back su 63 s:
+**−21% vs CPU** (RTF 0.085 vs 0.107), testo identico su tutte le lingue provate,
+0 leak. Sotto 24 righe (chunk streaming) si resta su CPU.
+Margini v4: residual/LN tra i blocchi su GPU (command buffer per-layer completo,
+~1 sync/layer), conversioni f32↔f16 in shader, batch server su Metal.
 
 ## CUDA (Linux, `make cuda`)
 

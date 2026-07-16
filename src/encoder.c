@@ -159,6 +159,14 @@ void mynah_pos_emb(const mynah_encoder *enc, int T, float *pe) {
 static void attention(const mynah_encoder *enc, const mynah_enc_layer *L, const float *x,
                       float *out, int T, const float *pe, int left, int right) {
     const int d = enc->d_model, H = enc->n_heads, dk = enc->d_head, P = 2 * T - 1;
+#ifdef MYNAH_METAL
+    /* v3: attention intera su GPU (un sync) quando i pesi sono f32 */
+    if (mynah_backend() == MYNAH_BACKEND_METAL && L->q_w.qtype == MYNAH_Q_F32 &&
+        mynah_metal_attention(x, pe, L->q_w.f32, L->k_w.f32, L->v_w.f32, L->o_w.f32,
+                              L->relk_w, L->bias_u, L->bias_v, out, T, d, H,
+                              left, right) == 0)
+        return;
+#endif
     const float scaling = 1.0f / sqrtf((float)dk);
     const int chunk = right + 1, lc = left / chunk;
 
@@ -237,6 +245,13 @@ static void attention(const mynah_encoder *enc, const mynah_enc_layer *L, const 
 static void conv_module(const mynah_encoder *enc, const mynah_enc_layer *L, const float *x,
                         float *out, int T) {
     const int d = enc->d_model, k = enc->conv_k;
+#ifdef MYNAH_METAL
+    /* v3: conv module intero su GPU (un sync) — dw_w [d,1,9] contiguo = [d,9] */
+    if (k == 9 && mynah_backend() == MYNAH_BACKEND_METAL && L->pw1_w.qtype == MYNAH_Q_F32 &&
+        mynah_metal_conv(x, L->pw1_w.f32, L->dw_w, L->cnorm_w, L->cnorm_b,
+                         L->pw2_w.f32, out, T, d) == 0)
+        return;
+#endif
     float *h2 = malloc((size_t)T * 2u * (size_t)d * sizeof(float));
     float *g = malloc((size_t)T * (size_t)d * sizeof(float));
     float *c = malloc((size_t)T * (size_t)d * sizeof(float));

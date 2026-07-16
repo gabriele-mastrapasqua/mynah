@@ -25,4 +25,16 @@ void mynah_ffn_wt(const float *x, const float *w1, int n1, const float *w2, int 
 void mynah_gemm3_wt(const float *x, const float *wa, const float *wb, const float *wc,
                     float *oa, float *ob, float *oc, int T, int n, int k);
 
+#ifdef MYNAH_METAL
+/* v3: blocchi interi su GPU (un sync ciascuno). Ritornano -1 -> fallback CPU. */
+int mynah_metal_attention(const float *xn, const float *pe,
+                          const float *wq, const float *wk, const float *wv,
+                          const float *wo, const float *relk,
+                          const float *bias_u, const float *bias_v,
+                          float *out, int T, int d, int H, int left, int right);
+int mynah_metal_conv(const float *xn, const float *pw1, const float *dw9,
+                     const float *ln_w, const float *ln_b, const float *pw2,
+                     float *out, int T, int d);
+#endif
+
 #endif
