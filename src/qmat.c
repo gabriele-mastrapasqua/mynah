@@ -1,5 +1,7 @@
 #include "qmat.h"
 
+#include "backend.h"
+
 #include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -379,8 +381,7 @@ static float dot_q4_neon(const float *x, const uint8_t *q, const float *scales,
 
 void mynah_qmat_mul(const mynah_qmat *m, const float *x, float *out, int T) {
     if (m->qtype == MYNAH_Q_F32) {
-        cblas_sgemm(CblasRowMajor, CblasNoTrans, CblasTrans, T, m->n, m->k,
-                    1.0f, x, m->k, m->f32, m->k, 0.0f, out, m->n);
+        mynah_gemm_wt(x, m->f32, out, T, m->n, m->k);
         return;
     }
     if (T <= QMAT_SMALL_T) {

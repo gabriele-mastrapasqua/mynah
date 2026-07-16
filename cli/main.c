@@ -6,6 +6,7 @@
 
 #include "mynah.h"
 #include "audio.h"
+#include "backend.h"
 
 static void usage(void) {
     printf("mynah %s — native ASR runtime for NeMo speech models\n\n", mynah_version());
@@ -39,6 +40,8 @@ static int cmd_transcribe(int argc, char **argv) {
             quant = strcmp(argv[i], "int8") == 0 ? MYNAH_QUANT_INT8
                   : strcmp(argv[i], "int4") == 0 ? MYNAH_QUANT_INT4 : MYNAH_QUANT_F32;
         }
+        else if (strcmp(argv[i], "--backend") == 0 && i + 1 < argc) mynah_set_backend(argv[++i]);
+        else if (strcmp(argv[i], "--backend") == 0 && i + 1 < argc) mynah_set_backend(argv[++i]);
         else { fprintf(stderr, "opzione ignota: %s\n", argv[i]); return 2; }
     }
     if (!model_dir || !wav) { usage(); return 2; }

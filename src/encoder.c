@@ -1,5 +1,7 @@
 #include "encoder.h"
 
+#include "backend.h"
+
 #include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -39,7 +41,7 @@ static void silu_inplace(float *x, size_t n) {
 
 /* out[T,n] = x[T,k] @ W[n,k]^T (row-major, layout linear PyTorch) */
 static void matmul_wt(const float *x, const float *w, float *out, int T, int n, int k) {
-    cblas_sgemm(CblasRowMajor, CblasNoTrans, CblasTrans, T, n, k, 1.0f, x, k, w, k, 0.0f, out, n);
+    mynah_gemm_wt(x, w, out, T, n, k);
 }
 
 /* ------------------------------------------------------------------- init */

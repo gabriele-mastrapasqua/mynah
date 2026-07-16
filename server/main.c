@@ -22,6 +22,7 @@
 #include <unistd.h>
 
 #include "../src/audio.h"
+#include "../src/backend.h"
 #include "../src/mynah.h"
 #include "../vendor/cJSON.h"
 #include "http_util.h"
@@ -545,6 +546,7 @@ int main(int argc, char **argv) {
             g_quant = strcmp(argv[i], "int8") == 0 ? MYNAH_QUANT_INT8
                     : strcmp(argv[i], "int4") == 0 ? MYNAH_QUANT_INT4 : MYNAH_QUANT_F32;
         }
+        else if (strcmp(argv[i], "--backend") == 0 && i + 1 < argc) mynah_set_backend(argv[++i]);
         else {
             fprintf(stderr, "uso: mynah-server -m <model_dir> [-p 8090] [--threads 4] [--batch 8]\n");
             return 2;

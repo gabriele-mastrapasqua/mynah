@@ -5,9 +5,10 @@ LDFLAGS ?=
 
 UNAME_S := $(shell uname -s)
 ifeq ($(UNAME_S),Darwin)
-  LDFLAGS += -framework Accelerate
+  LDFLAGS += -framework Accelerate -framework Metal -framework MetalPerformanceShaders -framework Foundation
   BLAS_DEF := MYNAH_BLAS_ACCELERATE
-  CFLAGS  += -DMYNAH_BLAS_ACCELERATE -DACCELERATE_NEW_LAPACK
+  CFLAGS  += -DMYNAH_BLAS_ACCELERATE -DACCELERATE_NEW_LAPACK -DMYNAH_METAL
+  OBJ_EXTRA := src/metal_mps.o
 else
   LDFLAGS += -lopenblas -lm -lpthread
   BLAS_DEF := MYNAH_BLAS_OPENBLAS
@@ -15,7 +16,7 @@ else
 endif
 
 SRC := $(wildcard src/*.c) vendor/cJSON.c
-OBJ := $(SRC:.c=.o)
+OBJ := $(SRC:.c=.o) $(OBJ_EXTRA)
 HDR := $(wildcard src/*.h)
 
 MODEL_DIR ?= models/nemotron-3.5-asr-streaming-0.6b
@@ -30,6 +31,9 @@ mynah-server: $(OBJ) server/main.o server/http_util.o
 
 %.o: %.c $(HDR)
 	$(CC) $(CFLAGS) -c $< -o $@
+
+src/metal_mps.o: src/metal_mps.m
+	$(CC) $(CFLAGS) -fobjc-arc -c $< -o $@
 
 TESTS := tests/test_qmat tests/test_features tests/test_subsampling tests/test_encoder tests/test_streaming tests/test_batch
 
@@ -57,6 +61,17 @@ golden-dump:
 lib: libmynah.a
 libmynah.a: $(OBJ)
 	ar rcs $@ $^
+
+# CUDA (Linux, richiede nvcc): GEMM grandi su GPU. NON validato su hardware:
+# compilare e lanciare `make test` sulla macchina CUDA prima di fidarsi.
+NVCC ?= nvcc
+cuda:
+	$(MAKE) clean && $(MAKE) CFLAGS="$(CFLAGS) -DMYNAH_CUDA" \
+	  OBJ_EXTRA="src/cuda_gemm.o" \
+	  LDFLAGS="$(LDFLAGS) -lcublas -lcudart -L/usr/local/cuda/lib64"
+
+src/cuda_gemm.o: src/cuda_gemm.cu
+	$(NVCC) -O3 -DMYNAH_CUDA -c $< -o $@
 
 # build alternative.
 # Policy memoria/UB su macOS: `make leaks` (nativo, veloce) + `make ubsan` (overhead
@@ -104,4 +119,4 @@ leaks: mynah tests/test_streaming
 clean:
 	rm -f mynah mynah-server libmynah.a $(OBJ) cli/main.o server/*.o tests/*.o $(TESTS)
 
-.PHONY: all clean test golden-dump lib debug ubsan asan bench leaks test-nemo-langs fetch-lang-samples test-server
+.PHONY: all clean test golden-dump lib debug ubsan asan bench leaks test-nemo-langs fetch-lang-samples test-server cuda
