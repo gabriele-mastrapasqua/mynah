@@ -48,6 +48,11 @@ Supportati ma pensati per fine-tuning prima dell'uso in produzione.
 el-GR (21) · lt-LT (31) · lv-LV (61) · mt-MT (102) · sl-SI (62) · he-IL (64) · th-TH (32) ·
 nn-NO (104)
 
+> Verifica empirica (`make test-nemo-langs`, 2026-07-16): el/lt/lv/sl/he funzionano
+> comunque bene sui nostri sample (CER 0.10–0.24); **th-TH invece produce output
+> quasi vuoto anche su audio pulito** — serve davvero il fine-tuning che la card
+> raccomanda. mt-MT e nn-NO non testati (nessun sample audio libero reperito).
+
 ## Language detection e tag in output
 
 - Con `auto` (id 101) il modello rileva la lingua e **emette il tag locale** (es. `<it-IT>`)
