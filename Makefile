@@ -104,7 +104,7 @@ ubsan:
 asan:
 	$(MAKE) clean && $(MAKE) CFLAGS="-std=c11 -O1 -g -fsanitize=address,undefined \
 	  -fno-omit-frame-pointer -Wall -Wextra -Isrc -D$(BLAS_DEF) -DACCELERATE_NEW_LAPACK" \
-	  LDFLAGS="$(LDFLAGS) -fsanitize=address,undefined"
+	  LDFLAGS="$(LDFLAGS) -fsanitize=address,undefined" all test
 
 # bench: RTF offline sui fixture (3 run, cache calda)
 bench: mynah

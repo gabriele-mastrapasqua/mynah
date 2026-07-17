@@ -1,0 +1,106 @@
+# CI Mynah: build matrix + test FUNZIONALI col modello reale (lezione qwen-tts:
+# la CI build-only non protegge). Il modello dei test è parakeet-tdt_ctc-110m
+# (114M, CC-BY-4.0, RTF ~0.03): il runner scarica il .nemo da HF, lo converte
+# col tooling ufficiale (torch CPU) e mette in cache gli artefatti convertiti —
+# nessun peso ospitato da noi. Nemotron/v3 restano test locali (exit 77 = SKIP).
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+env:
+  MODEL: parakeet-tdt_ctc-110m
+  MODEL_URL: https://huggingface.co/nvidia/parakeet-tdt_ctc-110m/resolve/main/parakeet-tdt_ctc-110m.nemo
+
+jobs:
+  build-test:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest        # x86_64: valida anche i kernel AVX2/VNNI
+          - os: ubuntu-24.04-arm     # aarch64: NEON/SDOT
+          - os: macos-latest         # arm64: Accelerate + Metal
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Dipendenze (Linux)
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y libopenblas-dev
+
+      - name: Build
+        run: make
+
+      - name: Kernel self-test (senza modello)
+        run: tests/test_qmat
+
+      - name: Kernel self-test — livelli SIMD espliciti (x86)
+        if: matrix.os == 'ubuntu-latest'
+        run: |
+          MYNAH_CAPS=scalar tests/test_qmat
+          MYNAH_CAPS=avx2   tests/test_qmat   # declassa con nota se non supportato
+
+      - name: Cache modello convertito + golden
+        id: model-cache
+        uses: actions/cache@v4
+        with:
+          path: |
+            models/${{ env.MODEL }}
+            tests/golden/parakeet110_en
+          key: ${{ env.MODEL }}-v1-${{ hashFiles('tools/convert_nemo.py', 'tools/oracle/**') }}
+
+      - name: Setup uv
+        if: steps.model-cache.outputs.cache-hit != 'true'
+        uses: astral-sh/setup-uv@v5
+
+      - name: Scarica e converti il modello (.nemo -> mynah), golden dump
+        if: steps.model-cache.outputs.cache-hit != 'true'
+        run: |
+          mkdir -p models/$MODEL
+          curl -fL --retry 3 -o models/$MODEL/$MODEL.nemo "$MODEL_URL"
+          cd tools && uv sync --extra oracle
+          uv run python convert_nemo.py ../models/$MODEL
+          uv run python -m oracle.transcribe ../models/$MODEL \
+            ../tests/audio/test_en.wav --dump-dir ../tests/golden/parakeet110_en
+          cd .. && rm models/$MODEL/$MODEL.nemo   # la cache tiene solo il convertito
+
+      - name: Checkpoint int8 (esercita il percorso quantize)
+        run: ./mynah quantize -m models/${{ env.MODEL }} --quant int8
+
+      - name: Test (parita' vs oracolo + e2e; i modelli grandi skippano)
+        run: make test
+
+  sanitizers:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - name: Dipendenze
+        run: sudo apt-get update && sudo apt-get install -y libopenblas-dev
+      - name: Cache modello convertito + golden
+        id: model-cache
+        uses: actions/cache@v4
+        with:
+          path: |
+            models/${{ env.MODEL }}
+            tests/golden/parakeet110_en
+          key: ${{ env.MODEL }}-v1-${{ hashFiles('tools/convert_nemo.py', 'tools/oracle/**') }}
+      - name: Setup uv
+        if: steps.model-cache.outputs.cache-hit != 'true'
+        uses: astral-sh/setup-uv@v5
+      - name: Scarica e converti il modello, golden dump
+        if: steps.model-cache.outputs.cache-hit != 'true'
+        run: |
+          mkdir -p models/$MODEL
+          curl -fL --retry 3 -o models/$MODEL/$MODEL.nemo "$MODEL_URL"
+          cd tools && uv sync --extra oracle
+          uv run python convert_nemo.py ../models/$MODEL
+          uv run python -m oracle.transcribe ../models/$MODEL \
+            ../tests/audio/test_en.wav --dump-dir ../tests/golden/parakeet110_en
+          cd .. && rm models/$MODEL/$MODEL.nemo
+      - name: ASan+UBSan (build ED esecuzione test)
+        run: make asan
