@@ -56,6 +56,13 @@ void mynah_qmat_ffn(const mynah_qmat *w1, const mynah_qmat *w2, const float *x,
 void mynah_qmat_qkv(const mynah_qmat *wq, const mynah_qmat *wk, const mynah_qmat *wv,
                     const float *x, float *oq, float *ok, float *ov, int T);
 
+/* Caps SIMD x86 a runtime (pattern --caps di qwen-tts): "auto" (default, cpuid),
+ * "scalar", "avx2", "vnni"; env MYNAH_CAPS come alternativa al flag. Un livello
+ * superiore a quello della CPU viene declassato con nota. Ritorna il livello
+ * effettivo (0 scalar, 1 avx2, 2 vnni). Su ARM è un no-op: NEON/SDOT sono
+ * compile-time (Apple Silicon ha sempre dotprod). */
+int mynah_set_caps(const char *name);
+
 /* Quantizza un buffer f32 [n,k] in out_q/out_scales (buffer del caller):
  * INT8: out_q [n*k] int8, out_scales [n]
  * INT4: out_q [n*k/2] uint8, out_scales [n*k/32]

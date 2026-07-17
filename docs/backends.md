@@ -11,6 +11,15 @@ BLAS: Accelerate (macOS) / OpenBLAS (Linux) per le GEMM; kernel propri SDOT/VNNI
 per i dot quantizzati (vedi [quantization.md](quantization.md)). Su Apple Silicon è
 il backend più veloce oggi (AMX): offline RTF 0.10 (int8).
 
+**Dispatch ISA a runtime (x86)**: i kernel VNNI e AVX2 sono compilati sempre con
+target-attribute (nessun `-march` richiesto: un solo binario release multi-target)
+e selezionati via cpuid+xgetbv alla prima chiamata. Override con `--caps
+auto|scalar|avx2|vnni` (CLI e server) o env `MYNAH_CAPS` — pattern `--caps` di
+qwen-tts; un livello superiore a quello della CPU viene declassato con nota.
+Su ARM NEON/SDOT restano compile-time (Apple Silicon ha sempre dotprod).
+⚠️ Come per CUDA: i percorsi AVX2/VNNI sono validati da `tests/test_qmat` in CI
+Linux x86, non su questo Mac (Rosetta qui non espone AVX2 → livello scalar, testato).
+
 ## Metal (macOS, compilato di default)
 
 `src/metal_mps.m`: MPSMatrixMultiplication con **pesi residenti** (MTLBuffer cacheato

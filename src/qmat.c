@@ -229,11 +229,52 @@ static float dot_q4_sdot(const int8_t *qx, float sx, const uint8_t *q,
 #define MYNAH_HAVE_SDOT 1
 #endif
 
-/* --------------------------------------------- kernel VNNI/AVX2 (x86, q8)
+/* --------------------------------------------- kernel x86 (q8 VNNI/AVX2, q4 AVX2)
+ * DISPATCH A RUNTIME (pattern --caps di qwen-tts): i kernel sono compilati
+ * sempre con target-attribute (nessun -march richiesto: binari release
+ * multi-target), la selezione avviene via cpuid+xgetbv alla prima chiamata.
+ * Override con mynah_set_caps("scalar"|"avx2"|"vnni") o env MYNAH_CAPS.
  * dpbusd/maddubs moltiplicano u8 x s8: ua = qx+128 e correzione -128*Σw
  * (pattern qwen-tts int8_matvec_vnni). Validati da tests/test_qmat in CI. */
-#if defined(__AVX512VNNI__)
+#if defined(__x86_64__) || defined(_M_X64)
 #include <immintrin.h>
+#include <cpuid.h>
+#define MYNAH_HAVE_X86 1
+
+enum { MYNAH_CAPS_SCALAR = 0, MYNAH_CAPS_AVX2 = 1, MYNAH_CAPS_VNNI = 2 };
+
+static unsigned long long xgetbv0(void) {
+    unsigned lo, hi;
+    __asm__("xgetbv" : "=a"(lo), "=d"(hi) : "c"(0));
+    return ((unsigned long long)hi << 32) | lo;
+}
+
+static int x86_detect_caps(void) {
+    unsigned a, b, c, d;
+    if (!__get_cpuid(1, &a, &b, &c, &d) || !(c & (1u << 27))) /* OSXSAVE */
+        return MYNAH_CAPS_SCALAR;
+    const unsigned long long xcr0 = xgetbv0();
+    if ((xcr0 & 0x6) != 0x6) return MYNAH_CAPS_SCALAR;        /* xmm+ymm dall'OS */
+    if (!__get_cpuid_count(7, 0, &a, &b, &c, &d) || !((b >> 5) & 1)) /* AVX2 */
+        return MYNAH_CAPS_SCALAR;
+    const int avx512f = (b >> 16) & 1, avx512bw = (b >> 30) & 1, vnni = (c >> 11) & 1;
+    if (avx512f && avx512bw && vnni && (xcr0 & 0xE0) == 0xE0) /* zmm+opmask */
+        return MYNAH_CAPS_VNNI;
+    return MYNAH_CAPS_AVX2;
+}
+
+static int g_x86_caps = -1;
+
+static int x86_caps(void) {
+    if (g_x86_caps < 0) {
+        const char *env = getenv("MYNAH_CAPS");
+        if (env) mynah_set_caps(env);
+        if (g_x86_caps < 0) g_x86_caps = x86_detect_caps();
+    }
+    return g_x86_caps;
+}
+
+__attribute__((target("avx512f,avx512bw,avx512vnni")))
 static float dot_q8_vnni(const int8_t *qx, float sx, const int8_t *w, float ws, int k) {
     const __m512i v128 = _mm512_set1_epi8((char)128);
     const __m512i ones = _mm512_set1_epi8(1);
@@ -249,11 +290,10 @@ static float dot_q8_vnni(const int8_t *qx, float sx, const int8_t *w, float ws, 
     for (; j < k; j++) s += (int)w[j] * qx[j];
     return (float)s * ws * sx;
 }
-#define MYNAH_HAVE_X86_DOT dot_q8_vnni
-#elif defined(__AVX2__)
-#include <immintrin.h>
+
 /* trick sign/abs (llama.cpp): maddubs(|w|, qx*sign(w)) — coppie <= 32258,
  * niente saturazione int16 e niente termine di correzione */
+__attribute__((target("avx2")))
 static float dot_q8_avx2(const int8_t *qx, float sx, const int8_t *w, float ws, int k) {
     const __m256i ones16 = _mm256_set1_epi16(1);
     __m256i acc = _mm256_setzero_si256();
@@ -272,17 +312,11 @@ static float dot_q8_avx2(const int8_t *qx, float sx, const int8_t *w, float ws, 
     for (; j < k; j++) s += (int)w[j] * qx[j];
     return (float)s * ws * sx;
 }
-#define MYNAH_HAVE_X86_DOT dot_q8_avx2
-#endif
 
-/* ------------------------------------------------- kernel q4 x86 (AVX2 base,
- * disponibile anche sulle macchine VNNI). Le ATTIVAZIONI vengono pre-permutate
- * per gruppo ([pari(16) | dispari(16)]) una volta per riga, così l'unpack dei
- * nibble [lo(16) | hi(16)] si allinea senza shuffle nel loop interno.
- * |w| <= 8 => maddubs non satura mai (8*127*2 = 2032). */
-#if defined(__AVX2__) || defined(__AVX512VNNI__)
-#include <immintrin.h>
-#define MYNAH_HAVE_X86_Q4 1
+/* q4 x86 (AVX2 base, usato anche sulle macchine VNNI). Le ATTIVAZIONI vengono
+ * pre-permutate per gruppo ([pari(16) | dispari(16)]) una volta per riga, così
+ * l'unpack dei nibble [lo(16) | hi(16)] si allinea senza shuffle nel loop
+ * interno. |w| <= 8 => maddubs non satura mai (8*127*2 = 2032). */
 
 /* xq -> xq_perm: per ogni gruppo di 32, prima i pari poi i dispari */
 static void q4_permute_act(const int8_t *qx, int8_t *xp, int k) {
@@ -296,6 +330,7 @@ static void q4_permute_act(const int8_t *qx, int8_t *xp, int k) {
     }
 }
 
+__attribute__((target("avx2")))
 static float dot_q4_x86(const int8_t *xp /* permutate */, float sx, const uint8_t *q,
                         const float *scales, int k) {
     const __m128i mask4 = _mm_set1_epi8(0x0F);
@@ -319,7 +354,29 @@ static float dot_q4_x86(const int8_t *xp /* permutate */, float sx, const uint8_
     }
     return acc * sx;
 }
+#endif /* x86 */
+
+int mynah_set_caps(const char *name) {
+#ifdef MYNAH_HAVE_X86
+    const int detected = x86_detect_caps();
+    int want = detected;
+    if (name && strcmp(name, "scalar") == 0) want = MYNAH_CAPS_SCALAR;
+    else if (name && strcmp(name, "avx2") == 0) want = MYNAH_CAPS_AVX2;
+    else if (name && strcmp(name, "vnni") == 0) want = MYNAH_CAPS_VNNI;
+    else if (name && strcmp(name, "auto") != 0)
+        fprintf(stderr, "mynah: caps ignoti '%s' (scalar|avx2|vnni|auto) -> auto\n", name);
+    if (want > detected) {
+        fprintf(stderr, "mynah: caps '%s' non supportati dalla CPU -> livello %d\n",
+                name, detected);
+        want = detected;
+    }
+    g_x86_caps = want;
+    return g_x86_caps;
+#else
+    (void)name;   /* ARM: NEON/SDOT sono compile-time (Apple ha sempre dotprod) */
+    return 0;
 #endif
+}
 
 /* ------------------------------------------------------------- kernel NEON */
 #if defined(__ARM_NEON) || defined(__aarch64__)
@@ -385,10 +442,17 @@ void mynah_qmat_mul(const mynah_qmat *m, const float *x, float *out, int T) {
         return;
     }
     if (T <= QMAT_SMALL_T) {
-        /* dot int8xint8 nativo (SDOT/VNNI/AVX2): quantizza le attivazioni una
-         * volta per riga (per-riga absmax, ricetta qwen-tts) */
-#if (defined(MYNAH_HAVE_SDOT) || defined(MYNAH_HAVE_X86_DOT))
-        if (m->k <= QMAT_K_MAX) {
+        /* dot int8xint8 nativo (SDOT compile-time su ARM; VNNI/AVX2 a RUNTIME
+         * su x86): quantizza le attivazioni una volta per riga (per-riga
+         * absmax, ricetta qwen-tts) */
+#if defined(MYNAH_HAVE_SDOT) || defined(MYNAH_HAVE_X86)
+#ifdef MYNAH_HAVE_X86
+        const int caps = x86_caps();
+        const int native = caps >= MYNAH_CAPS_AVX2 && m->k <= QMAT_K_MAX;
+#else
+        const int native = m->k <= QMAT_K_MAX;
+#endif
+        if (native) {
             int8_t qx[QMAT_K_MAX];
             for (int t = 0; t < T; t++) {
                 const float *xr = x + (size_t)t * (size_t)m->k;
@@ -400,32 +464,28 @@ void mynah_qmat_mul(const mynah_qmat *m, const float *x, float *out, int T) {
 #ifdef MYNAH_HAVE_SDOT
                         o[i] = dot_q8_sdot(qx, sx, qrow, m->scales[i], m->k);
 #else
-                        o[i] = MYNAH_HAVE_X86_DOT(qx, sx, qrow, m->scales[i], m->k);
+                        o[i] = caps >= MYNAH_CAPS_VNNI
+                                   ? dot_q8_vnni(qx, sx, qrow, m->scales[i], m->k)
+                                   : dot_q8_avx2(qx, sx, qrow, m->scales[i], m->k);
 #endif
                     }
                 } else {
-#if defined(MYNAH_HAVE_SDOT)
                     const int groups = m->k / MYNAH_Q4_GROUP;
+#ifdef MYNAH_HAVE_SDOT
                     for (int i = 0; i < m->n; i++)
                         o[i] = dot_q4_sdot(qx, sx, m->q4 + (size_t)i * (size_t)(m->k / 2),
                                            m->scales + (size_t)i * (size_t)groups, m->k);
-#elif defined(MYNAH_HAVE_X86_Q4)
+#else
                     int8_t xp[QMAT_K_MAX];
                     q4_permute_act(qx, xp, m->k);
-                    const int groups = m->k / MYNAH_Q4_GROUP;
                     for (int i = 0; i < m->n; i++)
                         o[i] = dot_q4_x86(xp, sx, m->q4 + (size_t)i * (size_t)(m->k / 2),
                                           m->scales + (size_t)i * (size_t)groups, m->k);
-#else
-                    goto small_t_f32;
 #endif
                 }
             }
             return;
         }
-#endif
-#if !defined(MYNAH_HAVE_SDOT) && !defined(MYNAH_HAVE_X86_Q4) && defined(MYNAH_HAVE_X86_DOT)
-small_t_f32:;
 #endif
         if (m->qtype == MYNAH_Q_INT8) {
             for (int t = 0; t < T; t++) {

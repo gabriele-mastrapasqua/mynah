@@ -24,6 +24,7 @@
 #include "../src/audio.h"
 #include "../src/backend.h"
 #include "../src/mynah.h"
+#include "../src/qmat.h"      /* mynah_set_caps (--caps) */
 #include "../vendor/cJSON.h"
 #include "http_util.h"
 
@@ -547,8 +548,10 @@ int main(int argc, char **argv) {
                     : strcmp(argv[i], "int4") == 0 ? MYNAH_QUANT_INT4 : MYNAH_QUANT_F32;
         }
         else if (strcmp(argv[i], "--backend") == 0 && i + 1 < argc) mynah_set_backend(argv[++i]);
+        else if (strcmp(argv[i], "--caps") == 0 && i + 1 < argc) mynah_set_caps(argv[++i]);
         else {
-            fprintf(stderr, "uso: mynah-server -m <model_dir> [-p 8090] [--threads 4] [--batch 8]\n");
+            fprintf(stderr, "uso: mynah-server -m <model_dir> [-p 8090] [--threads 4] "
+                            "[--batch 8] [--backend cpu|metal|cuda] [--caps auto|scalar|avx2|vnni]\n");
             return 2;
         }
     }

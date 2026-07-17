@@ -7,6 +7,7 @@
 #include "mynah.h"
 #include "audio.h"
 #include "backend.h"
+#include "qmat.h"      /* mynah_set_caps (--caps) */
 
 static void usage(void) {
     printf("mynah %s — native ASR runtime for NeMo speech models\n\n", mynah_version());
@@ -18,7 +19,10 @@ static void usage(void) {
     printf("             streaming live da stdin (raw s16le 16 kHz mono)\n");
     printf("  quantize   -m <model_dir> --quant int8|int4\n");
     printf("             salva il checkpoint pre-quantizzato (load istantaneo)\n");
-    printf("  --version                                 stampa la versione\n");
+    printf("  --version                                 stampa la versione\n\n");
+    printf("Opzioni comuni (transcribe/stream):\n");
+    printf("  --backend cpu|metal|cuda    backend GEMM (fallback CPU se assente)\n");
+    printf("  --caps auto|scalar|avx2|vnni  livello SIMD x86 (default: cpuid; env MYNAH_CAPS)\n");
 }
 
 static double now_sec(void) {
@@ -41,7 +45,7 @@ static int cmd_transcribe(int argc, char **argv) {
                   : strcmp(argv[i], "int4") == 0 ? MYNAH_QUANT_INT4 : MYNAH_QUANT_F32;
         }
         else if (strcmp(argv[i], "--backend") == 0 && i + 1 < argc) mynah_set_backend(argv[++i]);
-        else if (strcmp(argv[i], "--backend") == 0 && i + 1 < argc) mynah_set_backend(argv[++i]);
+        else if (strcmp(argv[i], "--caps") == 0 && i + 1 < argc) mynah_set_caps(argv[++i]);
         else { fprintf(stderr, "opzione ignota: %s\n", argv[i]); return 2; }
     }
     if (!model_dir || !wav) { usage(); return 2; }
@@ -98,6 +102,8 @@ static int cmd_stream(int argc, char **argv) {
             quant = strcmp(argv[i], "int8") == 0 ? MYNAH_QUANT_INT8
                   : strcmp(argv[i], "int4") == 0 ? MYNAH_QUANT_INT4 : MYNAH_QUANT_F32;
         }
+        else if (strcmp(argv[i], "--backend") == 0 && i + 1 < argc) mynah_set_backend(argv[++i]);
+        else if (strcmp(argv[i], "--caps") == 0 && i + 1 < argc) mynah_set_caps(argv[++i]);
         else { fprintf(stderr, "opzione ignota: %s\n", argv[i]); return 2; }
     }
     if (!model_dir) { usage(); return 2; }
