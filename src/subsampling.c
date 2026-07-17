@@ -46,6 +46,76 @@ static void conv2d_s2(const float *x, int C_in, int T, int F, int pl_t, int pr_t
     const int To = (Tp - k) / s + 1, Fo = (Fp - k) / s + 1;
     *To_ = To; *Fo_ = Fo;
 
+    /* conv piena con C_in=1 (stadio 0, ~80% dei MAC del subsampling): im2col
+     * P [9, S] + GEMM W [C_out, 9] @ P -> [C_out, S]. Stessa matematica del
+     * loop diretto (gli out-of-bounds diventano zeri espliciti). */
+    if (!depthwise && C_in == 1) {
+        const size_t S = (size_t)To * (size_t)Fo;
+        float *P = malloc(9u * S * sizeof(float));
+        if (P) {
+            for (int dt = 0; dt < k; dt++) {
+                for (int df = 0; df < k; df++) {
+                    float *row = P + (size_t)(dt * 3 + df) * S;
+                    for (int to = 0; to < To; to++) {
+                        const int t = to * s - pl + dt;
+                        float *r = row + (size_t)to * (size_t)Fo;
+                        if (t < 0 || t >= T) {
+                            memset(r, 0, (size_t)Fo * sizeof(float));
+                            continue;
+                        }
+                        const float *sr = x + (size_t)t * (size_t)F;
+                        for (int fo = 0; fo < Fo; fo++) {
+                            const int fq = fo * s - 2 + df;
+                            r[fo] = (fq < 0 || fq >= F) ? 0.0f : sr[fq];
+                        }
+                    }
+                }
+            }
+            cblas_sgemm(CblasRowMajor, CblasNoTrans, CblasNoTrans, C_out, (int)S, 9,
+                        1.0f, w, 9, P, (int)S, 0.0f, out, (int)S);
+            for (int co = 0; co < C_out; co++) {
+                float *dst = out + (size_t)co * S;
+                for (size_t i = 0; i < S; i++) dst[i] += b[co];
+            }
+            free(P);
+            return;
+        }
+        /* malloc fallita: prosegue col loop diretto */
+    }
+
+    /* depthwise: canale paddato esplicito -> 3x3 srotolato senza branch nel loop
+     * caldo (gli zeri del pad rendono la somma identica al bounds-check). */
+    if (depthwise) {
+        const int Fp2 = F + 3;   /* 2 sx + 1 dx, come il caso generale */
+        float *pad = malloc((size_t)Tp * (size_t)Fp2 * sizeof(float));
+        if (pad) {
+            for (int co = 0; co < C_out; co++) {
+                const float *src = x + (size_t)co * (size_t)T * (size_t)F;
+                const float *ker = w + (size_t)co * 9u;
+                memset(pad, 0, (size_t)Tp * (size_t)Fp2 * sizeof(float));
+                for (int t = 0; t < T; t++)
+                    memcpy(pad + (size_t)(t + pl) * (size_t)Fp2 + 2,
+                           src + (size_t)t * (size_t)F, (size_t)F * sizeof(float));
+                float *dst = out + (size_t)co * (size_t)To * (size_t)Fo;
+                for (int to = 0; to < To; to++) {
+                    const float *p0 = pad + (size_t)(to * s) * (size_t)Fp2;
+                    const float *p1 = p0 + Fp2, *p2 = p1 + Fp2;
+                    float *drow = dst + (size_t)to * (size_t)Fo;
+                    for (int fo = 0; fo < Fo; fo++) {
+                        const int f = fo * s;
+                        const float acc = ker[0] * p0[f] + ker[1] * p0[f + 1] + ker[2] * p0[f + 2]
+                                        + ker[3] * p1[f] + ker[4] * p1[f + 1] + ker[5] * p1[f + 2]
+                                        + ker[6] * p2[f] + ker[7] * p2[f + 1] + ker[8] * p2[f + 2];
+                        drow[fo] = b[co] + acc;
+                    }
+                }
+            }
+            free(pad);
+            return;
+        }
+        /* malloc fallita: prosegue col loop diretto */
+    }
+
     for (int co = 0; co < C_out; co++) {
         float *dst = out + (size_t)co * (size_t)To * (size_t)Fo;
         for (int i = 0; i < To * Fo; i++) dst[i] = b[co];

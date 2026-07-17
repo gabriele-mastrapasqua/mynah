@@ -38,6 +38,34 @@ static void fft_radix2(double *re, double *im, int n) {
     }
 }
 
+/* Range di bin non-zero per ogni filtro mel (filtri triangolari: ~4-8 bin su
+ * 257). Saltare gli zeri è BIT-ESATTO rispetto al loop pieno: i prodotti
+ * saltati valgono +0.0 e sommare +0.0 a un accumulatore non negativo è
+ * l'identità. ~50x meno MAC nella proiezione. */
+static void mel_ranges(const mynah_feat_cfg *cfg, int *lo, int *hi) {
+    const int n_bins = cfg->n_fft / 2 + 1, n_mels = cfg->n_mels;
+    for (int m = 0; m < n_mels; m++) {
+        int a = n_bins, z = 0;
+        for (int b = 0; b < n_bins; b++)
+            if (cfg->mel_fb[(size_t)b * (size_t)n_mels + (size_t)m] != 0.0f) {
+                if (b < a) a = b;
+                z = b + 1;
+            }
+        lo[m] = a; hi[m] = z;   /* [lo, hi); filtro tutto-zero: lo >= hi */
+    }
+}
+
+static void mel_project(const mynah_feat_cfg *cfg, const double *power,
+                        const int *lo, const int *hi, float *row) {
+    const int n_mels = cfg->n_mels;
+    for (int m = 0; m < n_mels; m++) {
+        double acc = 0.0;
+        for (int b = lo[m]; b < hi[m]; b++)
+            acc += power[b] * (double)cfg->mel_fb[(size_t)b * (size_t)n_mels + (size_t)m];
+        row[m] = (float)log(acc + cfg->log_zero_guard);
+    }
+}
+
 float *mynah_log_mel(const mynah_feat_cfg *cfg, const float *audio, size_t n_samples,
                      int *n_frames, int *valid_frames) {
     const int n_fft = cfg->n_fft, hop = cfg->hop_length, n_mels = cfg->n_mels;
@@ -64,10 +92,13 @@ float *mynah_log_mel(const mynah_feat_cfg *cfg, const float *audio, size_t n_sam
     double *re = malloc((size_t)n_fft * sizeof(double));
     double *im = malloc((size_t)n_fft * sizeof(double));
     double *power = malloc((size_t)n_bins * sizeof(double));
-    if (!feats || !re || !im || !power) {
-        free(y); free(win); free(feats); free(re); free(im); free(power);
+    int *lo = malloc(2 * (size_t)n_mels * sizeof(int));
+    if (!feats || !re || !im || !power || !lo) {
+        free(y); free(win); free(feats); free(re); free(im); free(power); free(lo);
         return NULL;
     }
+    int *hi = lo + n_mels;
+    mel_ranges(cfg, lo, hi);
 
     for (int t = 0; t < valid; t++) { /* i frame >= valid restano a zero */
         const double *frame = y + (size_t)t * (size_t)hop;
@@ -75,16 +106,10 @@ float *mynah_log_mel(const mynah_feat_cfg *cfg, const float *audio, size_t n_sam
         fft_radix2(re, im, n_fft);
         for (int b = 0; b < n_bins; b++) power[b] = re[b] * re[b] + im[b] * im[b];
 
-        float *row = feats + (size_t)t * (size_t)n_mels;
-        for (int m = 0; m < n_mels; m++) {
-            double acc = 0.0;
-            for (int b = 0; b < n_bins; b++)
-                acc += power[b] * (double)cfg->mel_fb[(size_t)b * (size_t)n_mels + (size_t)m];
-            row[m] = (float)log(acc + cfg->log_zero_guard);
-        }
+        mel_project(cfg, power, lo, hi, feats + (size_t)t * (size_t)n_mels);
     }
 
-    free(y); free(win); free(re); free(im); free(power);
+    free(y); free(win); free(re); free(im); free(power); free(lo);
     *n_frames = T;
     *valid_frames = valid;
     return feats;
@@ -97,7 +122,7 @@ float *mynah_log_mel(const mynah_feat_cfg *cfg, const float *audio, size_t n_sam
  * Frame t = finestra [t*hop - n_fft/2, t*hop + n_fft/2). */
 static void mel_one_frame(const mynah_mel_stream *ms, long t, float *row) {
     const mynah_feat_cfg *cfg = ms->cfg;
-    const int n_fft = cfg->n_fft, n_bins = n_fft / 2 + 1, n_mels = cfg->n_mels;
+    const int n_fft = cfg->n_fft, n_bins = n_fft / 2 + 1;
     const long start = t * cfg->hop_length - n_fft / 2;
 
     double re[4096], im[4096], power[2049];
@@ -110,12 +135,7 @@ static void mel_one_frame(const mynah_mel_stream *ms, long t, float *row) {
     }
     fft_radix2(re, im, n_fft);
     for (int b = 0; b < n_bins; b++) power[b] = re[b] * re[b] + im[b] * im[b];
-    for (int m = 0; m < n_mels; m++) {
-        double acc = 0.0;
-        for (int b = 0; b < n_bins; b++)
-            acc += power[b] * (double)cfg->mel_fb[(size_t)b * (size_t)n_mels + (size_t)m];
-        row[m] = (float)log(acc + cfg->log_zero_guard);
-    }
+    mel_project(cfg, power, ms->mel_lo, ms->mel_hi, row);
 }
 
 int mynah_mel_stream_init(mynah_mel_stream *ms, const mynah_feat_cfg *cfg) {
@@ -125,15 +145,18 @@ int mynah_mel_stream_init(mynah_mel_stream *ms, const mynah_feat_cfg *cfg) {
     ms->buf_cap = 65536;
     ms->buf = malloc(ms->buf_cap * sizeof(double));
     ms->win = calloc((size_t)cfg->n_fft, sizeof(double));
-    if (!ms->buf || !ms->win) return -1;
+    ms->mel_lo = malloc(2 * (size_t)cfg->n_mels * sizeof(int));
+    if (!ms->buf || !ms->win || !ms->mel_lo) return -1;
+    ms->mel_hi = ms->mel_lo + cfg->n_mels;
+    mel_ranges(cfg, ms->mel_lo, ms->mel_hi);
     const int off = (cfg->n_fft - cfg->win_length) / 2;
     for (int i = 0; i < cfg->win_length; i++) ms->win[off + i] = (double)cfg->window[i];
     return 0;
 }
 
 void mynah_mel_stream_free(mynah_mel_stream *ms) {
-    free(ms->buf); free(ms->win);
-    ms->buf = NULL; ms->win = NULL;
+    free(ms->buf); free(ms->win); free(ms->mel_lo);
+    ms->buf = NULL; ms->win = NULL; ms->mel_lo = ms->mel_hi = NULL;
 }
 
 /* Scarta dal buffer i campioni ormai inutili (prima di next_frame*hop - n_fft/2). */

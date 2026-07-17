@@ -94,11 +94,16 @@ static void pred_step(const mynah_decoder *dec, mynah_dec_state *s, int token) {
  * per-frame (l'inner loop su un frame che emette resta scalare). */
 #define DEC_BMAX 32
 
-static int argmax_bias(const float *lg, const float *bias, float *tmp, int V) {
-    for (int k = 0; k < V; k++) tmp[k] = lg[k] + bias[k];
+/* argmax di (logits + bias) al volo: stessa aritmetica float del sommare in un
+ * buffer e poi cercare il massimo (v calcolato una volta per k), senza le
+ * scritture/riletture di V float per riga. */
+static int argmax_bias(const float *lg, const float *bias, int V) {
     int best = 0;
-    for (int k = 1; k < V; k++)
-        if (tmp[k] > tmp[best]) best = k;
+    float bv = lg[0] + bias[0];
+    for (int k = 1; k < V; k++) {
+        const float v = lg[k] + bias[k];
+        if (v > bv) { bv = v; best = k; }
+    }
     return best;
 }
 
@@ -108,8 +113,7 @@ int mynah_greedy_decode(const mynah_decoder *dec, mynah_dec_state *s,
     float joint[1024];
     float *jin = malloc((size_t)DEC_BMAX * (size_t)H * sizeof(float));
     float *logits = malloc((size_t)DEC_BMAX * (size_t)V * sizeof(float));
-    float *lb = malloc((size_t)V * sizeof(float));
-    if (!jin || !logits || !lb) { free(jin); free(logits); free(lb); return 0; }
+    if (!jin || !logits) { free(jin); free(logits); return 0; }
     int n_out = 0;
 
     /* Head come matrice f32 per la GEMM BLAS diretta (CPU: deterministica tra
@@ -145,7 +149,7 @@ int mynah_greedy_decode(const mynah_decoder *dec, mynah_dec_state *s,
 
         int first = -1, best = -1;
         for (int b = 0; b < Bc; b++) {
-            const int am = argmax_bias(logits + (size_t)b * (size_t)V, dec->head_b, lb, V);
+            const int am = argmax_bias(logits + (size_t)b * (size_t)V, dec->head_b, V);
             if (am != dec->blank) { first = b; best = am; break; }
         }
         if (first < 0) {                                   /* run di soli blank */
@@ -168,7 +172,7 @@ int mynah_greedy_decode(const mynah_decoder *dec, mynah_dec_state *s,
                                 1.0f, joint, H, W, H, 0.0f, logits, V);
                 else
                     mynah_qmat_mul(&dec->head, joint, logits, 1);
-                best = argmax_bias(logits, dec->head_b, lb, V);
+                best = argmax_bias(logits, dec->head_b, V);
                 if (best == dec->blank) break;
             }
             if (n_out < cap) tokens[n_out++] = best;
@@ -177,6 +181,6 @@ int mynah_greedy_decode(const mynah_decoder *dec, mynah_dec_state *s,
         t++;
         B = 4;                                             /* riparte corto dopo un emit */
     }
-    free(jin); free(logits); free(lb); free(wd);
+    free(jin); free(logits); free(wd);
     return n_out;
 }

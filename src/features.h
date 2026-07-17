@@ -38,6 +38,7 @@ typedef struct {
     size_t base;            /* indice assoluto del campione buf[0]             */
     size_t total;           /* campioni totali visti                           */
     double *win;            /* finestra Hann center-paddata a n_fft (precomp.) */
+    int *mel_lo, *mel_hi;   /* range bin non-zero per filtro (precomputati)    */
     float last_raw;         /* carry per la preemphasis tra feed               */
     long next_frame;        /* prossimo frame mel da emettere                  */
     int finished;
