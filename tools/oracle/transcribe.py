@@ -17,7 +17,7 @@ import soundfile as sf
 from safetensors.numpy import load_file
 
 from oracle.features import log_mel
-from oracle.model import NemotronOracle
+from oracle.model import Oracle
 
 
 def main() -> None:
@@ -35,12 +35,13 @@ def main() -> None:
         audio = audio.mean(axis=1)
     assert sr == 16000, f"servono 16 kHz, ricevuti {sr} (resampla con ffmpeg/sox)"
 
-    oracle = NemotronOracle(model_dir)
-    prompt_id = oracle.cfg["prompt"]["dictionary"][args.lang]
+    oracle = Oracle(model_dir)
+    prompt_id = oracle.cfg["prompt"]["dictionary"][args.lang] if oracle.has_prompt else None
 
     mf = load_file(model_dir / "mel_filters.safetensors")
     t0 = time.time()
-    feats, valid = log_mel(audio, mf["mel_fb"], mf["window"])
+    feats, valid = log_mel(audio, mf["mel_fb"], mf["window"],
+                           normalize=oracle.cfg["features"]["normalize"])
     dumps: dict | None = {} if args.dump_dir else None
     if dumps is not None:
         dumps["mel"] = feats.copy()

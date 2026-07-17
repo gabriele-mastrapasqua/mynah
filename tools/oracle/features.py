@@ -1,9 +1,10 @@
-"""Log-mel Nemotron in numpy puro — replica esatta di
-NemotronAsrStreamingFeatureExtractor (reference/transformers-nemotron_asr_streaming/
-feature_extraction_nemotron_asr_streaming.py) con torch.stft(center=True,
-pad_mode="constant") e finestra Hann simmetrica.
+"""Log-mel NeMo in numpy puro — replica esatta degli extractor HF
+(reference/transformers-nemotron_asr_streaming/ e reference/transformers-parakeet/)
+con torch.stft(center=True, pad_mode="constant") e finestra Hann simmetrica.
 
-Nessuna normalizzazione (il modello usa normalize "NA").
+normalize: "NA" (Nemotron, nessuna normalizzazione) o "per_feature" (Parakeet:
+media/std per bin sui frame validi, ddof=1, x = (x-mu)/(std+1e-5), come
+ParakeetFeatureExtractor).
 """
 
 from __future__ import annotations
@@ -20,6 +21,7 @@ def log_mel(
     n_fft: int = 512,
     hop: int = 160,
     preemphasis: float = 0.97,
+    normalize: str = "NA",
 ) -> tuple[np.ndarray, int]:
     """Ritorna (features [T, n_mels] float32, valid_len).
 
@@ -51,4 +53,11 @@ def log_mel(
 
     valid = S // hop
     feats[valid:] = 0.0
+
+    if normalize == "per_feature" and valid > 1:
+        v = feats[:valid]
+        mu = v.mean(axis=0)
+        std = np.sqrt(((v - mu) ** 2).sum(axis=0) / (valid - 1))   # ddof=1
+        feats[:valid] = (v - mu) / (std + 1e-5)
+
     return feats.astype(np.float32), valid

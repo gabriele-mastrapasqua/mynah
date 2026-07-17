@@ -1,11 +1,16 @@
-"""Oracolo Nemotron 3.5 ASR Streaming in numpy puro (forward offline-chunked + greedy RNNT).
+"""Oracolo FastConformer in numpy puro (forward offline + greedy RNNT/TDT),
+config-driven dal mynah.json del modello convertito.
 
-Replica 1:1 la reference transformers (reference/transformers-nemotron_asr_streaming/
-modeling_nemotron_asr_streaming.py). Scopo: riferimento numerico leggibile per il runtime C
-(dump per stadio via `dumps`), NON performance.
+Replica 1:1 le reference transformers:
+- Nemotron (reference/transformers-nemotron_asr_streaming/): subsampling/conv causali,
+  attention chunked_limited, conv norm layer_norm, prompt post-encoder, greedy RNNT.
+- Parakeet TDT (reference/transformers-parakeet/): tutto non-causale (padding simmetrico),
+  attention full, conv norm batch_norm (inference: affine con running stats),
+  niente prompt, greedy TDT (duration head).
 
-Convenzioni: pesi caricati dal model.safetensors HF con nomi verbatim; tutte le attivazioni
-[T, d]; batch = 1 implicito.
+Scopo: riferimento numerico leggibile per il runtime C (dump per stadio via `dumps`),
+NON performance. Convenzioni: pesi dal model.safetensors HF con nomi verbatim;
+attivazioni [T, d]; batch = 1 implicito.
 """
 
 from __future__ import annotations
@@ -37,7 +42,7 @@ def softmax(x, axis=-1):
     return e / e.sum(axis=axis, keepdims=True)
 
 
-class NemotronOracle:
+class Oracle:
     def __init__(self, model_dir: str | Path):
         model_dir = Path(model_dir)
         self.cfg = json.loads((model_dir / "mynah.json").read_text())
@@ -52,17 +57,40 @@ class NemotronOracle:
         self.n_heads = enc["n_heads"]
         self.d_head = self.d_model // self.n_heads
         self.conv_k = enc["conv_kernel"]
+        self.causal = "causal" in enc["subsampling"]
+        self.conv_norm = enc.get("conv_norm", "layer_norm")
         self.blank = dec["blank_id"]
         self.max_symbols = dec["max_symbols_per_step"]
+        self.durations: list[int] = dec.get("durations", [])   # TDT; [] = RNNT
+        self.has_prompt = "prompt" in self.cfg
         # inv_freq del rel pos encoding (interleaved sin/cos)
         self.inv_freq = 1.0 / (10000.0 ** (np.arange(0, self.d_model, 2, dtype=np.float64) / self.d_model))
 
+        # alias nomi subsampling: Nemotron usa conv_in/layers.{i}.{depthwise,pointwise}_conv,
+        # il porting HF di Parakeet un Sequential piatto layers.{0,2,3,5,6}
+        if "encoder.subsampling.conv_in.weight" in self.w:
+            self.ss_names = {
+                "conv_in": "encoder.subsampling.conv_in",
+                "dw": ["encoder.subsampling.layers.0.depthwise_conv",
+                       "encoder.subsampling.layers.1.depthwise_conv"],
+                "pw": ["encoder.subsampling.layers.0.pointwise_conv",
+                       "encoder.subsampling.layers.1.pointwise_conv"],
+            }
+        else:
+            self.ss_names = {
+                "conv_in": "encoder.subsampling.layers.0",
+                "dw": ["encoder.subsampling.layers.2", "encoder.subsampling.layers.5"],
+                "pw": ["encoder.subsampling.layers.3", "encoder.subsampling.layers.6"],
+            }
+
     # ------------------------------------------------------------- subsampling
-    def _causal_conv2d(self, x, weight, bias, groups=1):
-        """x [C_in, T, F]; pad time (2,1) e freq (2,1); stride 2. Ritorna [C_out, T', F']."""
+    def _conv2d_s2(self, x, weight, bias, groups=1):
+        """x [C_in, T, F]; stride 2. Padding causale (2,1)x(2,1) o simmetrico (1,1)x(1,1)
+        secondo self.causal. Ritorna [C_out, T', F']."""
         k = weight.shape[2]
         stride = 2
-        x = np.pad(x, ((0, 0), (k - 1, stride - 1), (k - 1, stride - 1)))
+        pad = (k - 1, stride - 1) if self.causal else ((k - 1) // 2, (k - 1) // 2)
+        x = np.pad(x, ((0, 0), pad, pad))
         C_in, T, F = x.shape
         C_out = weight.shape[0]
         To = (T - k) // stride + 1
@@ -89,16 +117,16 @@ class NemotronOracle:
     def subsampling(self, feats: np.ndarray) -> np.ndarray:
         """feats [T, n_mels] (solo frame validi) -> [T', d_model]."""
         w = self.w
+        nm = self.ss_names
         x = feats.astype(np.float64)[None, :, :]                      # [1, T, F]
-        x = np.maximum(self._causal_conv2d(x, w["encoder.subsampling.conv_in.weight"],
-                                           w["encoder.subsampling.conv_in.bias"]), 0.0)
+        x = np.maximum(self._conv2d_s2(x, w[nm["conv_in"] + ".weight"],
+                                       w[nm["conv_in"] + ".bias"]), 0.0)
         for i in range(2):
-            p = f"encoder.subsampling.layers.{i}."
-            x = self._causal_conv2d(x, w[p + "depthwise_conv.weight"], w[p + "depthwise_conv.bias"],
-                                    groups=x.shape[0])
+            x = self._conv2d_s2(x, w[nm["dw"][i] + ".weight"], w[nm["dw"][i] + ".bias"],
+                                groups=x.shape[0])
             # pointwise 1x1
-            pw = w[p + "pointwise_conv.weight"][:, :, 0, 0]            # [C_out, C_in]
-            x = np.einsum("oc,ctf->otf", pw, x) + w[p + "pointwise_conv.bias"][:, None, None]
+            pw = w[nm["pw"][i] + ".weight"][:, :, 0, 0]                # [C_out, C_in]
+            x = np.einsum("oc,ctf->otf", pw, x) + w[nm["pw"][i] + ".bias"][:, None, None]
             x = np.maximum(x, 0.0)
         C, T, F = x.shape
         x = x.transpose(1, 0, 2).reshape(T, C * F)                     # [T, C*F] channel-major
@@ -147,7 +175,8 @@ class NemotronOracle:
         rk = (pos @ w[p + "relative_k_proj.weight"].T.astype(np.float64)).reshape(-1, H, dk).transpose(1, 0, 2)
         bd = q_v @ rk.transpose(0, 2, 1)                                # [H, T, 2T-1]
         bd = self._rel_shift(bd)[:, :, :T] * scaling
-        bd = np.where(mask[None, :, :], bd, -np.inf)
+        if mask is not None:
+            bd = np.where(mask[None, :, :], bd, -np.inf)
 
         ac = (q_u @ k.transpose(0, 2, 1)) * scaling
         att = softmax(ac + bd, axis=-1)
@@ -161,12 +190,18 @@ class NemotronOracle:
         h = x @ w[p + "pointwise_conv1.weight"][:, :, 0].T.astype(np.float64)   # [T, 2d]
         a, b = h[:, :self.d_model], h[:, self.d_model:]
         h = a * sigmoid(b)
-        # depthwise causale k=9: pad left k-1
+        # depthwise k: causale (pad left k-1) o 'same' simmetrico (pad (k-1)/2 per lato)
         k = self.conv_k
-        hp = np.pad(h, ((k - 1, 0), (0, 0)))
+        pad = (k - 1, 0) if self.causal else ((k - 1) // 2, (k - 1) // 2)
+        hp = np.pad(h, (pad, (0, 0)))
         dw = w[p + "depthwise_conv.weight"][:, 0, :].astype(np.float64)          # [d, k]
         h = sum(hp[i:i + h.shape[0]] * dw[:, i] for i in range(k))
-        h = layer_norm(h, w[p + "norm.weight"], w[p + "norm.bias"])
+        if self.conv_norm == "batch_norm":
+            # BatchNorm1d in inference: affine per-canale con le running stats (eps 1e-5)
+            inv = 1.0 / np.sqrt(w[p + "norm.running_var"].astype(np.float64) + 1e-5)
+            h = (h - w[p + "norm.running_mean"]) * inv * w[p + "norm.weight"] + w[p + "norm.bias"]
+        else:
+            h = layer_norm(h, w[p + "norm.weight"], w[p + "norm.bias"])
         h = silu(h)
         return h @ w[p + "pointwise_conv2.weight"][:, :, 0].T.astype(np.float64)
 
@@ -186,35 +221,39 @@ class NemotronOracle:
         x = x + 0.5 * self.ffn(ln("norm_feed_forward2", x), li, "feed_forward2")
         return ln("norm_out", x)
 
-    def encode(self, feats: np.ndarray, prompt_id: int, lookahead: int | None = None,
+    def encode(self, feats: np.ndarray, prompt_id: int | None, lookahead: int | None = None,
                dumps: dict | None = None) -> np.ndarray:
         """feats [T_mel, n_mels] validi -> enc [T_enc, 640] (dopo prompt + projector)."""
         w = self.w
-        left, right = self.cfg["streaming"]["att_context_presets"][
-            self.cfg["streaming"]["default_preset_index"]]
-        if lookahead is not None:
-            right = lookahead
         x = self.subsampling(feats)
         if dumps is not None:
             dumps["subsampling"] = x.copy()
         T = x.shape[0]
         pos = self.rel_pos_emb(T)
-        mask = self._attn_mask(T, left, right)
+        if "streaming" in self.cfg:
+            left, right = self.cfg["streaming"]["att_context_presets"][
+                self.cfg["streaming"]["default_preset_index"]]
+            if lookahead is not None:
+                right = lookahead
+            mask = self._attn_mask(T, left, right)
+        else:
+            mask = None                                    # attention full [-1, -1]
         for li in range(self.n_layers):
             x = self.encoder_layer(x, li, mask, pos)
             if dumps is not None and li in (0, self.n_layers // 2, self.n_layers - 1):
                 dumps[f"layer_{li}"] = x.copy()
         if dumps is not None:
             dumps["encoder_out"] = x.copy()
-        # prompt POST-encoder
-        one_hot = np.zeros((T, self.cfg["prompt"]["num_prompts"]))
-        one_hot[:, prompt_id] = 1.0
-        fused = np.concatenate([x, one_hot], axis=-1)
-        fused = np.maximum(fused @ w["prompt_projector.linear_1.weight"].T.astype(np.float64)
-                           + w["prompt_projector.linear_1.bias"], 0.0)
-        fused = fused @ w["prompt_projector.linear_2.weight"].T.astype(np.float64) \
-            + w["prompt_projector.linear_2.bias"]
-        enc = fused @ w["encoder_projector.weight"].T.astype(np.float64) + w["encoder_projector.bias"]
+        if self.has_prompt:
+            # prompt POST-encoder (Nemotron)
+            one_hot = np.zeros((T, self.cfg["prompt"]["num_prompts"]))
+            one_hot[:, prompt_id] = 1.0
+            fused = np.concatenate([x, one_hot], axis=-1)
+            fused = np.maximum(fused @ w["prompt_projector.linear_1.weight"].T.astype(np.float64)
+                               + w["prompt_projector.linear_1.bias"], 0.0)
+            x = fused @ w["prompt_projector.linear_2.weight"].T.astype(np.float64) \
+                + w["prompt_projector.linear_2.bias"]
+        enc = x @ w["encoder_projector.weight"].T.astype(np.float64) + w["encoder_projector.bias"]
         if dumps is not None:
             dumps["enc_proj"] = enc.copy()
         return enc
@@ -248,6 +287,8 @@ class NemotronOracle:
 
     def greedy_decode(self, enc: np.ndarray) -> list[int]:
         """Greedy RNNT su enc [T, 640]. SOS = blank; stato LSTM avanza solo su non-blank."""
+        if self.durations:
+            return self.greedy_decode_tdt(enc)
         H = self.cfg["decoder"]["pred_hidden"]
         zeros = lambda: [(np.zeros(H), np.zeros(H)) for _ in range(self.cfg["decoder"]["pred_layers"])]
         head_w = self.w["joint.head.weight"].astype(np.float64)
@@ -267,8 +308,41 @@ class NemotronOracle:
                 emitted += 1
         return tokens
 
+    def greedy_decode_tdt(self, enc: np.ndarray) -> list[int]:
+        """Greedy TDT su enc [T, 640] (ParakeetTDTGenerationMixin): ogni step il joint
+        predice token (argmax sui primi V logit, blank incluso) E duration (argmax sugli
+        ultimi len(durations)); il puntatore frame avanza della duration a OGNI step
+        (blank con duration 0 -> forzata a 1); lo stato LSTM avanza solo su non-blank.
+        Guardia max_symbols per-frame come NeMo (forza avanzamento su loop dur=0)."""
+        H = self.cfg["decoder"]["pred_hidden"]
+        V = self.cfg["decoder"]["vocab_size"]              # 8193, blank incluso
+        zeros = lambda: [(np.zeros(H), np.zeros(H)) for _ in range(self.cfg["decoder"]["pred_layers"])]
+        head_w = self.w["joint.head.weight"].astype(np.float64)
+        head_b = self.w["joint.head.bias"].astype(np.float64)
+
+        g, state = self._pred_step(self.blank, zeros())
+        tokens: list[int] = []
+        t, emitted_here = 0, 0
+        while t < enc.shape[0]:
+            logits = head_w @ np.maximum(enc[t] + g, 0.0) + head_b
+            k = int(np.argmax(logits[:V]))
+            dur = self.durations[int(np.argmax(logits[V:]))]
+            if k != self.blank:
+                tokens.append(k)
+                g, state = self._pred_step(k, state)
+                emitted_here += 1
+                if dur == 0 and emitted_here >= self.max_symbols:
+                    dur = 1                                # sblocca il frame (NeMo)
+            elif dur == 0:
+                dur = 1                                    # blank: avanzamento minimo 1
+            if dur > 0:
+                emitted_here = 0
+            t += dur
+        return tokens
+
     # ------------------------------------------------------------------ testo
     def detokenize(self, tokens: list[int]) -> tuple[str, str | None]:
+        """Testo + tag lingua (None se il modello non li emette, es. Parakeet)."""
         lang = None
         parts = []
         for t in tokens:

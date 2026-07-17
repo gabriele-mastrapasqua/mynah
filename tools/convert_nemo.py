@@ -8,7 +8,11 @@ Output (scritto NELLA stessa directory, i pesi non vengono toccati):
   - tokens.json             array id -> piece (incluso il blank in coda)
   - mel_filters.safetensors filterbank mel (slaney) + finestra Hann precomputate
 
-Uso: uv run python convert_nemo.py ../models/nemotron-3.5-asr-streaming-0.6b
+Modelli supportati (dispatch su config.json model_type):
+  - nemotron3_5_asr  (streaming cache-aware, RNNT, language prompt)
+  - parakeet_tdt     (offline, TDT, niente prompt — docs/parakeet-tdt-arch.md)
+
+Uso: uv run python convert_nemo.py ../models/<model_dir>
 """
 
 from __future__ import annotations
@@ -80,41 +84,37 @@ def load_pieces(model_dir: Path, vocab_size: int, blank_id: int, blank_token: st
 
 
 # ----------------------------------------------------------------------- main
-def convert(model_dir: Path) -> None:
-    cfg = json.loads((model_dir / "config.json").read_text())
-    proc = json.loads((model_dir / "processor_config.json").read_text())
-    tok_cfg = json.loads((model_dir / "tokenizer_config.json").read_text())
+def features_section(fe: dict, normalize: str) -> dict:
+    return {
+        "sample_rate": fe["sampling_rate"],
+        "n_mels": fe["feature_size"],
+        "n_fft": fe["n_fft"],
+        "win_length": fe["win_length"],
+        "hop_length": fe["hop_length"],
+        "preemphasis": fe["preemphasis"],
+        "log_zero_guard": 2.0 ** -24,
+        "normalize": normalize,
+        "dither": 0.0,                      # inference
+        "mel_filters": "mel_filters.safetensors",
+    }
+
+
+def build_nemotron(model_dir: Path, cfg: dict, proc: dict) -> dict:
     enc = cfg["encoder_config"]
     fe = proc["feature_extractor"]
-
-    assert cfg["model_type"] == "nemotron3_5_asr", f"model_type inatteso: {cfg['model_type']}"
-    assert fe["feature_size"] == enc["num_mel_bins"]
-
-    vocab_size = cfg["vocab_size"]          # 13088 = 13087 pieces + blank
-    blank_id = cfg["blank_token_id"]        # 13087
     sub = enc["subsampling_factor"]
     left_context = enc["sliding_window"] - 1
     lookaheads = enc["supported_num_lookahead_tokens"]
     frame_ms = fe["hop_length"] / fe["sampling_rate"] * sub * 1000.0
 
-    mynah = {
+    return {
         "mynah_format": 1,
         "name": model_dir.name,
         "arch": "fastconformer_rnnt_streaming",
         "engine": "nemotron-streaming",
         "weights": "model.safetensors",
-        "features": {
-            "sample_rate": fe["sampling_rate"],
-            "n_mels": fe["feature_size"],
-            "n_fft": fe["n_fft"],
-            "win_length": fe["win_length"],
-            "hop_length": fe["hop_length"],
-            "preemphasis": fe["preemphasis"],
-            "log_zero_guard": 2.0 ** -24,
-            "normalize": "NA",              # dal model_config.yaml nel .nemo (vedi docs/nemotron-arch.md)
-            "dither": 0.0,                  # inference
-            "mel_filters": "mel_filters.safetensors",
-        },
+        # normalize "NA" dal model_config.yaml nel .nemo (vedi docs/nemotron-arch.md)
+        "features": features_section(fe, "NA"),
         "encoder": {
             "n_layers": enc["num_hidden_layers"],
             "d_model": enc["hidden_size"],
@@ -137,8 +137,8 @@ def convert(model_dir: Path) -> None:
             "pred_layers": cfg["num_decoder_layers"],
             "joint_hidden": cfg["decoder_hidden_size"],
             "joint_activation": cfg["hidden_act"],    # relu
-            "vocab_size": vocab_size,
-            "blank_id": blank_id,
+            "vocab_size": cfg["vocab_size"],
+            "blank_id": cfg["blank_token_id"],
             "max_symbols_per_step": cfg["max_symbols_per_step"],
         },
         "streaming": {
@@ -155,6 +155,73 @@ def convert(model_dir: Path) -> None:
         "tokenizer": {"type": "spe_bpe", "pieces": "tokens.json"},
     }
 
+
+def build_parakeet_tdt(model_dir: Path, cfg: dict, proc: dict) -> dict:
+    """parakeet-tdt (offline, non-causale, conv batch_norm, decoder TDT).
+    Riferimento numerico: docs/parakeet-tdt-arch.md + reference/transformers-parakeet/."""
+    enc = cfg["encoder_config"]
+    fe = proc["feature_extractor"]
+
+    return {
+        "mynah_format": 1,
+        "name": model_dir.name,
+        "arch": "fastconformer_tdt",
+        "engine": "parakeet-tdt",
+        "weights": "model.safetensors",
+        # normalize per_feature dal model_config.yaml nel .nemo (parakeet-tdt-arch.md)
+        "features": features_section(fe, "per_feature"),
+        "encoder": {
+            "n_layers": enc["num_hidden_layers"],
+            "d_model": enc["hidden_size"],
+            "n_heads": enc["num_attention_heads"],
+            "ffn_dim": enc["intermediate_size"],
+            "conv_kernel": enc["conv_kernel_size"],
+            "conv_norm": "batch_norm",                # foldata in scale+shift al load
+            "subsampling": "dw_striding",             # NON causale: padding simmetrico
+            "subsampling_factor": enc["subsampling_factor"],
+            "subsampling_conv_channels": enc["subsampling_conv_channels"],
+            "use_bias": enc["attention_bias"],
+            "activation": enc["hidden_act"],          # silu
+            "att_context_style": "regular",           # attention full [-1, -1]
+            "pos_emb_max_len": enc["max_position_embeddings"],
+            "xscaling": bool(enc.get("scale_input", False)),
+        },
+        "decoder": {
+            "type": "tdt_lstm",
+            "pred_hidden": cfg["decoder_hidden_size"],
+            "pred_layers": cfg["num_decoder_layers"],
+            "joint_hidden": cfg["decoder_hidden_size"],
+            "joint_activation": cfg["hidden_act"],    # relu
+            "vocab_size": cfg["vocab_size"],          # 8193 = 8192 pieces + blank
+            "blank_id": cfg["blank_token_id"],        # 8192
+            "max_symbols_per_step": cfg["max_symbols_per_step"],
+            "durations": cfg["durations"],            # [0, 1, 2, 3, 4]
+        },
+        # niente sezione "streaming" (modello offline) ne' "prompt" (LID implicita)
+        "tokenizer": {"type": "spe_bpe", "pieces": "tokens.json"},
+    }
+
+
+BUILDERS = {
+    "nemotron3_5_asr": build_nemotron,
+    "parakeet_tdt": build_parakeet_tdt,
+}
+
+
+def convert(model_dir: Path) -> None:
+    cfg = json.loads((model_dir / "config.json").read_text())
+    proc = json.loads((model_dir / "processor_config.json").read_text())
+    tok_cfg = json.loads((model_dir / "tokenizer_config.json").read_text())
+    fe = proc["feature_extractor"]
+
+    builder = BUILDERS.get(cfg["model_type"])
+    assert builder, f"model_type non supportato: {cfg['model_type']} (noti: {list(BUILDERS)})"
+    assert fe["feature_size"] == cfg["encoder_config"]["num_mel_bins"]
+
+    mynah = builder(model_dir, cfg, proc)
+    vocab_size = mynah["decoder"]["vocab_size"]
+    blank_id = mynah["decoder"]["blank_id"]
+
     pieces = load_pieces(model_dir, vocab_size, blank_id, tok_cfg.get("blank_token", "<blank>"))
 
     fb = melscale_fbanks(fe["n_fft"] // 2 + 1, 0.0, fe["sampling_rate"] / 2, fe["feature_size"], fe["sampling_rate"])
@@ -166,10 +233,11 @@ def convert(model_dir: Path) -> None:
         {"mel_fb": fb.astype(np.float32), "window": window.astype(np.float32)},
         model_dir / "mel_filters.safetensors",
     )
-    print(f"OK {model_dir.name}: mynah.json, tokens.json ({len(pieces)} pieces), "
+    print(f"OK {model_dir.name} [{mynah['engine']}]: mynah.json, tokens.json ({len(pieces)} pieces), "
           f"mel_filters.safetensors (fb {fb.shape}, window {window.shape})")
-    print(f"   presets latenza: {mynah['streaming']['att_context_presets']} "
-          f"(default idx {mynah['streaming']['default_preset_index']}, frame {frame_ms:.0f} ms)")
+    if "streaming" in mynah:
+        print(f"   presets latenza: {mynah['streaming']['att_context_presets']} "
+              f"(default idx {mynah['streaming']['default_preset_index']})")
 
 
 if __name__ == "__main__":
