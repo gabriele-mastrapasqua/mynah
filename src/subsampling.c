@@ -1,4 +1,5 @@
 #include "subsampling.h"
+#include "threads.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -32,6 +33,49 @@ int mynah_subsampling_init(mynah_subsampling *ss, const mynah_safetensors *st) {
     ss->channels = (int)ss->conv_in_w->shape[0];
     ss->d_model = (int)ss->lin_w->shape[0];
     return 0;
+}
+
+/* Worker depthwise su una fetta di canali (canali indipendenti, output
+ * disgiunto -> bit-identico al loop seriale). Pad allocato per fetta. */
+#include <stdatomic.h>
+typedef struct {
+    const float *x, *w, *b;
+    float *out;
+    int T, F, Tp, Fp2, To, Fo, pl, s, C_out, slices;
+    atomic_int failed;
+} dw_par;
+
+static void dw_slice_worker(void *ctx, int wslice) {
+    dw_par *dp = ctx;
+    const int c0 = (int)((long)dp->C_out * wslice / dp->slices);
+    const int c1 = (int)((long)dp->C_out * (wslice + 1) / dp->slices);
+    const int T = dp->T, F = dp->F, Tp = dp->Tp, Fp2 = dp->Fp2;
+    const int To = dp->To, Fo = dp->Fo, pl = dp->pl, s = dp->s;
+
+    float *pad = malloc((size_t)Tp * (size_t)Fp2 * sizeof(float));
+    if (!pad) { atomic_store(&dp->failed, 1); return; }
+    for (int co = c0; co < c1; co++) {
+        const float *src = dp->x + (size_t)co * (size_t)T * (size_t)F;
+        const float *ker = dp->w + (size_t)co * 9u;
+        memset(pad, 0, (size_t)Tp * (size_t)Fp2 * sizeof(float));
+        for (int t = 0; t < T; t++)
+            memcpy(pad + (size_t)(t + pl) * (size_t)Fp2 + 2,
+                   src + (size_t)t * (size_t)F, (size_t)F * sizeof(float));
+        float *dst = dp->out + (size_t)co * (size_t)To * (size_t)Fo;
+        for (int to = 0; to < To; to++) {
+            const float *p0 = pad + (size_t)(to * s) * (size_t)Fp2;
+            const float *p1 = p0 + Fp2, *p2 = p1 + Fp2;
+            float *drow = dst + (size_t)to * (size_t)Fo;
+            for (int fo = 0; fo < Fo; fo++) {
+                const int f = fo * s;
+                const float acc = ker[0] * p0[f] + ker[1] * p0[f + 1] + ker[2] * p0[f + 2]
+                                + ker[3] * p1[f] + ker[4] * p1[f + 1] + ker[5] * p1[f + 2]
+                                + ker[6] * p2[f] + ker[7] * p2[f + 1] + ker[8] * p2[f + 2];
+                drow[fo] = dp->b[co] + acc;
+            }
+        }
+    }
+    free(pad);
 }
 
 /* conv k3 s2 con pad freq (2,1) via bounds e pad tempo (pl_t, pr_t) parametrico.
@@ -84,36 +128,20 @@ static void conv2d_s2(const float *x, int C_in, int T, int F, int pl_t, int pr_t
     }
 
     /* depthwise: canale paddato esplicito -> 3x3 srotolato senza branch nel loop
-     * caldo (gli zeri del pad rendono la somma identica al bounds-check). */
+     * caldo (gli zeri del pad rendono la somma identica al bounds-check).
+     * Canali indipendenti -> fette parallele quando il lavoro è grande
+     * (offline); i chunk streaming restano seriali (overhead > lavoro). */
     if (depthwise) {
-        const int Fp2 = F + 3;   /* 2 sx + 1 dx, come il caso generale */
-        float *pad = malloc((size_t)Tp * (size_t)Fp2 * sizeof(float));
-        if (pad) {
-            for (int co = 0; co < C_out; co++) {
-                const float *src = x + (size_t)co * (size_t)T * (size_t)F;
-                const float *ker = w + (size_t)co * 9u;
-                memset(pad, 0, (size_t)Tp * (size_t)Fp2 * sizeof(float));
-                for (int t = 0; t < T; t++)
-                    memcpy(pad + (size_t)(t + pl) * (size_t)Fp2 + 2,
-                           src + (size_t)t * (size_t)F, (size_t)F * sizeof(float));
-                float *dst = out + (size_t)co * (size_t)To * (size_t)Fo;
-                for (int to = 0; to < To; to++) {
-                    const float *p0 = pad + (size_t)(to * s) * (size_t)Fp2;
-                    const float *p1 = p0 + Fp2, *p2 = p1 + Fp2;
-                    float *drow = dst + (size_t)to * (size_t)Fo;
-                    for (int fo = 0; fo < Fo; fo++) {
-                        const int f = fo * s;
-                        const float acc = ker[0] * p0[f] + ker[1] * p0[f + 1] + ker[2] * p0[f + 2]
-                                        + ker[3] * p1[f] + ker[4] * p1[f + 1] + ker[5] * p1[f + 2]
-                                        + ker[6] * p2[f] + ker[7] * p2[f + 1] + ker[8] * p2[f + 2];
-                        drow[fo] = b[co] + acc;
-                    }
-                }
-            }
-            free(pad);
-            return;
-        }
-        /* malloc fallita: prosegue col loop diretto */
+        dw_par dp = {.x = x, .w = w, .b = b, .out = out, .T = T, .F = F, .Tp = Tp,
+                     .Fp2 = F + 3, .To = To, .Fo = Fo, .pl = pl, .s = s,
+                     .C_out = C_out, .slices = 1};
+        atomic_init(&dp.failed, 0);
+        const size_t work = (size_t)C_out * (size_t)To * (size_t)Fo;
+        if (work > 500000)
+            dp.slices = mynah_num_threads() < C_out ? mynah_num_threads() : C_out;
+        mynah_parallel_for(dp.slices, dw_slice_worker, &dp);
+        if (!atomic_load(&dp.failed)) return;
+        /* malloc fallita in un worker: prosegue col loop diretto */
     }
 
     for (int co = 0; co < C_out; co++) {

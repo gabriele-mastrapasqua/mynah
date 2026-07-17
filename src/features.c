@@ -1,4 +1,5 @@
 #include "features.h"
+#include "threads.h"
 
 #include <math.h>
 #include <stdio.h>
@@ -66,10 +67,41 @@ static void mel_project(const mynah_feat_cfg *cfg, const double *power,
     }
 }
 
+/* Worker della fetta di frame mel (offline): frame indipendenti, righe di
+ * output disgiunte -> bit-identico al loop seriale. Scratch FFT per-thread. */
+typedef struct {
+    const mynah_feat_cfg *cfg;
+    const double *y, *win;
+    const int *lo, *hi;
+    float *feats;
+    int valid, slices;
+} mel_par;
+
+static void mel_slice_worker(void *ctx, int w) {
+    const mel_par *mp = ctx;
+    const mynah_feat_cfg *cfg = mp->cfg;
+    const int n_fft = cfg->n_fft, n_bins = n_fft / 2 + 1, hop = cfg->hop_length;
+    const int t0 = (int)((long)mp->valid * w / mp->slices);
+    const int t1 = (int)((long)mp->valid * (w + 1) / mp->slices);
+
+    double *re = malloc(2u * (size_t)n_fft * sizeof(double));
+    double *power = malloc((size_t)n_bins * sizeof(double));
+    if (!re || !power) { free(re); free(power); return; }
+    double *im = re + n_fft;
+
+    for (int t = t0; t < t1; t++) {
+        const double *frame = mp->y + (size_t)t * (size_t)hop;
+        for (int i = 0; i < n_fft; i++) { re[i] = frame[i] * mp->win[i]; im[i] = 0.0; }
+        fft_radix2(re, im, n_fft);
+        for (int b = 0; b < n_bins; b++) power[b] = re[b] * re[b] + im[b] * im[b];
+        mel_project(cfg, power, mp->lo, mp->hi, mp->feats + (size_t)t * (size_t)cfg->n_mels);
+    }
+    free(re); free(power);
+}
+
 float *mynah_log_mel(const mynah_feat_cfg *cfg, const float *audio, size_t n_samples,
                      int *n_frames, int *valid_frames) {
     const int n_fft = cfg->n_fft, hop = cfg->hop_length, n_mels = cfg->n_mels;
-    const int n_bins = n_fft / 2 + 1;
     const int pad = n_fft / 2;
     const size_t S = n_samples;
 
@@ -89,27 +121,22 @@ float *mynah_log_mel(const mynah_feat_cfg *cfg, const float *audio, size_t n_sam
     for (int i = 0; i < cfg->win_length; i++) win[off + i] = (double)cfg->window[i];
 
     float *feats = calloc((size_t)T * (size_t)n_mels, sizeof(float));
-    double *re = malloc((size_t)n_fft * sizeof(double));
-    double *im = malloc((size_t)n_fft * sizeof(double));
-    double *power = malloc((size_t)n_bins * sizeof(double));
     int *lo = malloc(2 * (size_t)n_mels * sizeof(int));
-    if (!feats || !re || !im || !power || !lo) {
-        free(y); free(win); free(feats); free(re); free(im); free(power); free(lo);
+    if (!feats || !lo) {
+        free(y); free(win); free(feats); free(lo);
         return NULL;
     }
     int *hi = lo + n_mels;
     mel_ranges(cfg, lo, hi);
 
-    for (int t = 0; t < valid; t++) { /* i frame >= valid restano a zero */
-        const double *frame = y + (size_t)t * (size_t)hop;
-        for (int i = 0; i < n_fft; i++) { re[i] = frame[i] * win[i]; im[i] = 0.0; }
-        fft_radix2(re, im, n_fft);
-        for (int b = 0; b < n_bins; b++) power[b] = re[b] * re[b] + im[b] * im[b];
+    /* frame indipendenti -> fette parallele; i frame >= valid restano a zero */
+    mel_par mp = {cfg, y, win, lo, hi, feats, valid, 1};
+    if (valid > 0)
+        mp.slices = mynah_num_threads() < valid ? mynah_num_threads() : valid;
+    if (valid > 0)
+        mynah_parallel_for(mp.slices, mel_slice_worker, &mp);
 
-        mel_project(cfg, power, lo, hi, feats + (size_t)t * (size_t)n_mels);
-    }
-
-    free(y); free(win); free(re); free(im); free(power); free(lo);
+    free(y); free(win); free(lo);
     *n_frames = T;
     *valid_frames = valid;
     return feats;

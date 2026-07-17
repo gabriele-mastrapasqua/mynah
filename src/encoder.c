@@ -1,6 +1,7 @@
 #include "encoder.h"
 
 #include "backend.h"
+#include "threads.h"
 
 #include <math.h>
 #include <stdio.h>
@@ -633,7 +634,30 @@ int mynah_enc_stream_step(mynah_enc_stream *es, const float *mel, int n_mel,
 /* --------------------------------------------------------- forward batched
  * Packing senza padding: x = concat dei frame di tutte le sequenze [ΣT, d].
  * FFN/LN girano sull'intero packed (weight-stationary); attention e conv,
- * che dipendono dalla causalità per-sequenza, iterano sui segmenti. */
+ * che dipendono dalla causalità per-sequenza, iterano sui segmenti —
+ * IN PARALLELO (segmenti indipendenti, output disgiunti: bit-identico al
+ * loop seriale). È il moltiplicatore del batch su many-core: le GEMM packed
+ * le parallelizza il BLAS, i segmenti li parallelizziamo noi. */
+typedef struct {
+    const mynah_encoder *enc;
+    const mynah_enc_layer *L;
+    const float *xn;
+    float *tmp;
+    const int *t_enc, *offs;
+    float *const *pes;
+    int left, right, is_conv;
+} seg_par;
+
+static void seg_worker(void *ctx, int b) {
+    const seg_par *sp = ctx;
+    const size_t off = (size_t)sp->offs[b] * (size_t)sp->enc->d_model;
+    if (sp->is_conv)
+        conv_module(sp->enc, sp->L, sp->xn + off, sp->tmp + off, sp->t_enc[b]);
+    else
+        attention(sp->enc, sp->L, sp->xn + off, sp->tmp + off, sp->t_enc[b],
+                  sp->pes[b], sp->left, sp->right);
+}
+
 static int encoder_layer_batch(const mynah_encoder *enc, int li, float *x,
                                const int *t_enc, int batch, float *const *pes,
                                int left, int right) {
@@ -653,19 +677,24 @@ static int encoder_layer_batch(const mynah_encoder *enc, int li, float *x,
     mynah_qmat_ffn(&L->ff1_w1, &L->ff1_w2, tmp, tmp, T_total, tmp2);
     for (size_t i = 0; i < n; i++) x[i] += 0.5f * tmp[i];
 
-    /* MHSA — per segmento */
+    int *offs = malloc((size_t)batch * sizeof(int));
+    if (!offs) { free(tmp); free(tmp2); free(xn); return -1; }
+    for (int b = 0, off = 0; b < batch; off += t_enc[b], b++) offs[b] = off;
+    seg_par sp = {.enc = enc, .L = L, .xn = xn, .tmp = tmp, .t_enc = t_enc,
+                  .offs = offs, .pes = pes, .left = left, .right = right};
+
+    /* MHSA — segmenti in parallelo */
     layer_norm_f(x, L->ln_att_w, L->ln_att_b, xn, T_total, d);
-    for (int b = 0, off = 0; b < batch; off += t_enc[b], b++)
-        attention(enc, L, xn + (size_t)off * (size_t)d, tmp + (size_t)off * (size_t)d,
-                  t_enc[b], pes[b], left, right);
+    sp.is_conv = 0;
+    mynah_parallel_for(batch, seg_worker, &sp);
     for (size_t i = 0; i < n; i++) x[i] += tmp[i];
 
-    /* Conv — per segmento (causale) */
+    /* Conv — segmenti in parallelo (causale per segmento) */
     layer_norm_f(x, L->ln_conv_w, L->ln_conv_b, xn, T_total, d);
-    for (int b = 0, off = 0; b < batch; off += t_enc[b], b++)
-        conv_module(enc, L, xn + (size_t)off * (size_t)d, tmp + (size_t)off * (size_t)d,
-                    t_enc[b]);
+    sp.is_conv = 1;
+    mynah_parallel_for(batch, seg_worker, &sp);
     for (size_t i = 0; i < n; i++) x[i] += tmp[i];
+    free(offs);
 
     /* ½ FFN2 + LN out — packed, fuso */
     layer_norm_f(x, L->ln_ff2_w, L->ln_ff2_b, tmp, T_total, d);
