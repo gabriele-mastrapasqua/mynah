@@ -29,3 +29,10 @@ tests/golden/
 
 # sample per-lingua scaricati (Tatoeba, licenze varie): non committare
 tests/audio/langs/
+libmynah.a
+tests/test_qmat
+tests/test_features
+tests/test_subsampling
+tests/test_encoder
+tests/test_streaming
+tests/test_batch

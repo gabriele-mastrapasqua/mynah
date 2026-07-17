@@ -23,11 +23,24 @@ un sync) e q/k/v insieme → −15% vs CPU.
 bias_u/v (shader), relk, GEMM per-head su **viste MPS strided** (zero permute),
 softmax+rel_shift+finestra chunked in shader (accumulo float), ctx, o_proj — e conv
 module intero (pw1→GLU→dwconv9→LayerNorm→SiLU→pw2, tutti shader propri).
-**4 sync per layer** (erano ~10 in v1). Misurato back-to-back su 63 s:
-**−21% vs CPU** (RTF 0.085 vs 0.107), testo identico su tutte le lingue provate,
-0 leak. Sotto 24 righe (chunk streaming) si resta su CPU.
-Margini v4: residual/LN tra i blocchi su GPU (command buffer per-layer completo,
-~1 sync/layer), conversioni f32↔f16 in shader, batch server su Metal.
+4 sync per layer (erano ~10 in v1).
+
+**v4 (encoder intero su GPU, un sync per forward)**: anche lo stream residuo resta
+su GPU — **f32 per fedeltà numerica** (LN tra i blocchi e residual add accumulano
+in f32 come la CPU; i blocchi restano f16 come in v3). Conversioni f32↔f16 negli
+shader; la CPU fa solo due memcpy per forward. Un command buffer per layer,
+commit senza wait (la GPU esegue il layer i mentre la CPU encoda i+1), **wait solo
+sull'ultimo**. Le layernorm sono threadgroup-per-riga con riduzione `simd_sum`
+(letture coalescenti: un thread per riga con stride d costava ~15 ms/layer ed
+era il collo di bottiglia della prima v4). Conversione pesi al load via vImage.
+Il **batch server** passa da Metal: ogni segmento fa l'encoder intero su GPU
+(pesi residenti = weight-stationary comunque), parity 4/4 vs B=1.
+
+Misurato **in-process warm** (scenario server, 63 s, best-of-N nello stesso
+minuto — la misura per-processo è dominata da page-in e conversione pesi):
+encoder 0.70 s vs 2.1 s della v3; totale **RTF 0.051 vs 0.068 CPU (−25%)**
+(v3: 0.072). Testo identico IT/EN/DE/FR/ES, 0 leak. Sotto 24 righe (chunk
+streaming) si resta su CPU. `MYNAH_METAL_PROF=1` stampa encode/wait/GPU time.
 
 ## CUDA (Linux, `make cuda`)
 

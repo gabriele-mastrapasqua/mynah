@@ -159,14 +159,6 @@ void mynah_pos_emb(const mynah_encoder *enc, int T, float *pe) {
 static void attention(const mynah_encoder *enc, const mynah_enc_layer *L, const float *x,
                       float *out, int T, const float *pe, int left, int right) {
     const int d = enc->d_model, H = enc->n_heads, dk = enc->d_head, P = 2 * T - 1;
-#ifdef MYNAH_METAL
-    /* v3: attention intera su GPU (un sync) quando i pesi sono f32 */
-    if (mynah_backend() == MYNAH_BACKEND_METAL && L->q_w.qtype == MYNAH_Q_F32 &&
-        mynah_metal_attention(x, pe, L->q_w.f32, L->k_w.f32, L->v_w.f32, L->o_w.f32,
-                              L->relk_w, L->bias_u, L->bias_v, out, T, d, H,
-                              left, right) == 0)
-        return;
-#endif
     const float scaling = 1.0f / sqrtf((float)dk);
     const int chunk = right + 1, lc = left / chunk;
 
@@ -245,13 +237,6 @@ static void attention(const mynah_encoder *enc, const mynah_enc_layer *L, const 
 static void conv_module(const mynah_encoder *enc, const mynah_enc_layer *L, const float *x,
                         float *out, int T) {
     const int d = enc->d_model, k = enc->conv_k;
-#ifdef MYNAH_METAL
-    /* v3: conv module intero su GPU (un sync) — dw_w [d,1,9] contiguo = [d,9] */
-    if (k == 9 && mynah_backend() == MYNAH_BACKEND_METAL && L->pw1_w.qtype == MYNAH_Q_F32 &&
-        mynah_metal_conv(x, L->pw1_w.f32, L->dw_w, L->cnorm_w, L->cnorm_b,
-                         L->pw2_w.f32, out, T, d) == 0)
-        return;
-#endif
     float *h2 = malloc((size_t)T * 2u * (size_t)d * sizeof(float));
     float *g = malloc((size_t)T * (size_t)d * sizeof(float));
     float *c = malloc((size_t)T * (size_t)d * sizeof(float));
@@ -319,6 +304,47 @@ int mynah_encoder_layer(const mynah_encoder *enc, int li, float *x, int T,
     layer_norm_f(x, L->ln_out_w, L->ln_out_b, xn, T, d);
     memcpy(x, xn, n * sizeof(float));
     free(tmp); free(tmp2); free(xn);
+    return 0;
+}
+
+/* Stack completo dei layer su x [T,d]. Su Metal (pesi f32, k=9) va tutto in
+ * GPU con un solo sync (v4); altrimenti loop per-layer CPU. */
+static int run_layers(const mynah_encoder *enc, float *x, int T, const float *pe,
+                      int left_ctx, int right_ctx) {
+#ifdef MYNAH_METAL
+    if (mynah_backend() == MYNAH_BACKEND_METAL && enc->conv_k == 9 &&
+        enc->layers[0].q_w.qtype == MYNAH_Q_F32) {
+        mynah_metal_layer_w *ws = malloc((size_t)enc->n_layers * sizeof(*ws));
+        if (ws) {
+            for (int li = 0; li < enc->n_layers; li++) {
+                const mynah_enc_layer *L = &enc->layers[li];
+                ws[li] = (mynah_metal_layer_w){
+                    .ln_ff1_w = L->ln_ff1_w, .ln_ff1_b = L->ln_ff1_b,
+                    .ff1_w1 = L->ff1_w1.f32, .ff1_w2 = L->ff1_w2.f32,
+                    .ln_att_w = L->ln_att_w, .ln_att_b = L->ln_att_b,
+                    .wq = L->q_w.f32, .wk = L->k_w.f32, .wv = L->v_w.f32,
+                    .wo = L->o_w.f32, .relk = L->relk_w,
+                    .bias_u = L->bias_u, .bias_v = L->bias_v,
+                    .ln_conv_w = L->ln_conv_w, .ln_conv_b = L->ln_conv_b,
+                    .pw1 = L->pw1_w.f32, .dw9 = L->dw_w,
+                    .cnorm_w = L->cnorm_w, .cnorm_b = L->cnorm_b,
+                    .pw2 = L->pw2_w.f32,
+                    .ln_ff2_w = L->ln_ff2_w, .ln_ff2_b = L->ln_ff2_b,
+                    .ff2_w1 = L->ff2_w1.f32, .ff2_w2 = L->ff2_w2.f32,
+                    .ln_out_w = L->ln_out_w, .ln_out_b = L->ln_out_b,
+                };
+            }
+            const int rc = mynah_metal_encoder_layers(ws, enc->n_layers, x, pe, T,
+                                                      enc->d_model, enc->n_heads,
+                                                      enc->ffn_dim, left_ctx, right_ctx);
+            free(ws);
+            if (rc == 0) return 0;
+        }
+    }
+#endif
+    for (int li = 0; li < enc->n_layers; li++)
+        if (mynah_encoder_layer(enc, li, x, T, pe, left_ctx, right_ctx) != 0)
+            return -1;
     return 0;
 }
 
@@ -652,6 +678,19 @@ int mynah_encoder_forward_batch(const mynah_encoder *enc, const float *const *fe
         seq[b] = NULL;
     }
 
+#ifdef MYNAH_METAL
+    /* Su Metal ogni segmento fa l'encoder intero su GPU (pesi residenti =
+     * weight-stationary comunque); il packing paga solo sulle GEMM CPU. */
+    if (mynah_backend() == MYNAH_BACKEND_METAL &&
+        enc->layers[0].q_w.qtype == MYNAH_Q_F32) {
+        for (int b = 0, off = 0; b < batch; off += t_outs[b], b++)
+            if (run_layers(enc, x + (size_t)off * (size_t)d, t_outs[b], pes[b],
+                           left_ctx, right_ctx) != 0) {
+                free(x);
+                goto done;
+            }
+    } else
+#endif
     for (int li = 0; li < enc->n_layers; li++)
         if (encoder_layer_batch(enc, li, x, t_outs, batch, pes, left_ctx, right_ctx) != 0) {
             free(x);
@@ -684,11 +723,10 @@ float *mynah_encoder_forward(const mynah_encoder *enc, const float *feats, int t
     if (!pe) { free(x); return NULL; }
     mynah_pos_emb(enc, T, pe);
 
-    for (int li = 0; li < enc->n_layers; li++)
-        if (mynah_encoder_layer(enc, li, x, T, pe, left_ctx, right_ctx) != 0) {
-            free(x); free(pe);
-            return NULL;
-        }
+    if (run_layers(enc, x, T, pe, left_ctx, right_ctx) != 0) {
+        free(x); free(pe);
+        return NULL;
+    }
     free(pe);
 
     float *out = malloc((size_t)T * (size_t)enc->d_out * sizeof(float));

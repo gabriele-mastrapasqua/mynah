@@ -26,15 +26,20 @@ void mynah_gemm3_wt(const float *x, const float *wa, const float *wb, const floa
                     float *oa, float *ob, float *oc, int T, int n, int k);
 
 #ifdef MYNAH_METAL
-/* v3: blocchi interi su GPU (un sync ciascuno). Ritornano -1 -> fallback CPU. */
-int mynah_metal_attention(const float *xn, const float *pe,
-                          const float *wq, const float *wk, const float *wv,
-                          const float *wo, const float *relk,
-                          const float *bias_u, const float *bias_v,
-                          float *out, int T, int d, int H, int left, int right);
-int mynah_metal_conv(const float *xn, const float *pw1, const float *dw9,
-                     const float *ln_w, const float *ln_b, const float *pw2,
-                     float *out, int T, int d);
+/* v4: encoder intero su GPU — stream residuo f32 residente, LN/residual/softmax
+ * in shader, un solo sync per forward. Pesi f32 host-stabili (convertiti f16 in
+ * cache residente alla prima chiamata). Ritorna -1 -> fallback CPU. */
+typedef struct {
+    const float *ln_ff1_w, *ln_ff1_b, *ff1_w1, *ff1_w2;
+    const float *ln_att_w, *ln_att_b, *wq, *wk, *wv, *wo, *relk, *bias_u, *bias_v;
+    const float *ln_conv_w, *ln_conv_b, *pw1, *dw9, *cnorm_w, *cnorm_b, *pw2;
+    const float *ln_ff2_w, *ln_ff2_b, *ff2_w1, *ff2_w2;
+    const float *ln_out_w, *ln_out_b;
+} mynah_metal_layer_w;
+
+int mynah_metal_encoder_layers(const mynah_metal_layer_w *Ls, int n_layers,
+                               float *x, const float *pe, int T, int d, int H,
+                               int ffn, int left, int right);
 #endif
 
 #endif
