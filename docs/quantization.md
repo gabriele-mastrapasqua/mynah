@@ -60,3 +60,21 @@ rilasciate con madvise).
 
 `make test` include e2e con `--quant int8` e `--quant int4` (skippati se i checkpoint
 non sono stati generati). Leak check: 0 byte anche sul percorso quantizzato.
+
+## Regression CER multilingua (2026-07-17)
+
+Suite completa `test-nemo-langs` (34 locali + 4 varianti, 102 sample Tatoeba/FLEURS,
+lingua esplicita, soglia CER 0.3) con `uv run python -m eval.test_langs --quant int8|int4`:
+
+|            | f32   | int8  | int4  |
+|------------|-------|-------|-------|
+| CER medio  | 0.133 | 0.145 | 0.227 |
+| lingue OK  | 37/37 | 36/37 | 35/37 |
+| ΔCER>0.05  | —     | 2/38  | 19/38 |
+
+- **INT8 ≈ trasparente**: CER identico al f32 su ~90% delle lingue. Peggiorano solo
+  ro-RO (+0.15, già borderline in f32: 0.47) e ja-JP (+0.33 su 3 sample: un sample
+  degenerato — rumore statistico da verificare con più dati).
+- **INT4 costa sulla suite reale** (i fixture `say` non lo mostravano): metà delle
+  lingue perde >0.05 di CER, es-ES e ro-RO scendono sotto soglia. Resta valido per
+  lo streaming dove la banda domina, ma per qualità multilingua usare int8.

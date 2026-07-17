@@ -4,6 +4,9 @@
 di riferimento (normalizzato: lowercase, senza punteggiatura).
 
 Uso: uv run python -m eval.test_langs [--cer-max 0.3] [--mynah ../mynah] [--model DIR]
+                                      [--quant int8|int4]
+--quant: regression della quantizzazione — stessa suite sul checkpoint
+pre-quantizzato (richiede model.int8/int4.safetensors da `mynah quantize`).
 Exit: 0 tutte le lingue ok, 1 fallimenti, 77 skip (sample o modello assenti).
 """
 
@@ -53,18 +56,23 @@ def main() -> None:
     ap.add_argument("--cer-max", type=float, default=0.3)
     ap.add_argument("--mynah", default=str(ROOT / "mynah"))
     ap.add_argument("--model", default=str(ROOT / "models/nemotron-3.5-asr-streaming-0.6b"))
+    ap.add_argument("--quant", choices=["int8", "int4"], default=None)
     args = ap.parse_args()
 
     manifest_path = ROOT / "tests/audio/langs/manifest.json"
     if not manifest_path.exists() or not Path(args.model, "mynah.json").exists():
         print("SKIP: sample (tools/fetch_lang_samples.py) o modello assenti")
         sys.exit(77)
+    if args.quant and not Path(args.model, f"model.{args.quant}.safetensors").exists():
+        print(f"SKIP: checkpoint {args.quant} assente (mynah quantize --quant {args.quant})")
+        sys.exit(77)
     manifest = json.loads(manifest_path.read_text())
 
     def transcribe(wav: Path, lang: str) -> tuple[str, str]:
-        proc = subprocess.run(
-            [args.mynah, "transcribe", "-m", args.model, "-i", str(wav), "--lang", lang],
-            capture_output=True, text=True, timeout=300)
+        cmd = [args.mynah, "transcribe", "-m", args.model, "-i", str(wav), "--lang", lang]
+        if args.quant:
+            cmd += ["--quant", args.quant]
+        proc = subprocess.run(cmd, capture_output=True, text=True, timeout=300)
         m = re.search(r"lang=([\w-]+)", proc.stderr)
         return proc.stdout.strip(), (m.group(1) if m else "?")
 
@@ -108,7 +116,8 @@ def main() -> None:
         print(f"{locale:8} {len(entries):>6} {n_ok}/{len(cers):>5} {avg:>10.3f} "
               f"{auto_hits}/{len(entries):>7}  {esito}")
 
-    print(f"\n{n_lang_ok} lingue OK, {n_lang_fail} FAIL (soglia CER {args.cer_max}, criterio: maggioranza)")
+    print(f"\n[{args.quant or 'f32'}] {n_lang_ok} lingue OK, {n_lang_fail} FAIL "
+          f"(soglia CER {args.cer_max}, criterio: maggioranza)")
     if failures:
         print("\nDettaglio sample sopra soglia:")
         print("\n".join(failures))
