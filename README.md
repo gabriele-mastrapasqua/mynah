@@ -34,7 +34,8 @@ decoder intercambiabili, streaming come cittadino di prima classe.
 |---|---|
 | [nvidia/nemotron-3.5-asr-streaming-0.6b](https://huggingface.co/nvidia/nemotron-3.5-asr-streaming-0.6b) — streaming, 40 lingue | ✅ funzionante |
 | [nvidia/parakeet-tdt-0.6b-v3](https://huggingface.co/nvidia/parakeet-tdt-0.6b-v3) — offline TDT, 25 lingue EU, PnC+ITN | ✅ funzionante |
-| resto famiglia Parakeet (RNNT/CTC/110M) | pianificato (v0.5) |
+| [nvidia/parakeet-tdt_ctc-110m](https://huggingface.co/nvidia/parakeet-tdt_ctc-110m) — offline TDT 114M EN (da `.nemo`) | ✅ funzionante |
+| resto famiglia Parakeet (RNNT/CTC) | pianificato (v0.5) |
 | famiglia Canary (ASR + traduzione) | pianificato (v0.8+) |
 
 Ogni stadio numerico è validato contro un oracolo numpy di riferimento

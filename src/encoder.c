@@ -40,6 +40,15 @@ static void silu_inplace(float *x, size_t n) {
     for (size_t i = 0; i < n; i++) x[i] = x[i] / (1.0f + expf(-x[i]));
 }
 
+/* x[T, n] += b (broadcast per riga); no-op se b == NULL (modelli senza bias) */
+static void add_bias_rows(float *x, const float *b, int T, int n) {
+    if (!b) return;
+    for (int t = 0; t < T; t++) {
+        float *row = x + (size_t)t * (size_t)n;
+        for (int i = 0; i < n; i++) row[i] += b[i];
+    }
+}
+
 /* out[T,n] = x[T,k] @ W[n,k]^T (row-major, layout linear PyTorch) */
 static void matmul_wt(const float *x, const float *w, float *out, int T, int n, int k) {
     mynah_gemm_wt(x, w, out, T, n, k);
@@ -95,6 +104,18 @@ int mynah_encoder_init(mynah_encoder *enc, const mynah_safetensors *st, int quan
         L->ln_ff2_b = T_(st, F, li, "norm_feed_forward2.bias");
         L->ln_out_w = T_(st, F, li, "norm_out.weight");
         L->ln_out_b = T_(st, F, li, "norm_out.bias");
+        /* bias opzionali (use_bias true, es. parakeet-110m): NULL se assenti */
+        L->ff1_b1 = T_(st, F, li, "feed_forward1.linear1.bias");
+        L->ff1_b2 = T_(st, F, li, "feed_forward1.linear2.bias");
+        L->ff2_b1 = T_(st, F, li, "feed_forward2.linear1.bias");
+        L->ff2_b2 = T_(st, F, li, "feed_forward2.linear2.bias");
+        L->q_b = T_(st, F, li, "self_attn.q_proj.bias");
+        L->k_b = T_(st, F, li, "self_attn.k_proj.bias");
+        L->v_b = T_(st, F, li, "self_attn.v_proj.bias");
+        L->o_b = T_(st, F, li, "self_attn.o_proj.bias");
+        L->pw1_b = T_(st, F, li, "conv.pointwise_conv1.bias");
+        L->dw_b = T_(st, F, li, "conv.depthwise_conv.bias");
+        L->pw2_b = T_(st, F, li, "conv.pointwise_conv2.bias");
         if (!L->ln_ff1_w || !L->relk_w || !L->cnorm_w || !L->ln_out_w) {
             fprintf(stderr, "encoder: tensori mancanti al layer %d\n", li);
             return -1;
@@ -206,6 +227,9 @@ static void attention(const mynah_encoder *enc, const mynah_enc_layer *L, const 
     if (!q || !rk || !scores || !bd || !qb || !ctx) { free(q); free(rk); free(scores); free(bd); free(qb); free(ctx); return; }
 
     mynah_qmat_qkv(&L->q_w, &L->k_w, &L->v_w, x, q, k, v, T);
+    add_bias_rows(q, L->q_b, T, d);
+    add_bias_rows(k, L->k_b, T, d);
+    add_bias_rows(v, L->v_b, T, d);
     matmul_wt(pe, L->relk_w, rk, P, d, d);
 
     for (int h = 0; h < H; h++) {
@@ -267,6 +291,7 @@ static void attention(const mynah_encoder *enc, const mynah_enc_layer *L, const 
     }
 
     mynah_qmat_mul(&L->o_w, ctx, out, T);
+    add_bias_rows(out, L->o_b, T, d);
     free(q); free(rk); free(scores); free(bd); free(qb); free(ctx);
 }
 
@@ -281,6 +306,7 @@ static void conv_module(const mynah_encoder *enc, const mynah_enc_layer *L, cons
 
     /* pointwise_conv1 [2d, d, 1] come linear, poi GLU sui canali */
     mynah_qmat_mul(&L->pw1_w, x, h2, T);
+    add_bias_rows(h2, L->pw1_b, T, 2 * d);
     for (int t = 0; t < T; t++) {
         const float *a = h2 + (size_t)t * 2u * (size_t)d;
         const float *b = a + d;
@@ -293,7 +319,8 @@ static void conv_module(const mynah_encoder *enc, const mynah_enc_layer *L, cons
     const int pc = enc->causal ? k - 1 : (k - 1) / 2;
     for (int t = 0; t < T; t++) {
         float *o = c + (size_t)t * (size_t)d;
-        memset(o, 0, (size_t)d * sizeof(float));
+        if (L->dw_b) memcpy(o, L->dw_b, (size_t)d * sizeof(float));
+        else memset(o, 0, (size_t)d * sizeof(float));
         int j0 = (t - pc < 0) ? (pc - t) : 0;
         int j1 = (t - pc + k > T) ? (T - t + pc) : k;
         for (int j = j0; j < j1; j++) {
@@ -314,7 +341,30 @@ static void conv_module(const mynah_encoder *enc, const mynah_enc_layer *L, cons
     }
     silu_inplace(g, (size_t)T * (size_t)d);
     mynah_qmat_mul(&L->pw2_w, g, out, T);
+    add_bias_rows(out, L->pw2_b, T, d);
     free(h2); free(g); free(c);
+}
+
+/* ½FFN pre-norm: fusa (qmat_ffn) per i modelli senza bias, unfused con i bias.
+ * ln -> linear1 (+b) -> SiLU -> linear2 (+b) in tmp [T,d]; tmp2 scratch [T,ffn]. */
+static void half_ffn(const mynah_encoder *enc, const mynah_enc_layer *L,
+                     const float *x, float *tmp, float *tmp2, int T, int which2) {
+    const mynah_qmat *w1 = which2 ? &L->ff2_w1 : &L->ff1_w1;
+    const mynah_qmat *w2 = which2 ? &L->ff2_w2 : &L->ff1_w2;
+    const float *b1 = which2 ? L->ff2_b1 : L->ff1_b1;
+    const float *b2 = which2 ? L->ff2_b2 : L->ff1_b2;
+    const float *lnw = which2 ? L->ln_ff2_w : L->ln_ff1_w;
+    const float *lnb = which2 ? L->ln_ff2_b : L->ln_ff1_b;
+    layer_norm_f(x, lnw, lnb, tmp, T, enc->d_model);
+    if (!b1 && !b2) {
+        mynah_qmat_ffn(w1, w2, tmp, tmp, T, tmp2);
+        return;
+    }
+    mynah_qmat_mul(w1, tmp, tmp2, T);
+    add_bias_rows(tmp2, b1, T, enc->ffn_dim);
+    silu_inplace(tmp2, (size_t)T * (size_t)enc->ffn_dim);
+    mynah_qmat_mul(w2, tmp2, tmp, T);
+    add_bias_rows(tmp, b2, T, enc->d_model);
 }
 
 /* ------------------------------------------------------------------ layer */
@@ -327,9 +377,8 @@ int mynah_encoder_layer(const mynah_encoder *enc, int li, float *x, int T,
     float *tmp2 = malloc((size_t)T * (size_t)enc->ffn_dim * sizeof(float));
     if (!tmp || !tmp2) { free(tmp); free(tmp2); return -1; }
 
-    /* ½ FFN1 (path fuso: su Metal un solo sync) */
-    layer_norm_f(x, L->ln_ff1_w, L->ln_ff1_b, tmp, T, d);
-    mynah_qmat_ffn(&L->ff1_w1, &L->ff1_w2, tmp, tmp, T, tmp2);
+    /* ½ FFN1 (fusa se senza bias: su Metal un solo sync) */
+    half_ffn(enc, L, x, tmp, tmp2, T, 0);
     for (size_t i = 0; i < n; i++) x[i] += 0.5f * tmp[i];
 
     /* MHSA */
@@ -344,9 +393,8 @@ int mynah_encoder_layer(const mynah_encoder *enc, int li, float *x, int T,
     conv_module(enc, L, xn, tmp, T);
     for (size_t i = 0; i < n; i++) x[i] += tmp[i];
 
-    /* ½ FFN2 (fuso) */
-    layer_norm_f(x, L->ln_ff2_w, L->ln_ff2_b, tmp, T, d);
-    mynah_qmat_ffn(&L->ff2_w1, &L->ff2_w2, tmp, tmp, T, tmp2);
+    /* ½ FFN2 */
+    half_ffn(enc, L, x, tmp, tmp2, T, 1);
     for (size_t i = 0; i < n; i++) x[i] += 0.5f * tmp[i];
 
     /* LN out */
@@ -365,7 +413,8 @@ static int run_layers(const mynah_encoder *enc, float *x, int T, const float *pe
      * module, finestra chunked): i modelli non-causali/BN/full-att restano su CPU. */
     if (mynah_backend() == MYNAH_BACKEND_METAL && enc->conv_k == 9 &&
         enc->layers[0].q_w.qtype == MYNAH_Q_F32 &&
-        enc->causal && !enc->layers[0].cnorm_scale && left_ctx >= 0) {
+        enc->causal && !enc->layers[0].cnorm_scale && !enc->layers[0].q_b &&
+        left_ctx >= 0) {
         mynah_metal_layer_w *ws = malloc((size_t)enc->n_layers * sizeof(*ws));
         if (ws) {
             for (int li = 0; li < enc->n_layers; li++) {
@@ -732,9 +781,8 @@ static int encoder_layer_batch(const mynah_encoder *enc, int li, float *x,
     float *xn = malloc(n * sizeof(float));
     if (!tmp || !tmp2 || !xn) { free(tmp); free(tmp2); free(xn); return -1; }
 
-    /* ½ FFN1 — packed, fuso */
-    layer_norm_f(x, L->ln_ff1_w, L->ln_ff1_b, tmp, T_total, d);
-    mynah_qmat_ffn(&L->ff1_w1, &L->ff1_w2, tmp, tmp, T_total, tmp2);
+    /* ½ FFN1 — packed (fusa se senza bias) */
+    half_ffn(enc, L, x, tmp, tmp2, T_total, 0);
     for (size_t i = 0; i < n; i++) x[i] += 0.5f * tmp[i];
 
     int *offs = malloc((size_t)batch * sizeof(int));
@@ -756,9 +804,8 @@ static int encoder_layer_batch(const mynah_encoder *enc, int li, float *x,
     for (size_t i = 0; i < n; i++) x[i] += tmp[i];
     free(offs);
 
-    /* ½ FFN2 + LN out — packed, fuso */
-    layer_norm_f(x, L->ln_ff2_w, L->ln_ff2_b, tmp, T_total, d);
-    mynah_qmat_ffn(&L->ff2_w1, &L->ff2_w2, tmp, tmp, T_total, tmp2);
+    /* ½ FFN2 + LN out — packed (fusa se senza bias) */
+    half_ffn(enc, L, x, tmp, tmp2, T_total, 1);
     for (size_t i = 0; i < n; i++) x[i] += 0.5f * tmp[i];
     layer_norm_f(x, L->ln_out_w, L->ln_out_b, xn, T_total, d);
     memcpy(x, xn, n * sizeof(float));
@@ -801,7 +848,8 @@ int mynah_encoder_forward_batch(const mynah_encoder *enc, const float *const *fe
      * Stesso gate di run_layers: semantica Nemotron soltanto. */
     if (mynah_backend() == MYNAH_BACKEND_METAL &&
         enc->layers[0].q_w.qtype == MYNAH_Q_F32 &&
-        enc->causal && !enc->layers[0].cnorm_scale && left_ctx >= 0) {
+        enc->causal && !enc->layers[0].cnorm_scale && !enc->layers[0].q_b &&
+        left_ctx >= 0) {
         for (int b = 0, off = 0; b < batch; off += t_outs[b], b++)
             if (run_layers(enc, x + (size_t)off * (size_t)d, t_outs[b], pes[b],
                            left_ctx, right_ctx) != 0) {

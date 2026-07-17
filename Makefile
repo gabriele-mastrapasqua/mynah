@@ -21,6 +21,7 @@ HDR := $(wildcard src/*.h)
 
 MODEL_DIR ?= models/nemotron-3.5-asr-streaming-0.6b
 PARAKEET_DIR ?= models/parakeet-tdt-0.6b-v3
+PARAKEET110_DIR ?= models/parakeet-tdt_ctc-110m
 
 all: mynah mynah-server
 
@@ -51,12 +52,15 @@ test: $(TESTS) mynah
 	  if [ $$rc -eq 77 ]; then echo "SKIP $$t: modello o golden assenti (make golden-dump)"; \
 	  elif [ $$rc -ne 0 ]; then exit $$rc; fi; \
 	done
-	@for t in $(PARITY_BOTH); do \
-	  $$t $(PARAKEET_DIR) tests/audio/test_it.wav tests/golden/parakeet_it; rc=$$?; \
-	  if [ $$rc -eq 77 ]; then echo "SKIP $$t (parakeet): modello o golden assenti"; \
-	  elif [ $$rc -ne 0 ]; then exit $$rc; fi; \
+	@for spec in "$(PARAKEET_DIR) tests/audio/test_it.wav tests/golden/parakeet_it" \
+	             "$(PARAKEET110_DIR) tests/audio/test_en.wav tests/golden/parakeet110_en"; do \
+	  for t in $(PARITY_BOTH); do \
+	    $$t $$spec; rc=$$?; \
+	    if [ $$rc -eq 77 ]; then echo "SKIP $$t ($$spec): modello o golden assenti"; \
+	    elif [ $$rc -ne 0 ]; then exit $$rc; fi; \
+	  done; \
 	done
-	@for m in $(MODEL_DIR) $(PARAKEET_DIR); do \
+	@for m in $(MODEL_DIR) $(PARAKEET_DIR) $(PARAKEET110_DIR); do \
 	  sh tests/test_e2e.sh $$m; rc=$$?; \
 	  if [ $$rc -eq 77 ]; then echo "SKIP e2e: $$m assente"; \
 	  elif [ $$rc -ne 0 ]; then exit $$rc; fi; \
@@ -68,6 +72,9 @@ golden-dump:
 	@if [ -f $(PARAKEET_DIR)/mynah.json ]; then \
 	  cd tools && uv run python -m oracle.transcribe ../$(PARAKEET_DIR) \
 	    ../tests/audio/test_it.wav --dump-dir ../tests/golden/parakeet_it; fi
+	@if [ -f $(PARAKEET110_DIR)/mynah.json ]; then \
+	  cd tools && uv run python -m oracle.transcribe ../$(PARAKEET110_DIR) \
+	    ../tests/audio/test_en.wav --dump-dir ../tests/golden/parakeet110_en; fi
 
 # libreria statica (senza CLI)
 lib: libmynah.a

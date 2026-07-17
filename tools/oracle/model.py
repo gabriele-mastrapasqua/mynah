@@ -164,7 +164,11 @@ class Oracle:
         H, dk = self.n_heads, self.d_head
 
         def proj(name):
-            return (x @ w[p + name + ".weight"].T.astype(np.float64)).reshape(T, H, dk).transpose(1, 0, 2)
+            y = x @ w[p + name + ".weight"].T.astype(np.float64)
+            b = w.get(p + name + ".bias")          # 110m: use_bias true
+            if b is not None:
+                y = y + b
+            return y.reshape(T, H, dk).transpose(1, 0, 2)
 
         q, k, v = proj("q_proj"), proj("k_proj"), proj("v_proj")
         scaling = 1.0 / np.sqrt(dk)
@@ -181,13 +185,18 @@ class Oracle:
         ac = (q_u @ k.transpose(0, 2, 1)) * scaling
         att = softmax(ac + bd, axis=-1)
         out = (att @ v).transpose(1, 0, 2).reshape(T, H * dk)
-        return out @ w[p + "o_proj.weight"].T.astype(np.float64)
+        out = out @ w[p + "o_proj.weight"].T.astype(np.float64)
+        ob = w.get(p + "o_proj.bias")
+        return out + ob if ob is not None else out
 
     def conv_module(self, x, li: int):
         w = self.w
         p = f"encoder.layers.{li}.conv."
         # pointwise_conv1 [2d, d, 1] -> GLU
         h = x @ w[p + "pointwise_conv1.weight"][:, :, 0].T.astype(np.float64)   # [T, 2d]
+        pb = w.get(p + "pointwise_conv1.bias")
+        if pb is not None:
+            h = h + pb
         a, b = h[:, :self.d_model], h[:, self.d_model:]
         h = a * sigmoid(b)
         # depthwise k: causale (pad left k-1) o 'same' simmetrico (pad (k-1)/2 per lato)
@@ -196,6 +205,9 @@ class Oracle:
         hp = np.pad(h, (pad, (0, 0)))
         dw = w[p + "depthwise_conv.weight"][:, 0, :].astype(np.float64)          # [d, k]
         h = sum(hp[i:i + h.shape[0]] * dw[:, i] for i in range(k))
+        db = w.get(p + "depthwise_conv.bias")
+        if db is not None:
+            h = h + db
         if self.conv_norm == "batch_norm":
             # BatchNorm1d in inference: affine per-canale con le running stats (eps 1e-5)
             inv = 1.0 / np.sqrt(w[p + "norm.running_var"].astype(np.float64) + 1e-5)
@@ -203,13 +215,21 @@ class Oracle:
         else:
             h = layer_norm(h, w[p + "norm.weight"], w[p + "norm.bias"])
         h = silu(h)
-        return h @ w[p + "pointwise_conv2.weight"][:, :, 0].T.astype(np.float64)
+        h = h @ w[p + "pointwise_conv2.weight"][:, :, 0].T.astype(np.float64)
+        p2b = w.get(p + "pointwise_conv2.bias")
+        return h + p2b if p2b is not None else h
 
     def ffn(self, x, li: int, which: str):
         w = self.w
         p = f"encoder.layers.{li}.{which}."
-        h = silu(x @ w[p + "linear1.weight"].T.astype(np.float64))
-        return h @ w[p + "linear2.weight"].T.astype(np.float64)
+        h = x @ w[p + "linear1.weight"].T.astype(np.float64)
+        b1 = w.get(p + "linear1.bias")
+        if b1 is not None:
+            h = h + b1
+        h = silu(h)
+        h = h @ w[p + "linear2.weight"].T.astype(np.float64)
+        b2 = w.get(p + "linear2.bias")
+        return h + b2 if b2 is not None else h
 
     def encoder_layer(self, x, li: int, mask, pos):
         w = self.w

@@ -12,12 +12,18 @@ Modelli supportati (dispatch su config.json model_type):
   - nemotron3_5_asr  (streaming cache-aware, RNNT, language prompt)
   - parakeet_tdt     (offline, TDT, niente prompt — docs/parakeet-tdt-arch.md)
 
+Ingresso alternativo: directory con SOLO l'archivio `.nemo` (modelli senza porting
+HF-native, es. parakeet-tdt_ctc-110m). Richiede torch (`uv sync --extra oracle`):
+estrae model_config.yaml + tokenizer, rinomina i tensori NeMo nel naming canonico
+(quello HF che il runtime legge) e scrive model.safetensors f32.
+
 Uso: uv run python convert_nemo.py ../models/<model_dir>
 """
 
 from __future__ import annotations
 
 import json
+import re
 import sys
 from pathlib import Path
 
@@ -208,7 +214,151 @@ BUILDERS = {
 }
 
 
+# ------------------------------------------------------------- ingresso .nemo
+# Rename NeMo -> canonico (naming del porting HF, quello che il runtime legge).
+# Verificato su parakeet-tdt_ctc-110m (docs/parakeet-tdt-arch.md per la mappa v3).
+_NEMO_RENAMES = [
+    ("encoder.pre_encode.conv.", "encoder.subsampling.layers."),
+    ("encoder.pre_encode.out.", "encoder.subsampling.linear."),
+    (".self_attn.linear_q.", ".self_attn.q_proj."),
+    (".self_attn.linear_k.", ".self_attn.k_proj."),
+    (".self_attn.linear_v.", ".self_attn.v_proj."),
+    (".self_attn.linear_out.", ".self_attn.o_proj."),
+    (".self_attn.linear_pos.", ".self_attn.relative_k_proj."),
+    (".self_attn.pos_bias_u", ".self_attn.bias_u"),
+    (".self_attn.pos_bias_v", ".self_attn.bias_v"),
+    (".conv.batch_norm.", ".conv.norm."),
+    ("decoder.prediction.embed.", "decoder.embedding."),
+    ("decoder.prediction.dec_rnn.lstm.", "decoder.lstm."),
+    ("joint.enc.", "encoder_projector."),
+    ("joint.pred.", "decoder.decoder_projector."),
+]
+
+
+def rename_nemo_key(k: str) -> str | None:
+    """None = tensore da saltare (preprocessor, stats inutili, head CTC ausiliaria)."""
+    if k.startswith("preprocessor.") or k.endswith("num_batches_tracked"):
+        return None
+    m = re.fullmatch(r"joint\.joint_net\.\d+\.(weight|bias)", k)
+    if m:
+        return f"joint.head.{m.group(1)}"
+    m = re.fullmatch(r"ctc_decoder\.decoder_layers\.0\.(weight|bias)", k)
+    if m:
+        return f"ctc_head.{m.group(1)}"   # conservata per il futuro decoder_ctc
+    for old, new in _NEMO_RENAMES:
+        k = k.replace(old, new)
+    return k
+
+
+def build_parakeet_tdt_from_yaml(model_dir: Path, y: dict) -> dict:
+    """mynah.json dal model_config.yaml del .nemo (Parakeet TDT/hybrid offline)."""
+    enc, fe, dec = y["encoder"], y["preprocessor"], y["decoder"]
+    sr = fe["sample_rate"]
+    assert enc["att_context_style"] == "regular" and not enc["causal_downsampling"], \
+        "solo Parakeet offline non-causale da .nemo (per ora)"
+    durations = y["decoding"].get("durations") or []
+    fe_section = {
+        "sample_rate": sr,
+        "n_mels": fe["features"],
+        "n_fft": fe["n_fft"],
+        "win_length": round(fe["window_size"] * sr),
+        "hop_length": round(fe["window_stride"] * sr),
+        "preemphasis": 0.97,                 # default NeMo (assente nello yaml)
+        "log_zero_guard": 2.0 ** -24,
+        "normalize": fe["normalize"],
+        "dither": 0.0,
+        "mel_filters": "mel_filters.safetensors",
+    }
+    return {
+        "mynah_format": 1,
+        "name": model_dir.name,
+        "arch": "fastconformer_tdt" if durations else "fastconformer_rnnt",
+        "engine": "parakeet-tdt" if durations else "parakeet-rnnt",
+        "weights": "model.safetensors",
+        "features": fe_section,
+        "encoder": {
+            "n_layers": enc["n_layers"],
+            "d_model": enc["d_model"],
+            "n_heads": enc["n_heads"],
+            "ffn_dim": enc["d_model"] * enc["ff_expansion_factor"],
+            "conv_kernel": enc["conv_kernel_size"],
+            "conv_norm": enc["conv_norm_type"],
+            "subsampling": enc["subsampling"],            # dw_striding (non causale)
+            "subsampling_factor": enc["subsampling_factor"],
+            "subsampling_conv_channels": enc["subsampling_conv_channels"],
+            "use_bias": enc.get("use_bias", True),        # default NeMo: bias presenti
+            "activation": "silu",
+            "att_context_style": enc["att_context_style"],
+            "pos_emb_max_len": enc["pos_emb_max_len"],
+            "xscaling": bool(enc.get("xscaling", False)),
+        },
+        "decoder": {
+            "type": "tdt_lstm" if durations else "rnnt_lstm",
+            "pred_hidden": dec["prednet"]["pred_hidden"],
+            "pred_layers": dec["prednet"]["pred_rnn_layers"],
+            "joint_hidden": y["joint"]["jointnet"]["joint_hidden"],
+            "joint_activation": y["joint"]["jointnet"]["activation"],
+            "vocab_size": y["joint"]["num_classes"] + 1,  # + blank
+            "blank_id": y["joint"]["num_classes"],
+            "max_symbols_per_step": y["decoding"]["greedy"]["max_symbols"],
+            **({"durations": durations} if durations else {}),
+        },
+        "tokenizer": {"type": "spe_bpe", "pieces": "tokens.json"},
+    }
+
+
+def convert_from_nemo(model_dir: Path, nemo_file: Path) -> None:
+    import io
+    import tarfile
+
+    import torch  # extra 'oracle': uv sync --extra oracle
+    import yaml
+
+    tar = tarfile.open(nemo_file)
+    names = tar.getnames()
+
+    def member(suffix: str) -> str:
+        hits = [n for n in names if n.endswith(suffix)]
+        assert len(hits) == 1, f"{suffix}: {hits}"
+        return hits[0]
+
+    ycfg = yaml.safe_load(tar.extractfile(member("model_config.yaml")).read())
+    mynah = build_parakeet_tdt_from_yaml(model_dir, ycfg)
+
+    sd = torch.load(io.BytesIO(tar.extractfile(member("model_weights.ckpt")).read()),
+                    map_location="cpu", weights_only=True)
+
+    tensors: dict[str, np.ndarray] = {}
+    for k, v in sd.items():
+        nk = rename_nemo_key(k)
+        if nk is None:
+            continue
+        assert nk not in tensors, f"rename duplicato: {k} -> {nk}"
+        tensors[nk] = v.float().numpy()
+    save_file(tensors, model_dir / "model.safetensors")
+
+    # filterbank e finestra DAL checkpoint (bit-esatte con NeMo)
+    fb = sd["preprocessor.featurizer.fb"].numpy()[0].T          # [1,M,257] -> [257,M]
+    window = sd["preprocessor.featurizer.window"].numpy()
+    save_file({"mel_fb": np.ascontiguousarray(fb.astype(np.float32)),
+               "window": window.astype(np.float32)},
+              model_dir / "mel_filters.safetensors")
+
+    # pieces dallo yaml (joint.vocabulary, in ordine di id) + blank in coda
+    pieces = list(ycfg["joint"]["vocabulary"]) + ["<blank>"]
+    assert len(pieces) == mynah["decoder"]["vocab_size"]
+    (model_dir / "tokens.json").write_text(json.dumps(pieces, ensure_ascii=False))
+    (model_dir / "mynah.json").write_text(json.dumps(mynah, indent=1, ensure_ascii=False))
+    print(f"OK {model_dir.name} [{mynah['engine']}] da .nemo: {len(tensors)} tensori "
+          f"f32, {len(pieces)} pieces, mel fb {fb.shape} dal checkpoint")
+
+
 def convert(model_dir: Path) -> None:
+    if not (model_dir / "config.json").exists():
+        nemos = sorted(model_dir.glob("*.nemo"))
+        assert nemos, f"{model_dir}: ne' config.json (porting HF) ne' archivio .nemo"
+        convert_from_nemo(model_dir, nemos[0])
+        return
     cfg = json.loads((model_dir / "config.json").read_text())
     proc = json.loads((model_dir / "processor_config.json").read_text())
     tok_cfg = json.loads((model_dir / "tokenizer_config.json").read_text())

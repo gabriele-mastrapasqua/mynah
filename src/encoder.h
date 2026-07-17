@@ -19,6 +19,10 @@ typedef struct {
     const float *ln_conv_w, *ln_conv_b;
     mynah_qmat pw1_w, pw2_w;
     const float *dw_w, *cnorm_w, *cnorm_b;
+    /* bias dei linear/conv (use_bias true, es. parakeet-110m) — NULL se assenti */
+    const float *ff1_b1, *ff1_b2, *ff2_b1, *ff2_b2;
+    const float *q_b, *k_b, *v_b, *o_b;
+    const float *pw1_b, *dw_b, *pw2_b;
     /* conv norm = batch_norm (Parakeet): affine per-canale foldata al load
      * (y = x*scale + shift); NULL => layer_norm con cnorm_w/b (Nemotron) */
     const float *cnorm_scale, *cnorm_shift;
