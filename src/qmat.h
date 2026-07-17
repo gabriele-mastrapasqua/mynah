@@ -56,6 +56,11 @@ void mynah_qmat_ffn(const mynah_qmat *w1, const mynah_qmat *w2, const float *x,
 void mynah_qmat_qkv(const mynah_qmat *wq, const mynah_qmat *wk, const mynah_qmat *wv,
                     const float *x, float *oq, float *ok, float *ov, int T);
 
+/* Dequantizza l'intera matrice in wd [n, k] f32 del caller (no-op copia se già
+ * f32). Per riusare una GEMM f32 su molte chiamate senza dequant per-chiamata
+ * (es. joint head nel greedy a blocchi). */
+void mynah_qmat_dequant(const mynah_qmat *m, float *wd);
+
 /* Caps SIMD x86 a runtime (pattern --caps di qwen-tts): "auto" (default, cpuid),
  * "scalar", "avx2", "vnni"; env MYNAH_CAPS come alternativa al flag. Un livello
  * superiore a quello della CPU viene declassato con nota. Ritorna il livello

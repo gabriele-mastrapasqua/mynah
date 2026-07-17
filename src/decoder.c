@@ -85,34 +85,98 @@ static void pred_step(const mynah_decoder *dec, mynah_dec_state *s, int token) {
     s->last_token = token;
 }
 
+/* Greedy a BLOCCHI: g cambia solo su emissione non-blank, quindi i frame di una
+ * run di blank condividono la stessa g e il joint head (il costo dominante:
+ * matvec V x H per frame) si batcha in UNA GEMM [B, V] — stessa matrice pesi
+ * letta una volta per blocco invece che per frame. Il blocco è adattivo
+ * (raddoppia sulle run di blank, riparte corto dopo un'emissione) per non
+ * sprecare righe oltre il primo frame che emette. Semantica identica al loop
+ * per-frame (l'inner loop su un frame che emette resta scalare). */
+#define DEC_BMAX 32
+
+static int argmax_bias(const float *lg, const float *bias, float *tmp, int V) {
+    for (int k = 0; k < V; k++) tmp[k] = lg[k] + bias[k];
+    int best = 0;
+    for (int k = 1; k < V; k++)
+        if (tmp[k] > tmp[best]) best = k;
+    return best;
+}
+
 int mynah_greedy_decode(const mynah_decoder *dec, mynah_dec_state *s,
                         const float *enc, int T, int *tokens, int cap) {
     const int H = dec->hidden, V = dec->vocab;
     float joint[1024];
-    float *logits = malloc((size_t)V * sizeof(float));
-    if (!logits) return 0;
+    float *jin = malloc((size_t)DEC_BMAX * (size_t)H * sizeof(float));
+    float *logits = malloc((size_t)DEC_BMAX * (size_t)V * sizeof(float));
+    float *lb = malloc((size_t)V * sizeof(float));
+    if (!jin || !logits || !lb) { free(jin); free(logits); free(lb); return 0; }
     int n_out = 0;
+
+    /* Head come matrice f32 per la GEMM BLAS diretta (CPU: deterministica tra
+     * backend — il decode non passa MAI dalla GPU). Se quantizzata e T grande
+     * (offline) si dequantizza UNA volta per chiamata: 33 MB letti/scritti una
+     * volta contro la matrice int8 riletta per ogni frame. Per T piccolo
+     * (chunk streaming) resta il dot quantizzato per-frame di qmat. */
+    const float *W = dec->head.qtype == MYNAH_Q_F32 ? dec->head.f32 : NULL;
+    float *wd = NULL;
+    if (!W && T > 16) {
+        wd = malloc((size_t)V * (size_t)H * sizeof(float));
+        if (wd) { mynah_qmat_dequant(&dec->head, wd); W = wd; }
+    }
 
     if (s->last_token < 0) pred_step(dec, s, dec->blank); /* SOS = blank, stato zero */
 
-    for (int t = 0; t < T; t++) {
-        const float *e = enc + (size_t)t * (size_t)H;
-        for (int emitted = 0; emitted < dec->max_symbols; emitted++) {
+    int t = 0, B = 4;
+    while (t < T) {
+        const int Bc = (T - t) < B ? (T - t) : B;
+        for (int b = 0; b < Bc; b++) {
+            const float *e = enc + (size_t)(t + b) * (size_t)H;
+            float *ji = jin + (size_t)b * (size_t)H;
             for (int i = 0; i < H; i++) {
                 const float v = e[i] + s->g[i];
-                joint[i] = v > 0.0f ? v : 0.0f;            /* ReLU */
+                ji[i] = v > 0.0f ? v : 0.0f;               /* ReLU */
             }
-            /* argmax del joint head (matvec V x H) — il costo dominante del decode */
-            mynah_qmat_mul(&dec->head, joint, logits, 1);
-            for (int k = 0; k < V; k++) logits[k] += dec->head_b[k];
-            int best = 0;
-            for (int k = 1; k < V; k++)
-                if (logits[k] > logits[best]) best = k;
-            if (best == dec->blank) break;
+        }
+        if (W)
+            cblas_sgemm(CblasRowMajor, CblasNoTrans, CblasTrans, Bc, V, H,
+                        1.0f, jin, H, W, H, 0.0f, logits, V);
+        else
+            mynah_qmat_mul(&dec->head, jin, logits, Bc);
+
+        int first = -1, best = -1;
+        for (int b = 0; b < Bc; b++) {
+            const int am = argmax_bias(logits + (size_t)b * (size_t)V, dec->head_b, lb, V);
+            if (am != dec->blank) { first = b; best = am; break; }
+        }
+        if (first < 0) {                                   /* run di soli blank */
+            t += Bc;
+            if (B < DEC_BMAX) B *= 2;
+            continue;
+        }
+
+        /* frame t+first emette: inner loop scalare (la prima emissione è già nota) */
+        t += first;
+        const float *e = enc + (size_t)t * (size_t)H;
+        for (int emitted = 0; emitted < dec->max_symbols; emitted++) {
+            if (emitted > 0) {                             /* iterazione 0: dal batch */
+                for (int i = 0; i < H; i++) {
+                    const float v = e[i] + s->g[i];
+                    joint[i] = v > 0.0f ? v : 0.0f;
+                }
+                if (W)
+                    cblas_sgemm(CblasRowMajor, CblasNoTrans, CblasTrans, 1, V, H,
+                                1.0f, joint, H, W, H, 0.0f, logits, V);
+                else
+                    mynah_qmat_mul(&dec->head, joint, logits, 1);
+                best = argmax_bias(logits, dec->head_b, lb, V);
+                if (best == dec->blank) break;
+            }
             if (n_out < cap) tokens[n_out++] = best;
             pred_step(dec, s, best);                       /* stato avanza solo su emit */
         }
+        t++;
+        B = 4;                                             /* riparte corto dopo un emit */
     }
-    free(logits);
+    free(jin); free(logits); free(lb); free(wd);
     return n_out;
 }

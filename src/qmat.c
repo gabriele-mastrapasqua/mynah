@@ -168,6 +168,14 @@ static void dequant_row(const mynah_qmat *m, int i, float *dst) {
     }
 }
 
+void mynah_qmat_dequant(const mynah_qmat *m, float *wd) {
+    if (m->qtype == MYNAH_Q_F32) {
+        memcpy(wd, m->f32, (size_t)m->n * (size_t)m->k * sizeof(float));
+        return;
+    }
+    for (int i = 0; i < m->n; i++) dequant_row(m, i, wd + (size_t)i * (size_t)m->k);
+}
+
 /* soglia righe: sotto -> dot diretto (bandwidth-bound), sopra -> dequant+GEMM */
 #define QMAT_SMALL_T 16
 #define QMAT_K_MAX 8192
