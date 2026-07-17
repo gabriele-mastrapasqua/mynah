@@ -37,6 +37,75 @@ void mynah_tokenizer_free(mynah_tokenizer *tk) {
     tk->pieces = NULL;
 }
 
+void mynah_words_free(mynah_word *words, int n_words) {
+    if (!words) return;
+    for (int i = 0; i < n_words; i++) free(words[i].word);
+    free(words);
+}
+
+/* piece "speciale" <...>: tag lingua o marcatore di controllo -> non è testo */
+static int piece_is_special(const char *p, size_t pl) {
+    return pl >= 2 && p[0] == '<' && p[pl - 1] == '>';
+}
+
+/* il piece inizia con ▁ (U+2581, e2 96 81)? */
+static int piece_starts_word(const char *p) {
+    return (unsigned char)p[0] == 0xE2 && (unsigned char)p[1] == 0x96 &&
+           (unsigned char)p[2] == 0x81;
+}
+
+int mynah_detokenize_words(const mynah_tokenizer *tk, const int *tokens,
+                           const int *frames, int n, double frame_sec,
+                           mynah_word **out, int *n_out) {
+    *out = NULL;
+    *n_out = 0;
+    mynah_word *words = calloc((size_t)(n > 0 ? n : 1), sizeof(mynah_word));
+    char *wbuf = malloc(256);
+    if (!words || !wbuf) { free(words); free(wbuf); return -1; }
+    size_t wcap = 256, wlen = 0;
+    int nw = 0, first_frame = 0, last_frame = 0;
+
+    for (int i = 0; i <= n; i++) {
+        const char *p = NULL;
+        size_t pl = 0;
+        int special = 1, starts = 0;
+        if (i < n && tokens[i] >= 0 && tokens[i] < tk->n_pieces) {
+            p = tk->pieces[tokens[i]];
+            pl = strlen(p);
+            special = piece_is_special(p, pl);
+            starts = pl >= 3 && piece_starts_word(p);
+        }
+        /* chiudi la parola corrente a fine sequenza o all'inizio della prossima */
+        if (wlen > 0 && (i == n || (!special && starts))) {
+            char *w = malloc(wlen + 1);
+            if (!w) { mynah_words_free(words, nw); free(wbuf); return -1; }
+            memcpy(w, wbuf, wlen);
+            w[wlen] = '\0';
+            words[nw].word = w;
+            words[nw].t0 = first_frame * frame_sec;
+            words[nw].t1 = (last_frame + 1) * frame_sec;
+            nw++;
+            wlen = 0;
+        }
+        if (i == n || special) continue;
+
+        if (wlen == 0) first_frame = frames[i];
+        last_frame = frames[i];
+        if (wlen + pl + 1 > wcap) {
+            wcap = (wcap + pl + 1) * 2;
+            char *nb = realloc(wbuf, wcap);
+            if (!nb) { mynah_words_free(words, nw); free(wbuf); return -1; }
+            wbuf = nb;
+        }
+        /* copia saltando il ▁ iniziale (e ogni ▁ interno -> niente: è un confine) */
+        for (size_t j = starts ? 3 : 0; j < pl; j++) wbuf[wlen++] = p[j];
+    }
+    free(wbuf);
+    *out = words;
+    *n_out = nw;
+    return 0;
+}
+
 char *mynah_detokenize(const mynah_tokenizer *tk, const int *tokens, int n,
                        char *lang_out) {
     size_t cap = 256, len = 0;

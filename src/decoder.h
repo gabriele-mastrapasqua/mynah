@@ -32,6 +32,8 @@ typedef struct {
     float c[MYNAH_MAX_PRED_LAYERS][1024];
     float g[1024];                          /* output pred-net corrente (cache) */
     int last_token;                         /* -1 = non inizializzato */
+    long t_abs;                             /* frame encoder assoluti già visti
+                                               (per i timestamp nello streaming) */
 } mynah_dec_state;
 
 /* durations: array TDT dal config (NULL/0 = RNNT puro). */
@@ -41,10 +43,12 @@ int mynah_decoder_init(mynah_decoder *dec, const mynah_safetensors *st,
 
 void mynah_dec_state_reset(const mynah_decoder *dec, mynah_dec_state *s);
 
-/* Greedy RNNT su enc [T, H]. Appende i token emessi a tokens[] (capienza cap),
- * ritorna il numero di token emessi. Lo stato è persistente tra chiamate
+/* Greedy RNNT/TDT su enc [T, H]. Appende i token emessi a tokens[] (capienza cap)
+ * e, se frames != NULL, il frame encoder ASSOLUTO di emissione di ciascun token
+ * (base = somma dei T delle chiamate precedenti sullo stesso stato).
+ * Ritorna il numero di token emessi. Lo stato è persistente tra chiamate
  * (streaming-ready): passare lo stesso stato per i chunk successivi. */
 int mynah_greedy_decode(const mynah_decoder *dec, mynah_dec_state *s,
-                        const float *enc, int T, int *tokens, int cap);
+                        const float *enc, int T, int *tokens, int *frames, int cap);
 
 #endif

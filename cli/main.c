@@ -14,7 +14,8 @@ static void usage(void) {
     printf("Uso: mynah <comando> [opzioni]\n\n");
     printf("Comandi:\n");
     printf("  transcribe -m <model_dir> -i <file.wav> [--lang auto] [--lookahead N] [--quant int8]\n");
-    printf("             trascrizione offline (WAV PCM16 16 kHz)\n");
+    printf("             [--timestamps]   trascrizione offline (WAV PCM16 16 kHz);\n");
+    printf("             --timestamps stampa una parola per riga: t0 t1 parola\n");
     printf("  stream     -m <model_dir> [--lang auto] [--quant int8|int4]\n");
     printf("             streaming live da stdin (raw s16le 16 kHz mono)\n");
     printf("  quantize   -m <model_dir> --quant int8|int4\n");
@@ -33,11 +34,12 @@ static double now_sec(void) {
 
 static int cmd_transcribe(int argc, char **argv) {
     const char *model_dir = NULL, *wav = NULL, *lang = "auto";
-    int lookahead = -1, quant = MYNAH_QUANT_F32;
+    int lookahead = -1, quant = MYNAH_QUANT_F32, timestamps = 0;
     for (int i = 0; i < argc; i++) {
         if (strcmp(argv[i], "-m") == 0 && i + 1 < argc) model_dir = argv[++i];
         else if (strcmp(argv[i], "-i") == 0 && i + 1 < argc) wav = argv[++i];
         else if (strcmp(argv[i], "--lang") == 0 && i + 1 < argc) lang = argv[++i];
+        else if (strcmp(argv[i], "--timestamps") == 0) timestamps = 1;
         else if (strcmp(argv[i], "--lookahead") == 0 && i + 1 < argc) lookahead = atoi(argv[++i]);
         else if (strcmp(argv[i], "--quant") == 0 && i + 1 < argc) {
             i++;
@@ -70,15 +72,24 @@ static int cmd_transcribe(int argc, char **argv) {
     }
 
     char lang_out[16];
+    mynah_word *words = NULL;
+    int n_words = 0;
     t0 = now_sec();
-    char *text = mynah_transcribe(m, samples, n_samples, lang, lookahead, lang_out);
+    char *text = mynah_transcribe_ts(m, samples, n_samples, lang, lookahead, lang_out,
+                                     timestamps ? &words : NULL, &n_words);
     double t_run = now_sec() - t0;
     if (!text) { free(samples); mynah_free(m); return 1; }
 
     const double dur = (double)n_samples / 16000.0;
     fprintf(stderr, "[%.1fs audio | load %.2fs | inferenza %.2fs | RTF %.3f | lang=%s]\n",
             dur, t_load, t_run, t_run / dur, lang_out[0] ? lang_out : lang);
-    printf("%s\n", text);
+    if (timestamps) {
+        for (int i = 0; i < n_words; i++)
+            printf("%6.2f %6.2f  %s\n", words[i].t0, words[i].t1, words[i].word);
+        mynah_words_free(words, n_words);
+    } else {
+        printf("%s\n", text);
+    }
 
     free(text); free(samples); mynah_free(m);
     return 0;

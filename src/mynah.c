@@ -24,6 +24,7 @@ struct mynah_model {
     int left_ctx, default_right;    /* att context dal preset di default */
     int lookaheads[8], n_lookaheads;
     int default_prompt;
+    double frame_sec;               /* durata di un frame encoder (hop*sub/sr) */
 };
 
 static cJSON *load_json(const char *dir, const char *file) {
@@ -120,6 +121,10 @@ mynah_model *mynah_load_quant(const char *model_dir, int quant) {
         .mel_fb = (const float *)fb->data,
         .window = (const float *)win->data,
     };
+
+    const cJSON *jsf = jenc ? cJSON_GetObjectItem(jenc, "subsampling_factor") : NULL;
+    m->frame_sec = (double)m->feat.hop_length * (jsf ? jsf->valueint : 8)
+                   / (double)m->feat.sample_rate;
 
     /* streaming presets [[left, right], ...] — sezione assente per i modelli
      * offline (Parakeet): attention full [-1,-1], niente stream API */
@@ -218,7 +223,7 @@ int mynah_transcribe_batch(mynah_model *m, const float *const *samples,
         const int cap = t_encs[b] * m->dec.max_symbols;
         int *tokens = malloc((size_t)cap * sizeof(int));
         const int n_tok = tokens ? mynah_greedy_decode(&m->dec, s, encs[b], t_encs[b],
-                                                       tokens, cap) : 0;
+                                                       tokens, NULL, cap) : 0;
         texts[b] = mynah_detokenize(&m->tok, tokens, n_tok,
                                     langs_out ? langs_out[b] : NULL);
         free(tokens);
@@ -306,7 +311,7 @@ static int stream_flush_chunk(mynah_stream *s, int n_mel, int is_last,
         s->tokens = nb;
     }
     s->n_tokens += mynah_greedy_decode(&m->dec, &s->dec, s->enc_buf, q,
-                                       s->tokens + s->n_tokens,
+                                       s->tokens + s->n_tokens, NULL,
                                        s->cap_tokens - s->n_tokens);
     s->mel_have = 0;
 
@@ -374,8 +379,10 @@ int mynah_stream_finish(mynah_stream *s, mynah_result_cb cb, void *ud) {
     return 0;
 }
 
-char *mynah_transcribe(mynah_model *m, const float *samples, size_t n_samples,
-                       const char *lang, int lookahead, char *lang_out) {
+char *mynah_transcribe_ts(mynah_model *m, const float *samples, size_t n_samples,
+                          const char *lang, int lookahead, char *lang_out,
+                          mynah_word **words, int *n_words) {
+    if (words) { *words = NULL; *n_words = 0; }
     const int prompt = resolve_prompt(m, lang);
     if (prompt == -2) { fprintf(stderr, "mynah: lingua '%s' non supportata\n", lang); return NULL; }
     const int right = lookahead >= 0 ? lookahead : m->default_right;
@@ -395,11 +402,23 @@ char *mynah_transcribe(mynah_model *m, const float *samples, size_t n_samples,
     mynah_dec_state_reset(&m->dec, s);
     const int cap = T_enc * m->dec.max_symbols;
     int *tokens = malloc((size_t)cap * sizeof(int));
-    const int n_tok = tokens ? mynah_greedy_decode(&m->dec, s, enc, T_enc, tokens, cap) : 0;
+    int *frames = words && tokens ? malloc((size_t)cap * sizeof(int)) : NULL;
+    const int n_tok = tokens ? mynah_greedy_decode(&m->dec, s, enc, T_enc, tokens,
+                                                   frames, cap) : 0;
     free(enc);
     free(s);
 
     char *text = mynah_detokenize(&m->tok, tokens, n_tok, lang_out);
+    if (text && words && frames)
+        mynah_detokenize_words(&m->tok, tokens, frames, n_tok, m->frame_sec,
+                               words, n_words);
     free(tokens);
+    free(frames);
     return text;
+}
+
+char *mynah_transcribe(mynah_model *m, const float *samples, size_t n_samples,
+                       const char *lang, int lookahead, char *lang_out) {
+    return mynah_transcribe_ts(m, samples, n_samples, lang, lookahead, lang_out,
+                               NULL, NULL);
 }

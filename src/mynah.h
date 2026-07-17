@@ -57,6 +57,21 @@ int mynah_lookaheads(const mynah_model *m, int out[8]);
 char *mynah_transcribe(mynah_model *m, const float *samples, size_t n_samples,
                        const char *lang, int lookahead, char *lang_out);
 
+/* Parola con finestra temporale (dai frame encoder di emissione greedy:
+ * risoluzione = 1 frame encoder, tipicamente 80 ms). */
+typedef struct {
+    char  *word;           /* UTF-8, senza marcatori (malloc) */
+    double t0, t1;         /* secondi dall'inizio dell'audio   */
+} mynah_word;
+
+/* Come mynah_transcribe, in piu' scrive in *words un array malloc di *n_words
+ * parole con timestamp (liberare con mynah_words_free). words == NULL = solo testo. */
+char *mynah_transcribe_ts(mynah_model *m, const float *samples, size_t n_samples,
+                          const char *lang, int lookahead, char *lang_out,
+                          mynah_word **words, int *n_words);
+
+void mynah_words_free(mynah_word *words, int n_words);
+
 /* Trascrizione BATCH weight-stationary: N richieste processate insieme — i pesi
  * (2.5 GB) vengono letti una volta per layer invece di N. Lunghezze variabili,
  * nessun padding. texts[i] riceve il testo (malloc, caller free; NULL su errore

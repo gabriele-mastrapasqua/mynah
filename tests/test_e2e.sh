@@ -44,6 +44,17 @@ checkq() { # quant, expected substring
 [ -f "$MODEL_DIR/model.int8.safetensors" ] && checkq int8 "$IT_SUB"
 [ -f "$MODEL_DIR/model.int4.safetensors" ] && checkq int4 "$IT_SUB"
 
+# timestamp per parola: righe "t0 t1 parola", t0 monotono non-decrescente,
+# t1 entro la durata dell'audio (5.2s + margine di un frame)
+ts=$(./mynah transcribe -m "$MODEL_DIR" -i tests/audio/test_it.wav --timestamps 2>/dev/null)
+ts_ok=$(printf '%s\n' "$ts" | awk 'NF<3 {bad=1} $1+0>$2+0 {bad=1} $1+0<prev {bad=1}
+    {prev=$1+0; n++} END {print (bad || n<5 || prev>5.3) ? "FAIL" : "OK"}')
+if [ "$ts_ok" = "OK" ]; then
+    echo "e2e timestamps OK: $(printf '%s\n' "$ts" | wc -l | tr -d ' ') parole"
+else
+    echo "e2e timestamps FAIL:"; printf '%s\n' "$ts"; fail=1
+fi
+
 # backend Metal (solo macOS; per i modelli non-causali il kernel Metal non si
 # applica e il gate ricade su CPU: il check verifica comunque il testo)
 out=$(./mynah transcribe -m "$MODEL_DIR" -i tests/audio/test_it.wav --backend metal 2>/dev/null)

@@ -118,7 +118,7 @@ static int argmax_bias(const float *lg, const float *bias, int V) {
  * Niente blocking sulle run di blank: il TDT salta già i frame (dur>1) e la
  * griglia visitata non è contigua. */
 static int greedy_decode_tdt(const mynah_decoder *dec, mynah_dec_state *s,
-                             const float *enc, int T, int *tokens, int cap) {
+                             const float *enc, int T, int *tokens, int *frames, int cap) {
     const int H = dec->hidden, V = dec->vocab, ND = dec->n_durations;
     const int VL = V + ND;
     float joint[1024];
@@ -152,7 +152,10 @@ static int greedy_decode_tdt(const mynah_decoder *dec, mynah_dec_state *s,
         const int k = argmax_bias(logits, dec->head_b, V);
         int dur = dec->durations[argmax_bias(logits + V, dec->head_b + V, ND)];
         if (k != dec->blank) {
-            if (n_out < cap) tokens[n_out++] = k;
+            if (n_out < cap) {
+                if (frames) frames[n_out] = (int)(s->t_abs + t);
+                tokens[n_out++] = k;
+            }
             pred_step(dec, s, k);                          /* stato avanza solo su emit */
             emitted_here++;
             if (dur == 0 && emitted_here >= dec->max_symbols)
@@ -163,14 +166,15 @@ static int greedy_decode_tdt(const mynah_decoder *dec, mynah_dec_state *s,
         if (dur > 0) emitted_here = 0;
         t += dur;
     }
+    s->t_abs += T;
     free(logits); free(wd);
     return n_out;
 }
 
 int mynah_greedy_decode(const mynah_decoder *dec, mynah_dec_state *s,
-                        const float *enc, int T, int *tokens, int cap) {
+                        const float *enc, int T, int *tokens, int *frames, int cap) {
     if (dec->n_durations > 0)
-        return greedy_decode_tdt(dec, s, enc, T, tokens, cap);
+        return greedy_decode_tdt(dec, s, enc, T, tokens, frames, cap);
     const int H = dec->hidden, V = dec->vocab;
     float joint[1024];
     float *jin = malloc((size_t)DEC_BMAX * (size_t)H * sizeof(float));
@@ -237,12 +241,16 @@ int mynah_greedy_decode(const mynah_decoder *dec, mynah_dec_state *s,
                 best = argmax_bias(logits, dec->head_b, V);
                 if (best == dec->blank) break;
             }
-            if (n_out < cap) tokens[n_out++] = best;
+            if (n_out < cap) {
+                if (frames) frames[n_out] = (int)(s->t_abs + t);
+                tokens[n_out++] = best;
+            }
             pred_step(dec, s, best);                       /* stato avanza solo su emit */
         }
         t++;
         B = 4;                                             /* riparte corto dopo un emit */
     }
+    s->t_abs += T;
     free(jin); free(logits); free(wd);
     return n_out;
 }

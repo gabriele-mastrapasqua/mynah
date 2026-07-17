@@ -292,6 +292,9 @@ static void handle_transcribe(int fd, const char *headers, const uint8_t *body,
 
     char lang_out[16] = "";
     char *text;
+    mynah_word *words = NULL;
+    int n_words = 0;
+    const int want_words = strcmp(f.response_format, "verbose_json") == 0 && g_max_batch <= 1;
     if (g_max_batch > 1) {
         trx_job j = {.samples = samples, .n_samples = n_samples, .lookahead = f.lookahead};
         snprintf(j.lang, sizeof(j.lang), "%s", f.language);
@@ -303,7 +306,8 @@ static void handle_transcribe(int fd, const char *headers, const uint8_t *body,
         pthread_mutex_destroy(&j.mu);
         pthread_cond_destroy(&j.cv);
     } else {
-        text = mynah_transcribe(g_model, samples, n_samples, f.language, f.lookahead, lang_out);
+        text = mynah_transcribe_ts(g_model, samples, n_samples, f.language, f.lookahead,
+                                   lang_out, want_words ? &words : NULL, &n_words);
     }
     const double duration = (double)n_samples / 16000.0;
     free(samples);
@@ -318,10 +322,21 @@ static void handle_transcribe(int fd, const char *headers, const uint8_t *body,
             cJSON_AddStringToObject(j, "task", "transcribe");
             cJSON_AddStringToObject(j, "language", lang_out[0] ? lang_out : f.language);
             cJSON_AddNumberToObject(j, "duration", duration);
+            if (words) {   /* percorso non-batch: timestamp per parola */
+                cJSON *jw = cJSON_AddArrayToObject(j, "words");
+                for (int i = 0; i < n_words; i++) {
+                    cJSON *w = cJSON_CreateObject();
+                    cJSON_AddStringToObject(w, "word", words[i].word);
+                    cJSON_AddNumberToObject(w, "start", words[i].t0);
+                    cJSON_AddNumberToObject(w, "end", words[i].t1);
+                    cJSON_AddItemToArray(jw, w);
+                }
+            }
         }
         send_json(fd, 200, j);
         cJSON_Delete(j);
     }
+    mynah_words_free(words, n_words);
     free(text);
 }
 

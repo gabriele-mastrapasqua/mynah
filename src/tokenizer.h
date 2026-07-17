@@ -17,4 +17,14 @@ void mynah_tokenizer_free(mynah_tokenizer *tk);
 char *mynah_detokenize(const mynah_tokenizer *tk, const int *tokens, int n,
                        char *lang_out);
 
+#include "mynah.h"  /* mynah_word */
+
+/* Raggruppa i token in parole (nuova parola a ogni piece che inizia con ▁) con
+ * timestamp dai frame di emissione: t0 = frame del primo piece * frame_sec,
+ * t1 = (frame dell'ultimo piece + 1) * frame_sec. I token speciali <...> sono
+ * saltati. Scrive in *out un array malloc (caller: mynah_words_free). 0 = ok. */
+int mynah_detokenize_words(const mynah_tokenizer *tk, const int *tokens,
+                           const int *frames, int n, double frame_sec,
+                           mynah_word **out, int *n_out);
+
 #endif
