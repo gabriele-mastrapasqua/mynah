@@ -45,7 +45,7 @@ tests/%: tests/%.o tests/npy.o tests/testcfg.o $(OBJ)
 # Parità C vs oracolo (Nemotron streaming + Parakeet TDT offline).
 # Skip (exit 77) se mancano modello o dump golden. Rigenera con: make golden-dump
 PARITY_BOTH := tests/test_features tests/test_subsampling tests/test_encoder tests/test_batch
-test: $(TESTS) mynah
+test: $(TESTS) mynah examples/minimal
 	@for t in $(TESTS); do \
 	  if [ $$t = tests/test_qmat ]; then $$t; rc=$$?; \
 	  else $$t $(MODEL_DIR) tests/audio/test_it.wav tests/golden/test_it; rc=$$?; fi; \
@@ -60,7 +60,8 @@ test: $(TESTS) mynah
 	    elif [ $$rc -ne 0 ]; then exit $$rc; fi; \
 	  done; \
 	done
-	@for m in $(MODEL_DIR) $(PARAKEET_DIR) $(PARAKEET110_DIR); do \
+	@for m in $(MODEL_DIR) $(PARAKEET_DIR) $(PARAKEET110_DIR) \
+	          models/parakeet-rnnt-0.6b models/parakeet-ctc-0.6b; do \
 	  sh tests/test_e2e.sh $$m; rc=$$?; \
 	  if [ $$rc -eq 77 ]; then echo "SKIP e2e: $$m assente"; \
 	  elif [ $$rc -ne 0 ]; then exit $$rc; fi; \
@@ -80,6 +81,11 @@ golden-dump:
 lib: libmynah.a
 libmynah.a: $(OBJ)
 	ar rcs $@ $^
+
+# esempio API (compilato in `make test`: guardia sulla superficie pubblica)
+example: examples/minimal
+examples/minimal: examples/minimal.c libmynah.a
+	$(CC) $(CFLAGS) -o $@ examples/minimal.c libmynah.a $(LDFLAGS)
 
 # CUDA (Linux, richiede nvcc): GEMM grandi su GPU. NON validato su hardware:
 # compilare e lanciare `make test` sulla macchina CUDA prima di fidarsi.
@@ -106,11 +112,9 @@ asan:
 	  -fno-omit-frame-pointer -Wall -Wextra -Isrc -D$(BLAS_DEF) -DACCELERATE_NEW_LAPACK" \
 	  LDFLAGS="$(LDFLAGS) -fsanitize=address,undefined" all test
 
-# bench: RTF offline sui fixture (3 run, cache calda)
+# bench riproducibile: RTF warm + picco RAM per ogni modello presente
 bench: mynah
-	@for i in 1 2 3; do \
-	  ./mynah transcribe -m $(MODEL_DIR) -i tests/audio/test_it.wav --lang it-IT >/dev/null; \
-	done
+	@sh tests/bench.sh
 
 # Test end-to-end del server (REST + concorrenza + WebSocket)
 test-server: mynah-server
@@ -136,6 +140,7 @@ leaks: mynah tests/test_streaming
 	  tests/golden/test_it 2>&1 | tail -3
 
 clean:
-	rm -f mynah mynah-server libmynah.a $(OBJ) cli/main.o server/*.o tests/*.o $(TESTS)
+	rm -f mynah mynah-server libmynah.a $(OBJ) cli/main.o server/*.o tests/*.o $(TESTS) \
+	  examples/minimal
 
 .PHONY: all clean test golden-dump lib debug ubsan asan bench leaks test-nemo-langs fetch-lang-samples test-server cuda

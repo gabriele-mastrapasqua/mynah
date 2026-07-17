@@ -10,9 +10,9 @@
 #include <stdbool.h>
 
 #define MYNAH_VERSION_MAJOR 0
-#define MYNAH_VERSION_MINOR 0
-#define MYNAH_VERSION_PATCH 1
-#define MYNAH_VERSION "0.0.1-dev"
+#define MYNAH_VERSION_MINOR 4
+#define MYNAH_VERSION_PATCH 0
+#define MYNAH_VERSION "0.4.0-dev"
 
 #ifdef __cplusplus
 extern "C" {
@@ -51,6 +51,13 @@ int mynah_lang_id(const mynah_model *m, const char *lang);
  * modello) o "ctc" (head ausiliaria dei modelli hybrid, più veloce, solo offline).
  * -1 se il modello non supporta il decoder richiesto. */
 int mynah_set_decoder(mynah_model *m, const char *name);
+
+/* Limite di durata per segmento nella trascrizione offline: gli audio più lunghi
+ * vengono divisi sul minimo di energia (silenzio) vicino al confine e trascritti
+ * a segmenti indipendenti (testo e timestamp concatenati). Default 300 s —
+ * necessario per i modelli offline full-attention (pos_emb regge ~400 s) e per
+ * tenere lineare la memoria. sec >= 5; 0 = ripristina il default. */
+void mynah_set_segment_limit(mynah_model *m, double sec);
 
 /* Lookahead (right context) validi per il modello, es. {3,0,6,13}. */
 int mynah_lookaheads(const mynah_model *m, int out[8]);

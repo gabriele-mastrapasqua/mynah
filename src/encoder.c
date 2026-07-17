@@ -63,16 +63,17 @@ int mynah_encoder_init(mynah_encoder *enc, const mynah_safetensors *st, int quan
      * pre-quantizzato il f32 di linear1 non esiste) */
     const mynah_tensor *bu = mynah_st_get(st, "encoder.layers.0.self_attn.bias_u");
     const mynah_tensor *dw = mynah_st_get(st, "encoder.layers.0.conv.depthwise_conv.weight");
-    const mynah_tensor *ep = mynah_st_get(st, "encoder_projector.weight");
+    const mynah_tensor *ep = mynah_st_get(st, "encoder_projector.weight");  /* opzionale (CTC puro) */
     const mynah_tensor *p1 = mynah_st_get(st, "prompt_projector.linear_1.weight"); /* opzionale */
-    if (!bu || !dw || !ep) return -1;
+    if (!bu || !dw) return -1;
 
     enc->d_model = enc->ss.d_model;
     enc->n_heads = (int)bu->shape[0];
     enc->d_head = (int)bu->shape[1];
     enc->conv_k = (int)dw->shape[2];
-    enc->d_out = (int)ep->shape[0];
+    enc->d_out = ep ? (int)ep->shape[0] : enc->d_model;
     enc->causal = enc->ss.causal;  /* default dal naming; il config puo' sovrascrivere */
+    enc->xscale = 1.0f;            /* xscaling dal config (mynah.c) */
     if (p1) {
         enc->prompt_inter = (int)p1->shape[0];
         enc->num_prompts = (int)p1->shape[1] - enc->d_model;
@@ -176,8 +177,10 @@ int mynah_encoder_init(mynah_encoder *enc, const mynah_safetensors *st, int quan
         enc->prompt_l2_w = (const float *)mynah_st_get(st, "prompt_projector.linear_2.weight")->data;
         enc->prompt_l2_b = (const float *)mynah_st_get(st, "prompt_projector.linear_2.bias")->data;
     }
-    enc->encproj_w = (const float *)ep->data;
-    enc->encproj_b = (const float *)mynah_st_get(st, "encoder_projector.bias")->data;
+    if (ep) {
+        enc->encproj_w = (const float *)ep->data;
+        enc->encproj_b = (const float *)mynah_st_get(st, "encoder_projector.bias")->data;
+    }
     return 0;
 }
 
@@ -455,6 +458,11 @@ void mynah_encoder_post(const mynah_encoder *enc, const float *x, int T, int pro
     const int d = enc->d_model, np = enc->num_prompts, di = enc->prompt_inter;
     const int dcat = d + np;
 
+    if (!enc->encproj_w) {
+        /* CTC puro: niente joint, out = encoder out */
+        memcpy(out, x, (size_t)T * (size_t)d * sizeof(float));
+        return;
+    }
     if (!enc->prompt_l1_w) {
         /* modello senza prompt (Parakeet): solo encoder_projector */
         matmul_wt(x, enc->encproj_w, out, T, enc->d_out, d);
@@ -827,6 +835,8 @@ int mynah_encoder_forward_batch(const mynah_encoder *enc, const float *const *fe
     for (int b = 0; b < batch; b++) {
         seq[b] = mynah_subsampling_forward(&enc->ss, feats[b], t_mel[b], n_mels, &t_outs[b]);
         if (!seq[b]) goto done;
+        if (enc->xscale != 1.0f)
+            for (size_t i = 0; i < (size_t)t_outs[b] * (size_t)d; i++) seq[b][i] *= enc->xscale;
         pes[b] = malloc((size_t)(2 * t_outs[b] - 1) * (size_t)d * sizeof(float));
         if (!pes[b]) goto done;
         mynah_pos_emb(enc, t_outs[b], pes[b]);
@@ -885,6 +895,8 @@ static float *forward_core(const mynah_encoder *enc, const float *feats, int t_m
     int T;
     float *x = mynah_subsampling_forward(&enc->ss, feats, t_mel, n_mels, &T);
     if (!x) return NULL;
+    if (enc->xscale != 1.0f)
+        for (size_t i = 0; i < (size_t)T * (size_t)enc->d_model; i++) x[i] *= enc->xscale;
 
     float *pe = malloc((size_t)(2 * T - 1) * (size_t)enc->d_model * sizeof(float));
     if (!pe) { free(x); return NULL; }

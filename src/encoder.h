@@ -36,8 +36,10 @@ typedef struct {
     mynah_enc_layer *layers;
     int n_layers, d_model, n_heads, d_head, ffn_dim, conv_k;
     int causal;            /* 1 = depthwise conv causale (Nemotron), 0 = 'same' (Parakeet) */
+    float xscale;          /* scala input dei layer (sqrt(d_model) se xscaling, else 1) */
     float *bn_fold;        /* buffer scale+shift della BN foldata (NULL se layer_norm) */
-    /* prompt (post-encoder, opzionale: NULL per i modelli senza) + projector */
+    /* prompt e projector post-encoder, entrambi opzionali (NULL se assenti:
+     * i modelli CTC puri non hanno joint => d_out = d_model, out = encoder out) */
     const float *prompt_l1_w, *prompt_l1_b, *prompt_l2_w, *prompt_l2_b;
     const float *encproj_w, *encproj_b;
     int num_prompts, prompt_inter, d_out;

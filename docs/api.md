@@ -30,8 +30,33 @@ char *mynah_transcribe(mynah_model *m, const float *samples, size_t n_samples,
   del modello, altrimenti uno dei valori di `mynah_lookaheads` (più alto = più accurato).
 - Ritorna testo UTF-8 `malloc`ato (caller `free`); `lang_out` (>= 16 byte, opzionale)
   riceve la lingua rilevata.
-- Complessità: O(T²) nell'attention — per audio molto lunghi (>~10 min) preferire
-  lo streaming, che è O(T) in tempo e O(1) in memoria.
+- Audio lunghi: oltre il limite per segmento (default 300 s, vedi
+  `mynah_set_segment_limit`) l'audio viene diviso sul silenzio e trascritto a
+  segmenti — memoria lineare e compatibilità coi modelli full-attention (~400 s max).
+  Per il realtime resta preferibile lo streaming (O(1) in memoria).
+
+## Timestamp per parola
+
+```c
+typedef struct { char *word; double t0, t1; } mynah_word;
+char *mynah_transcribe_ts(mynah_model *m, const float *samples, size_t n_samples,
+                          const char *lang, int lookahead, char *lang_out,
+                          mynah_word **words, int *n_words);
+void mynah_words_free(mynah_word *words, int n_words);
+```
+Come `mynah_transcribe`, in più riempie `words` (array `malloc`ato). Risoluzione:
+1 frame encoder (80 ms). Sui modelli TDT i tempi vengono dalle duration predette
+(accurati); su Nemotron includono la latenza algoritmica del chunking.
+
+## Selezione decoder e segmentazione
+
+```c
+int  mynah_set_decoder(mynah_model *m, const char *name);      /* "default" | "ctc" */
+void mynah_set_segment_limit(mynah_model *m, double sec);      /* default 300 s */
+```
+`"ctc"` usa la head CTC dei modelli hybrid (`parakeet-tdt_ctc-*`) — più veloce,
+qualità leggermente inferiore; sui modelli CTC puri è già il default. -1 se il
+modello non ha la head.
 
 ## Trascrizione batch
 
@@ -82,24 +107,5 @@ typedef void (*mynah_result_cb)(const mynah_result *res, void *userdata);
 
 ## Esempio minimo completo
 
-```c
-#include <stdio.h>
-#include <stdlib.h>
-#include "mynah.h"
-#include "audio.h"
-
-int main(void) {
-    mynah_model *m = mynah_load("models/nemotron-3.5-asr-streaming-0.6b");
-    size_t n; int sr;
-    float *pcm = mynah_wav_load("audio.wav", &n, &sr);
-    if (sr != 16000) {
-        size_t n2; float *r = mynah_resample(pcm, n, sr, 16000, &n2);
-        free(pcm); pcm = r; n = n2;
-    }
-    char lang[16];
-    char *text = mynah_transcribe(m, pcm, n, "auto", -1, lang);
-    printf("[%s] %s\n", lang, text);
-    free(text); free(pcm); mynah_free(m);
-    return 0;
-}
-```
+Vedi [`examples/minimal.c`](../examples/minimal.c) (compilato anche da `make test`):
+load → WAV → resample se serve → `mynah_transcribe_ts` → testo + parole con tempi.

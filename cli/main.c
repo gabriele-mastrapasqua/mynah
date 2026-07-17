@@ -37,12 +37,14 @@ static double now_sec(void) {
 static int cmd_transcribe(int argc, char **argv) {
     const char *model_dir = NULL, *wav = NULL, *lang = "auto", *decoder = "default";
     int lookahead = -1, quant = MYNAH_QUANT_F32, timestamps = 0;
+    double segment_sec = 0.0;
     for (int i = 0; i < argc; i++) {
         if (strcmp(argv[i], "-m") == 0 && i + 1 < argc) model_dir = argv[++i];
         else if (strcmp(argv[i], "-i") == 0 && i + 1 < argc) wav = argv[++i];
         else if (strcmp(argv[i], "--lang") == 0 && i + 1 < argc) lang = argv[++i];
         else if (strcmp(argv[i], "--timestamps") == 0) timestamps = 1;
         else if (strcmp(argv[i], "--decoder") == 0 && i + 1 < argc) decoder = argv[++i];
+        else if (strcmp(argv[i], "--segment-sec") == 0 && i + 1 < argc) segment_sec = atof(argv[++i]);
         else if (strcmp(argv[i], "--lookahead") == 0 && i + 1 < argc) lookahead = atoi(argv[++i]);
         else if (strcmp(argv[i], "--quant") == 0 && i + 1 < argc) {
             i++;
@@ -59,6 +61,7 @@ static int cmd_transcribe(int argc, char **argv) {
     mynah_model *m = mynah_load_quant(model_dir, quant);
     if (!m) return 1;
     if (mynah_set_decoder(m, decoder) != 0) { mynah_free(m); return 1; }
+    if (segment_sec > 0.0) mynah_set_segment_limit(m, segment_sec);
     double t_load = now_sec() - t0;
 
     size_t n_samples;

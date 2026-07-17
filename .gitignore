@@ -36,3 +36,4 @@ tests/test_subsampling
 tests/test_encoder
 tests/test_streaming
 tests/test_batch
+examples/minimal

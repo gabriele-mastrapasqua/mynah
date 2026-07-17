@@ -242,22 +242,19 @@ def rename_nemo_key(k: str) -> str | None:
     m = re.fullmatch(r"joint\.joint_net\.\d+\.(weight|bias)", k)
     if m:
         return f"joint.head.{m.group(1)}"
-    m = re.fullmatch(r"ctc_decoder\.decoder_layers\.0\.(weight|bias)", k)
+    # head CTC: ausiliaria dei modelli hybrid (ctc_decoder.*) o decoder principale
+    # dei modelli CTC puri (decoder.decoder_layers.*)
+    m = re.fullmatch(r"(?:ctc_)?decoder\.decoder_layers\.0\.(weight|bias)", k)
     if m:
-        return f"ctc_head.{m.group(1)}"   # conservata per il futuro decoder_ctc
+        return f"ctc_head.{m.group(1)}"
     for old, new in _NEMO_RENAMES:
         k = k.replace(old, new)
     return k
 
 
-def build_parakeet_tdt_from_yaml(model_dir: Path, y: dict) -> dict:
-    """mynah.json dal model_config.yaml del .nemo (Parakeet TDT/hybrid offline)."""
-    enc, fe, dec = y["encoder"], y["preprocessor"], y["decoder"]
+def yaml_features_section(fe: dict) -> dict:
     sr = fe["sample_rate"]
-    assert enc["att_context_style"] == "regular" and not enc["causal_downsampling"], \
-        "solo Parakeet offline non-causale da .nemo (per ora)"
-    durations = y["decoding"].get("durations") or []
-    fe_section = {
+    return {
         "sample_rate": sr,
         "n_mels": fe["features"],
         "n_fft": fe["n_fft"],
@@ -269,29 +266,42 @@ def build_parakeet_tdt_from_yaml(model_dir: Path, y: dict) -> dict:
         "dither": 0.0,
         "mel_filters": "mel_filters.safetensors",
     }
+
+
+def yaml_encoder_section(enc: dict) -> dict:
+    assert enc["att_context_style"] == "regular" and not enc["causal_downsampling"], \
+        "solo Parakeet offline non-causale da .nemo (per ora)"
+    return {
+        "n_layers": enc["n_layers"],
+        "d_model": enc["d_model"],
+        "n_heads": enc["n_heads"],
+        "ffn_dim": enc["d_model"] * enc["ff_expansion_factor"],
+        "conv_kernel": enc["conv_kernel_size"],
+        "conv_norm": enc["conv_norm_type"],
+        "subsampling": enc["subsampling"],            # dw_striding (non causale)
+        "subsampling_factor": enc["subsampling_factor"],
+        "subsampling_conv_channels": enc["subsampling_conv_channels"],
+        "use_bias": enc.get("use_bias", True),        # default NeMo: bias presenti
+        "activation": "silu",
+        "att_context_style": enc["att_context_style"],
+        "pos_emb_max_len": enc["pos_emb_max_len"],
+        # xscaling: input dei layer scalato per sqrt(d_model) (modelli piu' vecchi)
+        "xscaling": bool(enc.get("xscaling", False)),
+    }
+
+
+def build_parakeet_tdt_from_yaml(model_dir: Path, y: dict) -> dict:
+    """mynah.json dal model_config.yaml del .nemo — Parakeet RNNT/TDT (anche hybrid)."""
+    dec = y["decoder"]
+    durations = y["decoding"].get("durations") or []
     return {
         "mynah_format": 1,
         "name": model_dir.name,
         "arch": "fastconformer_tdt" if durations else "fastconformer_rnnt",
         "engine": "parakeet-tdt" if durations else "parakeet-rnnt",
         "weights": "model.safetensors",
-        "features": fe_section,
-        "encoder": {
-            "n_layers": enc["n_layers"],
-            "d_model": enc["d_model"],
-            "n_heads": enc["n_heads"],
-            "ffn_dim": enc["d_model"] * enc["ff_expansion_factor"],
-            "conv_kernel": enc["conv_kernel_size"],
-            "conv_norm": enc["conv_norm_type"],
-            "subsampling": enc["subsampling"],            # dw_striding (non causale)
-            "subsampling_factor": enc["subsampling_factor"],
-            "subsampling_conv_channels": enc["subsampling_conv_channels"],
-            "use_bias": enc.get("use_bias", True),        # default NeMo: bias presenti
-            "activation": "silu",
-            "att_context_style": enc["att_context_style"],
-            "pos_emb_max_len": enc["pos_emb_max_len"],
-            "xscaling": bool(enc.get("xscaling", False)),
-        },
+        "features": yaml_features_section(y["preprocessor"]),
+        "encoder": yaml_encoder_section(y["encoder"]),
         "decoder": {
             "type": "tdt_lstm" if durations else "rnnt_lstm",
             "pred_hidden": dec["prednet"]["pred_hidden"],
@@ -302,6 +312,26 @@ def build_parakeet_tdt_from_yaml(model_dir: Path, y: dict) -> dict:
             "blank_id": y["joint"]["num_classes"],
             "max_symbols_per_step": y["decoding"]["greedy"]["max_symbols"],
             **({"durations": durations} if durations else {}),
+        },
+        "tokenizer": {"type": "spe_bpe", "pieces": "tokens.json"},
+    }
+
+
+def build_parakeet_ctc_from_yaml(model_dir: Path, y: dict) -> dict:
+    """Parakeet CTC puro (ConvASRDecoder): niente prednet/joint, solo ctc_head."""
+    return {
+        "mynah_format": 1,
+        "name": model_dir.name,
+        "arch": "fastconformer_ctc",
+        "engine": "parakeet-ctc",
+        "weights": "model.safetensors",
+        "features": yaml_features_section(y["preprocessor"]),
+        "encoder": yaml_encoder_section(y["encoder"]),
+        "decoder": {
+            "type": "ctc",
+            "vocab_size": y["decoder"]["num_classes"] + 1,  # + blank (ultimo indice)
+            "blank_id": y["decoder"]["num_classes"],
+            "max_symbols_per_step": 1,                      # n/a per CTC
         },
         "tokenizer": {"type": "spe_bpe", "pieces": "tokens.json"},
     }
@@ -323,7 +353,10 @@ def convert_from_nemo(model_dir: Path, nemo_file: Path) -> None:
         return hits[0]
 
     ycfg = yaml.safe_load(tar.extractfile(member("model_config.yaml")).read())
-    mynah = build_parakeet_tdt_from_yaml(model_dir, ycfg)
+    if "ConvASRDecoder" in ycfg["decoder"]["_target_"]:
+        mynah = build_parakeet_ctc_from_yaml(model_dir, ycfg)
+    else:
+        mynah = build_parakeet_tdt_from_yaml(model_dir, ycfg)
 
     sd = torch.load(io.BytesIO(tar.extractfile(member("model_weights.ckpt")).read()),
                     map_location="cpu", weights_only=True)
@@ -344,8 +377,9 @@ def convert_from_nemo(model_dir: Path, nemo_file: Path) -> None:
                "window": window.astype(np.float32)},
               model_dir / "mel_filters.safetensors")
 
-    # pieces dallo yaml (joint.vocabulary, in ordine di id) + blank in coda
-    pieces = list(ycfg["joint"]["vocabulary"]) + ["<blank>"]
+    # pieces dallo yaml (in ordine di id) + blank in coda
+    vocab = ycfg.get("joint", {}).get("vocabulary") or ycfg["decoder"]["vocabulary"]
+    pieces = list(vocab) + ["<blank>"]
     assert len(pieces) == mynah["decoder"]["vocab_size"]
     (model_dir / "tokens.json").write_text(json.dumps(pieces, ensure_ascii=False))
     (model_dir / "mynah.json").write_text(json.dumps(mynah, indent=1, ensure_ascii=False))

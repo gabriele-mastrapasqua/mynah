@@ -59,6 +59,7 @@ class Oracle:
         self.conv_k = enc["conv_kernel"]
         self.causal = "causal" in enc["subsampling"]
         self.conv_norm = enc.get("conv_norm", "layer_norm")
+        self.xscale = np.sqrt(self.d_model) if enc.get("xscaling") else 1.0
         self.blank = dec["blank_id"]
         self.max_symbols = dec["max_symbols_per_step"]
         self.durations: list[int] = dec.get("durations", [])   # TDT; [] = RNNT
@@ -248,6 +249,7 @@ class Oracle:
         x = self.subsampling(feats)
         if dumps is not None:
             dumps["subsampling"] = x.copy()
+        x = x * self.xscale        # xscaling (NeMo: dentro il pos_enc, prima dei layer)
         T = x.shape[0]
         pos = self.rel_pos_emb(T)
         if "streaming" in self.cfg:
@@ -273,6 +275,8 @@ class Oracle:
                                + w["prompt_projector.linear_1.bias"], 0.0)
             x = fused @ w["prompt_projector.linear_2.weight"].T.astype(np.float64) \
                 + w["prompt_projector.linear_2.bias"]
+        if "encoder_projector.weight" not in w:
+            return x               # CTC puro: niente joint, la head lavora sull'encoder out
         enc = x @ w["encoder_projector.weight"].T.astype(np.float64) + w["encoder_projector.bias"]
         if dumps is not None:
             dumps["enc_proj"] = enc.copy()
@@ -307,6 +311,8 @@ class Oracle:
 
     def greedy_decode(self, enc: np.ndarray) -> list[int]:
         """Greedy RNNT su enc [T, 640]. SOS = blank; stato LSTM avanza solo su non-blank."""
+        if self.cfg["decoder"]["type"] == "ctc":
+            return self.greedy_decode_ctc(enc)   # CTC puro: enc = encoder out
         if self.durations:
             return self.greedy_decode_tdt(enc)
         H = self.cfg["decoder"]["pred_hidden"]

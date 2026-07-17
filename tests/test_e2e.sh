@@ -17,14 +17,22 @@ check() { # wav, lang, expected substring
     esac
 }
 
-# wav e substring per i check comuni (quant, timestamps, metal)
+# wav e substring per i check comuni (quant, timestamps, metal, segmentazione)
 Q_WAV=tests/audio/test_it.wav
 Q_SUB="riconoscimento vocale in italiano"
+SEG_TAIL="divano"
 
-if [ "$NAME" = "parakeet-tdt_ctc-110m" ]; then
+if [ "$ENGINE" = "parakeet-rnnt" ] || [ "$ENGINE" = "parakeet-ctc" ]; then
+    # RNNT/CTC puri EN: lowercase, senza punteggiatura
+    Q_WAV=tests/audio/test_en.wav
+    Q_SUB="speech recognition test"
+    SEG_TAIL="today"
+    check tests/audio/test_en.wav auto "hello this is a speech recognition test the weather is nice today"
+elif [ "$NAME" = "parakeet-tdt_ctc-110m" ]; then
     # 110M: solo inglese (candidato CI); hybrid -> anche la head CTC
     Q_WAV=tests/audio/test_en.wav
     Q_SUB="speech recognition test"
+    SEG_TAIL="today"
     check tests/audio/test_en.wav auto "Hello, this is a speech recognition test. The weather is nice today."
     out=$(./mynah transcribe -m "$MODEL_DIR" -i tests/audio/test_en.wav --decoder ctc 2>/dev/null)
     case "$out" in
@@ -68,6 +76,14 @@ if [ "$ts_ok" = "OK" ]; then
 else
     echo "e2e timestamps FAIL:"; printf '%s\n' "$ts"; fail=1
 fi
+
+# segmentazione file lunghi: limite forzato a 4 s sul fixture -> 2 segmenti
+# divisi sul silenzio, il testo concatenato deve restare completo
+seg=$(./mynah transcribe -m "$MODEL_DIR" -i "$Q_WAV" --segment-sec 4 2>/dev/null)
+case "$seg" in
+    *"$Q_SUB"*"$SEG_TAIL"*) echo "e2e segment OK: $seg" ;;
+    *) echo "e2e segment FAIL: $seg"; fail=1 ;;
+esac
 
 # backend Metal (solo macOS; per i modelli non-causali il kernel Metal non si
 # applica e il gate ricade su CPU: il check verifica comunque il testo)

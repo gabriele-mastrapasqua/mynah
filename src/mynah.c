@@ -1,5 +1,6 @@
 #include "mynah.h"
 
+#include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -20,15 +21,18 @@ struct mynah_model {
     mynah_safetensors *mel_filters;
     mynah_encoder enc;
     mynah_decoder dec;
-    mynah_ctc ctc;                  /* head CTC ausiliaria (hybrid); w NULL se assente */
-    int use_ctc;
+    mynah_ctc ctc;                  /* head CTC (hybrid o CTC puro); w NULL se assente */
+    int use_ctc, ctc_only;
     mynah_tokenizer tok;
     mynah_feat_cfg feat;
     int left_ctx, default_right;    /* att context dal preset di default */
     int lookaheads[8], n_lookaheads;
     int default_prompt;
     double frame_sec;               /* durata di un frame encoder (hop*sub/sr) */
+    double seg_sec;                 /* limite per segmento offline (default 300 s) */
 };
+
+#define MYNAH_SEG_DEFAULT 300.0
 
 static cJSON *load_json(const char *dir, const char *file) {
     char path[1024];
@@ -80,28 +84,42 @@ mynah_model *mynah_load_quant(const char *model_dir, int quant) {
         goto fail;
     }
 
-    /* causalità dal config (l'init la inferisce dal naming dei pesi; il config vince) */
+    /* causalità e xscaling dal config (l'init inferisce dal naming; il config vince) */
     const cJSON *jenc = cJSON_GetObjectItem(m->cfg, "encoder");
     const cJSON *jsub = jenc ? cJSON_GetObjectItem(jenc, "subsampling") : NULL;
     if (jsub && cJSON_IsString(jsub)) {
         m->enc.causal = strstr(jsub->valuestring, "causal") != NULL;
         m->enc.ss.causal = m->enc.causal;
     }
+    const cJSON *jxs = jenc ? cJSON_GetObjectItem(jenc, "xscaling") : NULL;
+    if (jxs && cJSON_IsTrue(jxs))
+        m->enc.xscale = sqrtf((float)m->enc.d_model);
 
     const cJSON *jdec = cJSON_GetObjectItem(m->cfg, "decoder");
-    int durations[MYNAH_MAX_DURATIONS];
-    int n_durations = 0;
-    const cJSON *jdur = cJSON_GetObjectItem(jdec, "durations");
-    for (cJSON *d = jdur ? jdur->child : NULL; d && n_durations < MYNAH_MAX_DURATIONS; d = d->next)
-        durations[n_durations++] = d->valueint;
-    if (mynah_decoder_init(&m->dec, m->weights,
-                           cJSON_GetObjectItem(jdec, "blank_id")->valueint,
-                           cJSON_GetObjectItem(jdec, "max_symbols_per_step")->valueint,
-                           quant, durations, n_durations) != 0) {
-        fprintf(stderr, "mynah: decoder init fallita\n");
-        goto fail;
+    const char *dec_type = cJSON_GetObjectItem(jdec, "type")->valuestring;
+    if (strcmp(dec_type, "ctc") == 0) {
+        /* CTC puro: niente prednet/joint, la head È il decoder */
+        if (mynah_ctc_init(&m->ctc, m->weights) != 0) {
+            fprintf(stderr, "mynah: head CTC mancante\n");
+            goto fail;
+        }
+        m->use_ctc = 1;
+        m->ctc_only = 1;
+    } else {
+        int durations[MYNAH_MAX_DURATIONS];
+        int n_durations = 0;
+        const cJSON *jdur = cJSON_GetObjectItem(jdec, "durations");
+        for (cJSON *d = jdur ? jdur->child : NULL; d && n_durations < MYNAH_MAX_DURATIONS; d = d->next)
+            durations[n_durations++] = d->valueint;
+        if (mynah_decoder_init(&m->dec, m->weights,
+                               cJSON_GetObjectItem(jdec, "blank_id")->valueint,
+                               cJSON_GetObjectItem(jdec, "max_symbols_per_step")->valueint,
+                               quant, durations, n_durations) != 0) {
+            fprintf(stderr, "mynah: decoder init fallita\n");
+            goto fail;
+        }
+        mynah_ctc_init(&m->ctc, m->weights);   /* head ausiliaria hybrid, opzionale */
     }
-    mynah_ctc_init(&m->ctc, m->weights);   /* opzionale: -1 = modello senza CTC */
 
     snprintf(path, sizeof(path), "%s/tokens.json", model_dir);
     if (mynah_tokenizer_load(&m->tok, path) != 0) goto fail;
@@ -129,6 +147,7 @@ mynah_model *mynah_load_quant(const char *model_dir, int quant) {
     const cJSON *jsf = jenc ? cJSON_GetObjectItem(jenc, "subsampling_factor") : NULL;
     m->frame_sec = (double)m->feat.hop_length * (jsf ? jsf->valueint : 8)
                    / (double)m->feat.sample_rate;
+    m->seg_sec = MYNAH_SEG_DEFAULT;
 
     /* streaming presets [[left, right], ...] — sezione assente per i modelli
      * offline (Parakeet): attention full [-1,-1], niente stream API */
@@ -178,6 +197,10 @@ int mynah_lang_id(const mynah_model *m, const char *lang) {
     return e ? e->valueint : -1;
 }
 
+void mynah_set_segment_limit(mynah_model *m, double sec) {
+    m->seg_sec = sec <= 0.0 ? MYNAH_SEG_DEFAULT : (sec < 5.0 ? 5.0 : sec);
+}
+
 int mynah_set_decoder(mynah_model *m, const char *name) {
     if (strcmp(name, "ctc") == 0) {
         if (!m->ctc.w) {
@@ -187,7 +210,7 @@ int mynah_set_decoder(mynah_model *m, const char *name) {
         m->use_ctc = 1;
         return 0;
     }
-    m->use_ctc = 0;
+    m->use_ctc = m->ctc_only;   /* CTC puro: il default È la head CTC */
     return strcmp(name, "default") == 0 ? 0 : -1;
 }
 
@@ -234,17 +257,28 @@ int mynah_transcribe_batch(mynah_model *m, const float *const *samples,
 
     for (int b = 0; b < batch; b++) {
         if (!encs[b]) continue;
-        mynah_dec_state *s = malloc(sizeof(*s));
-        if (!s) continue;
-        mynah_dec_state_reset(&m->dec, s);
-        const int cap = t_encs[b] * m->dec.max_symbols;
-        int *tokens = malloc((size_t)cap * sizeof(int));
-        const int n_tok = tokens ? mynah_greedy_decode(&m->dec, s, encs[b], t_encs[b],
-                                                       tokens, NULL, cap) : 0;
+        int n_tok = 0;
+        int *tokens;
+        if (m->use_ctc && m->ctc.d_in == m->enc.d_out) {
+            /* CTC puro: encoder_post senza projector = encoder out */
+            tokens = malloc((size_t)t_encs[b] * sizeof(int));
+            if (tokens)
+                n_tok = mynah_ctc_decode(&m->ctc, encs[b], t_encs[b], tokens, NULL,
+                                         t_encs[b]);
+        } else {
+            mynah_dec_state *s = malloc(sizeof(*s));
+            if (!s) continue;
+            mynah_dec_state_reset(&m->dec, s);
+            const int cap = t_encs[b] * m->dec.max_symbols;
+            tokens = malloc((size_t)cap * sizeof(int));
+            if (tokens)
+                n_tok = mynah_greedy_decode(&m->dec, s, encs[b], t_encs[b],
+                                            tokens, NULL, cap);
+            free(s);
+        }
         texts[b] = mynah_detokenize(&m->tok, tokens, n_tok,
                                     langs_out ? langs_out[b] : NULL);
         free(tokens);
-        free(s);
     }
     rc = 0;
 
@@ -396,14 +430,11 @@ int mynah_stream_finish(mynah_stream *s, mynah_result_cb cb, void *ud) {
     return 0;
 }
 
-char *mynah_transcribe_ts(mynah_model *m, const float *samples, size_t n_samples,
-                          const char *lang, int lookahead, char *lang_out,
-                          mynah_word **words, int *n_words) {
+/* Trascrizione di UN segmento (audio intero o fetta tra due silenzi). */
+static char *transcribe_segment(mynah_model *m, const float *samples, size_t n_samples,
+                                int prompt, int right, char *lang_out,
+                                mynah_word **words, int *n_words) {
     if (words) { *words = NULL; *n_words = 0; }
-    const int prompt = resolve_prompt(m, lang);
-    if (prompt == -2) { fprintf(stderr, "mynah: lingua '%s' non supportata\n", lang); return NULL; }
-    const int right = lookahead >= 0 ? lookahead : m->default_right;
-
     int T_mel, valid;
     float *feats = mynah_log_mel(&m->feat, samples, n_samples, &T_mel, &valid);
     if (!feats) return NULL;
@@ -445,6 +476,88 @@ char *mynah_transcribe_ts(mynah_model *m, const float *samples, size_t n_samples
     free(tokens);
     free(frames);
     return text;
+}
+
+/* Punto di split: minimo di energia (RMS su finestre da 20 ms) in [lo, hi). */
+static size_t find_split_point(const float *s, size_t lo, size_t hi, int sr) {
+    const size_t win = (size_t)sr / 50, hop = win / 2;
+    double best = 1e300;
+    size_t best_pos = hi;
+    for (size_t p = lo; p + win <= hi; p += hop) {
+        double e = 0.0;
+        for (size_t i = 0; i < win; i++) {
+            const double v = s[p + i];
+            e += v * v;
+        }
+        if (e < best) { best = e; best_pos = p + win / 2; }
+    }
+    return best_pos;
+}
+
+char *mynah_transcribe_ts(mynah_model *m, const float *samples, size_t n_samples,
+                          const char *lang, int lookahead, char *lang_out,
+                          mynah_word **words, int *n_words) {
+    if (words) { *words = NULL; *n_words = 0; }
+    if (lang_out) lang_out[0] = '\0';
+    const int prompt = resolve_prompt(m, lang);
+    if (prompt == -2) { fprintf(stderr, "mynah: lingua '%s' non supportata\n", lang); return NULL; }
+    const int right = lookahead >= 0 ? lookahead : m->default_right;
+
+    const int sr = m->feat.sample_rate;
+    const size_t seg_max = (size_t)(m->seg_sec * sr);
+    if (n_samples <= seg_max + seg_max / 10)   /* +10%: non spezzare per poco */
+        return transcribe_segment(m, samples, n_samples, prompt, right, lang_out,
+                                  words, n_words);
+
+    /* audio lungo: segmenti indipendenti divisi sul silenzio, risultato concatenato */
+    char *text = NULL;
+    size_t text_len = 0;
+    size_t cur = 0;
+    while (cur < n_samples) {
+        size_t end = n_samples;
+        if (n_samples - cur > seg_max + seg_max / 10) {
+            /* cerca il silenzio negli ultimi 20 s della finestra (min 1 s dentro) */
+            const size_t hi = cur + seg_max;
+            size_t lo = seg_max > 20u * (size_t)sr ? hi - 20u * (size_t)sr : cur + (size_t)sr;
+            if (lo <= cur) lo = cur + 1;
+            end = find_split_point(samples, lo, hi, sr);
+        }
+
+        char seg_lang[16] = "";
+        mynah_word *sw = NULL;
+        int sn = 0;
+        char *seg = transcribe_segment(m, samples + cur, end - cur, prompt, right,
+                                       seg_lang, words ? &sw : NULL, &sn);
+        if (!seg) { free(text); if (words) mynah_words_free(*words, *n_words); return NULL; }
+        if (lang_out && seg_lang[0] && cur == 0) memcpy(lang_out, seg_lang, sizeof(seg_lang));
+
+        const size_t sl = strlen(seg);
+        char *nt = realloc(text, text_len + sl + 2);
+        if (!nt) { free(seg); free(text); mynah_words_free(sw, sn); return NULL; }
+        text = nt;
+        if (text_len > 0 && sl > 0) text[text_len++] = ' ';
+        memcpy(text + text_len, seg, sl + 1);
+        text_len += sl;
+        free(seg);
+
+        if (words && sn > 0) {
+            mynah_word *nw = realloc(*words, ((size_t)*n_words + (size_t)sn) * sizeof(mynah_word));
+            if (!nw) { mynah_words_free(sw, sn); free(text); return NULL; }
+            *words = nw;
+            const double off = (double)cur / sr;
+            for (int i = 0; i < sn; i++) {
+                nw[*n_words + i] = sw[i];
+                nw[*n_words + i].t0 += off;
+                nw[*n_words + i].t1 += off;
+            }
+            *n_words += sn;
+            free(sw);   /* le stringhe sono state trasferite */
+        } else if (sw) {
+            mynah_words_free(sw, sn);
+        }
+        cur = end;
+    }
+    return text ? text : calloc(1, 1);
 }
 
 char *mynah_transcribe(mynah_model *m, const float *samples, size_t n_samples,
