@@ -879,9 +879,9 @@ done:
 }
 
 /* ---------------------------------------------------------------- forward */
-float *mynah_encoder_forward(const mynah_encoder *enc, const float *feats, int t_mel,
-                             int n_mels, int prompt_id, int left_ctx, int right_ctx,
-                             int *t_out) {
+static float *forward_core(const mynah_encoder *enc, const float *feats, int t_mel,
+                           int n_mels, int prompt_id, int left_ctx, int right_ctx,
+                           int *t_out, int do_post) {
     int T;
     float *x = mynah_subsampling_forward(&enc->ss, feats, t_mel, n_mels, &T);
     if (!x) return NULL;
@@ -895,11 +895,24 @@ float *mynah_encoder_forward(const mynah_encoder *enc, const float *feats, int t
         return NULL;
     }
     free(pe);
+    *t_out = T;
+    if (!do_post) return x;                /* encoder out grezzo [T, d_model] (CTC) */
 
     float *out = malloc((size_t)T * (size_t)enc->d_out * sizeof(float));
     if (!out) { free(x); return NULL; }
     mynah_encoder_post(enc, x, T, prompt_id, out);
     free(x);
-    *t_out = T;
     return out;
+}
+
+float *mynah_encoder_forward(const mynah_encoder *enc, const float *feats, int t_mel,
+                             int n_mels, int prompt_id, int left_ctx, int right_ctx,
+                             int *t_out) {
+    return forward_core(enc, feats, t_mel, n_mels, prompt_id, left_ctx, right_ctx,
+                        t_out, 1);
+}
+
+float *mynah_encoder_forward_raw(const mynah_encoder *enc, const float *feats, int t_mel,
+                                 int n_mels, int left_ctx, int right_ctx, int *t_out) {
+    return forward_core(enc, feats, t_mel, n_mels, 0, left_ctx, right_ctx, t_out, 0);
 }

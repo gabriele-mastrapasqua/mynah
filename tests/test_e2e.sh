@@ -22,10 +22,16 @@ Q_WAV=tests/audio/test_it.wav
 Q_SUB="riconoscimento vocale in italiano"
 
 if [ "$NAME" = "parakeet-tdt_ctc-110m" ]; then
-    # 110M: solo inglese (candidato CI)
+    # 110M: solo inglese (candidato CI); hybrid -> anche la head CTC
     Q_WAV=tests/audio/test_en.wav
     Q_SUB="speech recognition test"
     check tests/audio/test_en.wav auto "Hello, this is a speech recognition test. The weather is nice today."
+    out=$(./mynah transcribe -m "$MODEL_DIR" -i tests/audio/test_en.wav --decoder ctc 2>/dev/null)
+    case "$out" in
+        *"This is a speech recognition test. The weather is nice today."*)
+            echo "e2e decoder-ctc OK: $out" ;;
+        *) echo "e2e decoder-ctc FAIL: $out"; fail=1 ;;
+    esac
 elif [ "$ENGINE" = "parakeet-tdt" ]; then
     check tests/audio/test_it.wav auto "Ciao, questo è un test di riconoscimento vocale in italiano: il gatto dorme sul divano."
     check tests/audio/test_en.wav auto "Hello, this is a speech recognition test, the weather is nice today."

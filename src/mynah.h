@@ -47,6 +47,11 @@ void mynah_free(mynah_model *m);
 /* Risolve un tag lingua ("it-IT", "auto", ...) nel prompt id. -1 se ignoto. */
 int mynah_lang_id(const mynah_model *m, const char *lang);
 
+/* Seleziona il decoder per le trascrizioni successive: "default" (RNNT/TDT del
+ * modello) o "ctc" (head ausiliaria dei modelli hybrid, più veloce, solo offline).
+ * -1 se il modello non supporta il decoder richiesto. */
+int mynah_set_decoder(mynah_model *m, const char *name);
+
 /* Lookahead (right context) validi per il modello, es. {3,0,6,13}. */
 int mynah_lookaheads(const mynah_model *m, int out[8]);
 

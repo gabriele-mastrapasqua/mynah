@@ -67,6 +67,11 @@ float *mynah_encoder_forward(const mynah_encoder *enc, const float *feats, int t
                              int n_mels, int prompt_id, int left_ctx, int right_ctx,
                              int *t_out);
 
+/* Come sopra ma SENZA prompt/projector: encoder out grezzo [T_enc, d_model]
+ * (input della head CTC dei modelli hybrid). */
+float *mynah_encoder_forward_raw(const mynah_encoder *enc, const float *feats, int t_mel,
+                                 int n_mels, int left_ctx, int right_ctx, int *t_out);
+
 /* Forward batched weight-stationary (lunghezze variabili, packing senza padding):
  * le GEMM per-frame (FFN, proiezioni — >95% dei FLOP) girano su [ΣT, d] leggendo i
  * pesi UNA volta; attention e conv (per-sequenza) iterano sui segmenti.

@@ -27,6 +27,8 @@ def main() -> None:
     ap.add_argument("--lang", default="auto")
     ap.add_argument("--lookahead", type=int, default=None, help="right context (0|1|3|6|13)")
     ap.add_argument("--dump-dir", default=None, help="salva attivazioni intermedie .npy")
+    ap.add_argument("--decoder", choices=["default", "ctc"], default="default",
+                    help="ctc: head ausiliaria dei modelli hybrid (tdt_ctc)")
     args = ap.parse_args()
 
     model_dir = Path(args.model_dir)
@@ -46,8 +48,12 @@ def main() -> None:
     if dumps is not None:
         dumps["mel"] = feats.copy()
 
+    dumps = dumps if dumps is not None else ({} if args.decoder == "ctc" else None)
     enc = oracle.encode(feats[:valid], prompt_id, lookahead=args.lookahead, dumps=dumps)
-    tokens = oracle.greedy_decode(enc)
+    if args.decoder == "ctc":
+        tokens = oracle.greedy_decode_ctc(dumps["encoder_out"])
+    else:
+        tokens = oracle.greedy_decode(enc)
     text, lang = oracle.detokenize(tokens)
     dt = time.time() - t0
 

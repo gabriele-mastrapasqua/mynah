@@ -328,6 +328,21 @@ class Oracle:
                 emitted += 1
         return tokens
 
+    def greedy_decode_ctc(self, enc_out: np.ndarray) -> list[int]:
+        """Greedy CTC sulla head ausiliaria (modelli hybrid, es. tdt_ctc-110m):
+        logits per frame dall'ENCODER OUT (pre-projector), argmax, collapse dei
+        ripetuti, rimozione dei blank (= ultimo indice)."""
+        w = self.w["ctc_head.weight"][:, :, 0].astype(np.float64)   # [V+1, d, 1]
+        b = self.w["ctc_head.bias"].astype(np.float64)
+        ids = np.argmax(enc_out @ w.T + b, axis=-1)
+        blank = w.shape[0] - 1
+        tokens, prev = [], -1
+        for t in ids:
+            if t != prev and t != blank:
+                tokens.append(int(t))
+            prev = t
+        return tokens
+
     def greedy_decode_tdt(self, enc: np.ndarray) -> list[int]:
         """Greedy TDT su enc [T, 640] (ParakeetTDTGenerationMixin): ogni step il joint
         predice token (argmax sui primi V logit, blank incluso) E duration (argmax sugli

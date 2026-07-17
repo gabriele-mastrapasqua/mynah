@@ -5,6 +5,7 @@
 #include <string.h>
 
 #include "decoder.h"
+#include "decoder_ctc.h"
 #include "encoder.h"
 #include "features.h"
 #include "tokenizer.h"
@@ -19,6 +20,8 @@ struct mynah_model {
     mynah_safetensors *mel_filters;
     mynah_encoder enc;
     mynah_decoder dec;
+    mynah_ctc ctc;                  /* head CTC ausiliaria (hybrid); w NULL se assente */
+    int use_ctc;
     mynah_tokenizer tok;
     mynah_feat_cfg feat;
     int left_ctx, default_right;    /* att context dal preset di default */
@@ -98,6 +101,7 @@ mynah_model *mynah_load_quant(const char *model_dir, int quant) {
         fprintf(stderr, "mynah: decoder init fallita\n");
         goto fail;
     }
+    mynah_ctc_init(&m->ctc, m->weights);   /* opzionale: -1 = modello senza CTC */
 
     snprintf(path, sizeof(path), "%s/tokens.json", model_dir);
     if (mynah_tokenizer_load(&m->tok, path) != 0) goto fail;
@@ -172,6 +176,19 @@ int mynah_lang_id(const mynah_model *m, const char *lang) {
     const cJSON *dict = cJSON_GetObjectItem(jprompt, "dictionary");
     const cJSON *e = dict ? cJSON_GetObjectItem(dict, lang) : NULL;
     return e ? e->valueint : -1;
+}
+
+int mynah_set_decoder(mynah_model *m, const char *name) {
+    if (strcmp(name, "ctc") == 0) {
+        if (!m->ctc.w) {
+            fprintf(stderr, "mynah: il modello non ha una head CTC\n");
+            return -1;
+        }
+        m->use_ctc = 1;
+        return 0;
+    }
+    m->use_ctc = 0;
+    return strcmp(name, "default") == 0 ? 0 : -1;
 }
 
 /* prompt id per la richiesta: -1 = modello senza prompt (valido, es. Parakeet),
@@ -391,22 +408,35 @@ char *mynah_transcribe_ts(mynah_model *m, const float *samples, size_t n_samples
     float *feats = mynah_log_mel(&m->feat, samples, n_samples, &T_mel, &valid);
     if (!feats) return NULL;
 
-    int T_enc;
-    float *enc = mynah_encoder_forward(&m->enc, feats, valid, m->feat.n_mels, prompt,
-                                       m->left_ctx, right, &T_enc);
-    free(feats);
-    if (!enc) return NULL;
+    int T_enc, n_tok = 0;
+    int *tokens = NULL, *frames = NULL;
+    if (m->use_ctc) {
+        float *enc = mynah_encoder_forward_raw(&m->enc, feats, valid, m->feat.n_mels,
+                                               m->left_ctx, right, &T_enc);
+        free(feats);
+        if (!enc) return NULL;
+        tokens = malloc((size_t)T_enc * sizeof(int));       /* CTC: <= 1 token/frame */
+        frames = words && tokens ? malloc((size_t)T_enc * sizeof(int)) : NULL;
+        if (tokens)
+            n_tok = mynah_ctc_decode(&m->ctc, enc, T_enc, tokens, frames, T_enc);
+        free(enc);
+    } else {
+        float *enc = mynah_encoder_forward(&m->enc, feats, valid, m->feat.n_mels, prompt,
+                                           m->left_ctx, right, &T_enc);
+        free(feats);
+        if (!enc) return NULL;
 
-    mynah_dec_state *s = malloc(sizeof(*s));
-    if (!s) { free(enc); return NULL; }
-    mynah_dec_state_reset(&m->dec, s);
-    const int cap = T_enc * m->dec.max_symbols;
-    int *tokens = malloc((size_t)cap * sizeof(int));
-    int *frames = words && tokens ? malloc((size_t)cap * sizeof(int)) : NULL;
-    const int n_tok = tokens ? mynah_greedy_decode(&m->dec, s, enc, T_enc, tokens,
-                                                   frames, cap) : 0;
-    free(enc);
-    free(s);
+        mynah_dec_state *s = malloc(sizeof(*s));
+        if (!s) { free(enc); return NULL; }
+        mynah_dec_state_reset(&m->dec, s);
+        const int cap = T_enc * m->dec.max_symbols;
+        tokens = malloc((size_t)cap * sizeof(int));
+        frames = words && tokens ? malloc((size_t)cap * sizeof(int)) : NULL;
+        if (tokens)
+            n_tok = mynah_greedy_decode(&m->dec, s, enc, T_enc, tokens, frames, cap);
+        free(enc);
+        free(s);
+    }
 
     char *text = mynah_detokenize(&m->tok, tokens, n_tok, lang_out);
     if (text && words && frames)

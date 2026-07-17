@@ -14,8 +14,10 @@ static void usage(void) {
     printf("Uso: mynah <comando> [opzioni]\n\n");
     printf("Comandi:\n");
     printf("  transcribe -m <model_dir> -i <file.wav> [--lang auto] [--lookahead N] [--quant int8]\n");
-    printf("             [--timestamps]   trascrizione offline (WAV PCM16 16 kHz);\n");
+    printf("             [--timestamps] [--decoder default|ctc]\n");
+    printf("             trascrizione offline (WAV PCM16 16 kHz);\n");
     printf("             --timestamps stampa una parola per riga: t0 t1 parola\n");
+    printf("             --decoder ctc usa la head CTC dei modelli hybrid (tdt_ctc)\n");
     printf("  stream     -m <model_dir> [--lang auto] [--quant int8|int4]\n");
     printf("             streaming live da stdin (raw s16le 16 kHz mono)\n");
     printf("  quantize   -m <model_dir> --quant int8|int4\n");
@@ -33,13 +35,14 @@ static double now_sec(void) {
 }
 
 static int cmd_transcribe(int argc, char **argv) {
-    const char *model_dir = NULL, *wav = NULL, *lang = "auto";
+    const char *model_dir = NULL, *wav = NULL, *lang = "auto", *decoder = "default";
     int lookahead = -1, quant = MYNAH_QUANT_F32, timestamps = 0;
     for (int i = 0; i < argc; i++) {
         if (strcmp(argv[i], "-m") == 0 && i + 1 < argc) model_dir = argv[++i];
         else if (strcmp(argv[i], "-i") == 0 && i + 1 < argc) wav = argv[++i];
         else if (strcmp(argv[i], "--lang") == 0 && i + 1 < argc) lang = argv[++i];
         else if (strcmp(argv[i], "--timestamps") == 0) timestamps = 1;
+        else if (strcmp(argv[i], "--decoder") == 0 && i + 1 < argc) decoder = argv[++i];
         else if (strcmp(argv[i], "--lookahead") == 0 && i + 1 < argc) lookahead = atoi(argv[++i]);
         else if (strcmp(argv[i], "--quant") == 0 && i + 1 < argc) {
             i++;
@@ -55,6 +58,7 @@ static int cmd_transcribe(int argc, char **argv) {
     double t0 = now_sec();
     mynah_model *m = mynah_load_quant(model_dir, quant);
     if (!m) return 1;
+    if (mynah_set_decoder(m, decoder) != 0) { mynah_free(m); return 1; }
     double t_load = now_sec() - t0;
 
     size_t n_samples;
