@@ -1,6 +1,9 @@
-/* Decoder RNNT: prediction network LSTM + joint, greedy decode.
- * Semantica NeMo/HF (docs/nemotron-arch.md): SOS = blank, lo stato LSTM avanza
- * SOLO su emissione non-blank, max_symbols_per_step limita l'inner loop.
+/* Decoder RNNT/TDT: prediction network LSTM + joint, greedy decode.
+ * Semantica NeMo/HF (docs/nemotron-arch.md, docs/parakeet-tdt-arch.md):
+ * SOS = blank, lo stato LSTM avanza SOLO su emissione non-blank,
+ * max_symbols_per_step limita le emissioni per frame.
+ * TDT (n_durations > 0): la head emette [vocab | n_durations] logit; il frame
+ * avanza della duration predetta a ogni step (blank con dur 0 -> forzata a 1).
  * Stato liftato e chunk-invariante: decodifica incrementale ≡ intera (prior-art). */
 #ifndef MYNAH_DECODER_H
 #define MYNAH_DECODER_H
@@ -9,15 +12,19 @@
 #include "weights.h"
 
 #define MYNAH_MAX_PRED_LAYERS 4
+#define MYNAH_MAX_DURATIONS 16
 
 typedef struct {
     const float *embedding;                 /* [vocab, H] */
     const float *w_ih[MYNAH_MAX_PRED_LAYERS], *w_hh[MYNAH_MAX_PRED_LAYERS];
     const float *b_ih[MYNAH_MAX_PRED_LAYERS], *b_hh[MYNAH_MAX_PRED_LAYERS];
     const float *proj_w, *proj_b;           /* decoder_projector [H, H] */
-    mynah_qmat head;                        /* joint.head [vocab, H] (int8 opz.) */
+    mynah_qmat head;                        /* joint.head [vocab(+dur), H] (int8 opz.) */
     const float *head_b;
     int vocab, hidden, n_layers, blank, max_symbols;
+    /* TDT: vocab = righe della head; i token sono le prime vocab-n_durations */
+    int n_durations;
+    int durations[MYNAH_MAX_DURATIONS];
 } mynah_decoder;
 
 typedef struct {
@@ -27,8 +34,10 @@ typedef struct {
     int last_token;                         /* -1 = non inizializzato */
 } mynah_dec_state;
 
+/* durations: array TDT dal config (NULL/0 = RNNT puro). */
 int mynah_decoder_init(mynah_decoder *dec, const mynah_safetensors *st,
-                       int blank, int max_symbols, int quantize);
+                       int blank, int max_symbols, int quantize,
+                       const int *durations, int n_durations);
 
 void mynah_dec_state_reset(const mynah_decoder *dec, mynah_dec_state *s);
 

@@ -12,6 +12,8 @@
 #include "../src/weights.h"
 
 double *npy_load_f(const char *path, size_t *n_elems); /* condiviso da npy.c */
+int test_model_cfg(const char *model_dir, int *normalize_pf, int *left, int *right,
+                   int *prompt_it); /* tests/testcfg.c */
 
 int main(int argc, char **argv) {
     if (argc != 4) { fprintf(stderr, "uso: %s <model_dir> <wav> <golden_dir>\n", argv[0]); return 2; }
@@ -34,10 +36,13 @@ int main(int argc, char **argv) {
 
     const mynah_tensor *fb = mynah_st_get(mf, "mel_fb");
     const mynah_tensor *win = mynah_st_get(mf, "window");
+    int norm_pf = 0, left, right, prompt;
+    if (test_model_cfg(argv[1], &norm_pf, &left, &right, &prompt) != 0) return 77;
     mynah_feat_cfg cfg = {
         .sample_rate = 16000, .n_mels = (int)fb->shape[1], .n_fft = (int)(fb->shape[0] - 1) * 2,
         .win_length = (int)win->shape[0], .hop_length = 160,
         .preemphasis = 0.97, .log_zero_guard = pow(2.0, -24.0),
+        .normalize_per_feature = norm_pf,
         .mel_fb = (const float *)fb->data, .window = (const float *)win->data,
     };
     int T, valid;

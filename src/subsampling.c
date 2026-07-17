@@ -14,21 +14,43 @@
 int mynah_subsampling_init(mynah_subsampling *ss, const mynah_safetensors *st) {
     memset(ss, 0, sizeof(*ss));
     ss->conv_in_w = mynah_st_get(st, "encoder.subsampling.conv_in.weight");
-    ss->conv_in_b = mynah_st_get(st, "encoder.subsampling.conv_in.bias");
+    if (ss->conv_in_w) {
+        /* naming Nemotron: conv_in + layers.{i}.{depthwise,pointwise}_conv (causale) */
+        ss->causal = 1;
+        ss->conv_in_b = mynah_st_get(st, "encoder.subsampling.conv_in.bias");
+        for (int i = 0; i < 2; i++) {
+            char name[96];
+            snprintf(name, sizeof(name), "encoder.subsampling.layers.%d.depthwise_conv.weight", i);
+            ss->dw_w[i] = mynah_st_get(st, name);
+            snprintf(name, sizeof(name), "encoder.subsampling.layers.%d.depthwise_conv.bias", i);
+            ss->dw_b[i] = mynah_st_get(st, name);
+            snprintf(name, sizeof(name), "encoder.subsampling.layers.%d.pointwise_conv.weight", i);
+            ss->pw_w[i] = mynah_st_get(st, name);
+            snprintf(name, sizeof(name), "encoder.subsampling.layers.%d.pointwise_conv.bias", i);
+            ss->pw_b[i] = mynah_st_get(st, name);
+            if (!ss->dw_w[i] || !ss->dw_b[i] || !ss->pw_w[i] || !ss->pw_b[i]) return -1;
+        }
+    } else {
+        /* naming Parakeet: Sequential piatto layers.{0,2,3,5,6} (offline, simmetrico) */
+        ss->causal = 0;
+        static const int dw_idx[2] = {2, 5}, pw_idx[2] = {3, 6};
+        char name[96];
+        ss->conv_in_w = mynah_st_get(st, "encoder.subsampling.layers.0.weight");
+        ss->conv_in_b = mynah_st_get(st, "encoder.subsampling.layers.0.bias");
+        for (int i = 0; i < 2; i++) {
+            snprintf(name, sizeof(name), "encoder.subsampling.layers.%d.weight", dw_idx[i]);
+            ss->dw_w[i] = mynah_st_get(st, name);
+            snprintf(name, sizeof(name), "encoder.subsampling.layers.%d.bias", dw_idx[i]);
+            ss->dw_b[i] = mynah_st_get(st, name);
+            snprintf(name, sizeof(name), "encoder.subsampling.layers.%d.weight", pw_idx[i]);
+            ss->pw_w[i] = mynah_st_get(st, name);
+            snprintf(name, sizeof(name), "encoder.subsampling.layers.%d.bias", pw_idx[i]);
+            ss->pw_b[i] = mynah_st_get(st, name);
+            if (!ss->dw_w[i] || !ss->dw_b[i] || !ss->pw_w[i] || !ss->pw_b[i]) return -1;
+        }
+    }
     ss->lin_w = mynah_st_get(st, "encoder.subsampling.linear.weight");
     ss->lin_b = mynah_st_get(st, "encoder.subsampling.linear.bias");
-    for (int i = 0; i < 2; i++) {
-        char name[96];
-        snprintf(name, sizeof(name), "encoder.subsampling.layers.%d.depthwise_conv.weight", i);
-        ss->dw_w[i] = mynah_st_get(st, name);
-        snprintf(name, sizeof(name), "encoder.subsampling.layers.%d.depthwise_conv.bias", i);
-        ss->dw_b[i] = mynah_st_get(st, name);
-        snprintf(name, sizeof(name), "encoder.subsampling.layers.%d.pointwise_conv.weight", i);
-        ss->pw_w[i] = mynah_st_get(st, name);
-        snprintf(name, sizeof(name), "encoder.subsampling.layers.%d.pointwise_conv.bias", i);
-        ss->pw_b[i] = mynah_st_get(st, name);
-        if (!ss->dw_w[i] || !ss->dw_b[i] || !ss->pw_w[i] || !ss->pw_b[i]) return -1;
-    }
     if (!ss->conv_in_w || !ss->conv_in_b || !ss->lin_w || !ss->lin_b) return -1;
     ss->channels = (int)ss->conv_in_w->shape[0];
     ss->d_model = (int)ss->lin_w->shape[0];
@@ -41,7 +63,7 @@ int mynah_subsampling_init(mynah_subsampling *ss, const mynah_safetensors *st) {
 typedef struct {
     const float *x, *w, *b;
     float *out;
-    int T, F, Tp, Fp2, To, Fo, pl, s, C_out, slices;
+    int T, F, Tp, Fp2, To, Fo, pl, pf, s, C_out, slices;
     atomic_int failed;
 } dw_par;
 
@@ -50,7 +72,7 @@ static void dw_slice_worker(void *ctx, int wslice) {
     const int c0 = (int)((long)dp->C_out * wslice / dp->slices);
     const int c1 = (int)((long)dp->C_out * (wslice + 1) / dp->slices);
     const int T = dp->T, F = dp->F, Tp = dp->Tp, Fp2 = dp->Fp2;
-    const int To = dp->To, Fo = dp->Fo, pl = dp->pl, s = dp->s;
+    const int To = dp->To, Fo = dp->Fo, pl = dp->pl, pf = dp->pf, s = dp->s;
 
     float *pad = malloc((size_t)Tp * (size_t)Fp2 * sizeof(float));
     if (!pad) { atomic_store(&dp->failed, 1); return; }
@@ -59,7 +81,7 @@ static void dw_slice_worker(void *ctx, int wslice) {
         const float *ker = dp->w + (size_t)co * 9u;
         memset(pad, 0, (size_t)Tp * (size_t)Fp2 * sizeof(float));
         for (int t = 0; t < T; t++)
-            memcpy(pad + (size_t)(t + pl) * (size_t)Fp2 + 2,
+            memcpy(pad + (size_t)(t + pl) * (size_t)Fp2 + (size_t)pf,
                    src + (size_t)t * (size_t)F, (size_t)F * sizeof(float));
         float *dst = dp->out + (size_t)co * (size_t)To * (size_t)Fo;
         for (int to = 0; to < To; to++) {
@@ -78,15 +100,15 @@ static void dw_slice_worker(void *ctx, int wslice) {
     free(pad);
 }
 
-/* conv k3 s2 con pad freq (2,1) via bounds e pad tempo (pl_t, pr_t) parametrico.
- * x [C_in, T, F] -> out [C_out, T', F']. Offline: pl_t=2, pr_t=1 (causale);
- * streaming: pl_t=pr_t=0 (l'input contiene già cache+init a sinistra).
+/* conv k3 s2 con pad tempo (pl_t, pr_t) e freq (pl_f, pr_f) parametrici.
+ * x [C_in, T, F] -> out [C_out, T', F']. Causale: (2,1); simmetrico: (1,1);
+ * streaming: tempo (0,0) (l'input contiene già cache+init a sinistra).
  * depthwise: C_in == C_out, weight [C,1,3,3]. full: weight [C_out, C_in, 3, 3]. */
 static void conv2d_s2(const float *x, int C_in, int T, int F, int pl_t, int pr_t,
-                      const float *w, const float *b, int C_out, int depthwise,
-                      float *out, int *To_, int *Fo_) {
+                      int pl_f, int pr_f, const float *w, const float *b, int C_out,
+                      int depthwise, float *out, int *To_, int *Fo_) {
     const int k = 3, s = 2, pl = pl_t, pr = pr_t;
-    const int Tp = T + pl + pr, Fp = F + 2 + 1;
+    const int Tp = T + pl + pr, Fp = F + pl_f + pr_f;
     const int To = (Tp - k) / s + 1, Fo = (Fp - k) / s + 1;
     *To_ = To; *Fo_ = Fo;
 
@@ -109,7 +131,7 @@ static void conv2d_s2(const float *x, int C_in, int T, int F, int pl_t, int pr_t
                         }
                         const float *sr = x + (size_t)t * (size_t)F;
                         for (int fo = 0; fo < Fo; fo++) {
-                            const int fq = fo * s - 2 + df;
+                            const int fq = fo * s - pl_f + df;
                             r[fo] = (fq < 0 || fq >= F) ? 0.0f : sr[fq];
                         }
                     }
@@ -133,8 +155,8 @@ static void conv2d_s2(const float *x, int C_in, int T, int F, int pl_t, int pr_t
      * (offline); i chunk streaming restano seriali (overhead > lavoro). */
     if (depthwise) {
         dw_par dp = {.x = x, .w = w, .b = b, .out = out, .T = T, .F = F, .Tp = Tp,
-                     .Fp2 = F + 3, .To = To, .Fo = Fo, .pl = pl, .s = s,
-                     .C_out = C_out, .slices = 1};
+                     .Fp2 = F + pl_f + pr_f, .To = To, .Fo = Fo, .pl = pl, .pf = pl_f,
+                     .s = s, .C_out = C_out, .slices = 1};
         atomic_init(&dp.failed, 0);
         const size_t work = (size_t)C_out * (size_t)To * (size_t)Fo;
         if (work > 500000)
@@ -160,7 +182,7 @@ static void conv2d_s2(const float *x, int C_in, int T, int F, int pl_t, int pr_t
             for (int to = 0; to < To; to++) {
                 const int t0 = to * s - pl;
                 for (int fo = 0; fo < Fo; fo++) {
-                    const int f0 = fo * s - 2; /* freq pad left sempre 2 */
+                    const int f0 = fo * s - pl_f;
                     float acc = 0.0f;
                     for (int dt = 0; dt < k; dt++) {
                         const int t = t0 + dt;
@@ -194,8 +216,11 @@ float *mynah_subsampling_forward(const mynah_subsampling *ss, const float *feats
     float *bbuf = malloc((size_t)C * (size_t)To_max * (size_t)Fo_max * sizeof(float));
     if (!a || !bbuf) { free(a); free(bbuf); return NULL; }
 
+    /* padding tempo/freq: causale (2,1) o simmetrico 'same' (1,1) */
+    const int pl = ss->causal ? 2 : 1, pr = 1;
+
     /* stadio 0: conv piena 1 -> C su [1, T, n_mels] */
-    conv2d_s2(feats, 1, T, n_mels, 2, 1,
+    conv2d_s2(feats, 1, T, n_mels, pl, pr, pl, pr,
               (const float *)ss->conv_in_w->data, (const float *)ss->conv_in_b->data,
               C, 0, a, &To, &Fo);
     relu_inplace(a, (size_t)C * (size_t)To * (size_t)Fo);
@@ -203,7 +228,7 @@ float *mynah_subsampling_forward(const mynah_subsampling *ss, const float *feats
     /* stadi 1..2: depthwise + pointwise + ReLU */
     for (int i = 0; i < 2; i++) {
         int To2, Fo2;
-        conv2d_s2(a, C, To, Fo, 2, 1,
+        conv2d_s2(a, C, To, Fo, pl, pr, pl, pr,
                   (const float *)ss->dw_w[i]->data, (const float *)ss->dw_b[i]->data,
                   C, 1, bbuf, &To2, &Fo2);
         /* pointwise 1x1: out[co, t, f] = sum_ci w[co, ci] * b[ci, t, f]  (GEMM [C, C] x [C, S]) */
@@ -288,7 +313,7 @@ static void stream_stage(const float *x, int C_in, int T, int F, int first, int 
                x + ((size_t)c * (size_t)T + (size_t)(T - 1)) * (size_t)F,
                (size_t)F * sizeof(float));
 
-    conv2d_s2(xp, C_in, Tp, F, 0, 0, w, b, C_out, depthwise, out, To_, Fo_);
+    conv2d_s2(xp, C_in, Tp, F, 0, 0, 2, 1, w, b, C_out, depthwise, out, To_, Fo_);
     free(xp);
 }
 

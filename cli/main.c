@@ -173,6 +173,7 @@ static int cmd_quantize(int argc, char **argv) {
 
     for (size_t idx = 0; idx < mynah_st_count(st); idx++) {
         const mynah_tensor *t = mynah_st_at(st, idx);
+        if (t->dtype == MYNAH_DT_I64) continue; /* BN num_batches_tracked: inutile a runtime */
         if (!quantizable(t->name, t)) {
             const size_t bytes = t->n_elems * 4u; /* solo F32 nel file sorgente */
             mynah_stw_add(w, t->name, "F32", t->shape, t->n_dims, t->data, bytes);

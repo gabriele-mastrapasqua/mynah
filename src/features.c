@@ -136,6 +136,26 @@ float *mynah_log_mel(const mynah_feat_cfg *cfg, const float *audio, size_t n_sam
     if (valid > 0)
         mynah_parallel_for(mp.slices, mel_slice_worker, &mp);
 
+    /* per_feature (Parakeet): media/std per bin sui frame validi, ddof=1,
+     * x = (x - mu) / (std + 1e-5) — come ParakeetFeatureExtractor */
+    if (cfg->normalize_per_feature && valid > 1) {
+        for (int m = 0; m < n_mels; m++) {
+            double mu = 0.0;
+            for (int t = 0; t < valid; t++) mu += feats[(size_t)t * (size_t)n_mels + (size_t)m];
+            mu /= valid;
+            double var = 0.0;
+            for (int t = 0; t < valid; t++) {
+                const double c = feats[(size_t)t * (size_t)n_mels + (size_t)m] - mu;
+                var += c * c;
+            }
+            const double inv = 1.0 / (sqrt(var / (valid - 1)) + 1e-5);
+            for (int t = 0; t < valid; t++) {
+                float *v = &feats[(size_t)t * (size_t)n_mels + (size_t)m];
+                *v = (float)(((double)*v - mu) * inv);
+            }
+        }
+    }
+
     free(y); free(win); free(lo);
     *n_frames = T;
     *valid_frames = valid;

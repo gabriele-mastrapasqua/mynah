@@ -20,6 +20,7 @@ OBJ := $(SRC:.c=.o) $(OBJ_EXTRA)
 HDR := $(wildcard src/*.h)
 
 MODEL_DIR ?= models/nemotron-3.5-asr-streaming-0.6b
+PARAKEET_DIR ?= models/parakeet-tdt-0.6b-v3
 
 all: mynah mynah-server
 
@@ -37,11 +38,12 @@ src/metal_mps.o: src/metal_mps.m
 
 TESTS := tests/test_qmat tests/test_features tests/test_subsampling tests/test_encoder tests/test_streaming tests/test_batch
 
-tests/%: tests/%.o tests/npy.o $(OBJ)
+tests/%: tests/%.o tests/npy.o tests/testcfg.o $(OBJ)
 	$(CC) $(CFLAGS) -o $@ $^ $(LDFLAGS)
 
-# Parità C vs oracolo. Skip (exit 77) se mancano modello o dump golden.
-# Rigenera i dump con: make golden-dump
+# Parità C vs oracolo (Nemotron streaming + Parakeet TDT offline).
+# Skip (exit 77) se mancano modello o dump golden. Rigenera con: make golden-dump
+PARITY_BOTH := tests/test_features tests/test_subsampling tests/test_encoder
 test: $(TESTS) mynah
 	@for t in $(TESTS); do \
 	  if [ $$t = tests/test_qmat ]; then $$t; rc=$$?; \
@@ -49,13 +51,23 @@ test: $(TESTS) mynah
 	  if [ $$rc -eq 77 ]; then echo "SKIP $$t: modello o golden assenti (make golden-dump)"; \
 	  elif [ $$rc -ne 0 ]; then exit $$rc; fi; \
 	done
-	@sh tests/test_e2e.sh $(MODEL_DIR); rc=$$?; \
-	  if [ $$rc -eq 77 ]; then echo "SKIP e2e: modello assente"; \
-	  elif [ $$rc -ne 0 ]; then exit $$rc; fi
+	@for t in $(PARITY_BOTH); do \
+	  $$t $(PARAKEET_DIR) tests/audio/test_it.wav tests/golden/parakeet_it; rc=$$?; \
+	  if [ $$rc -eq 77 ]; then echo "SKIP $$t (parakeet): modello o golden assenti"; \
+	  elif [ $$rc -ne 0 ]; then exit $$rc; fi; \
+	done
+	@for m in $(MODEL_DIR) $(PARAKEET_DIR); do \
+	  sh tests/test_e2e.sh $$m; rc=$$?; \
+	  if [ $$rc -eq 77 ]; then echo "SKIP e2e: $$m assente"; \
+	  elif [ $$rc -ne 0 ]; then exit $$rc; fi; \
+	done
 
 golden-dump:
 	cd tools && uv run python -m oracle.transcribe ../$(MODEL_DIR) ../tests/audio/test_it.wav \
 	  --lang it-IT --dump-dir ../tests/golden/test_it
+	@if [ -f $(PARAKEET_DIR)/mynah.json ]; then \
+	  cd tools && uv run python -m oracle.transcribe ../$(PARAKEET_DIR) \
+	    ../tests/audio/test_it.wav --dump-dir ../tests/golden/parakeet_it; fi
 
 # libreria statica (senza CLI)
 lib: libmynah.a

@@ -6,7 +6,7 @@
 #include <stddef.h>
 #include <stdint.h>
 
-typedef enum { MYNAH_DT_F32, MYNAH_DT_F64, MYNAH_DT_BF16, MYNAH_DT_F16, MYNAH_DT_I8, MYNAH_DT_U8 } mynah_dtype;
+typedef enum { MYNAH_DT_F32, MYNAH_DT_F64, MYNAH_DT_BF16, MYNAH_DT_F16, MYNAH_DT_I8, MYNAH_DT_U8, MYNAH_DT_I64 } mynah_dtype;
 
 typedef struct {
     const char *name;      /* punta dentro l'header JSON (vive quanto il file) */

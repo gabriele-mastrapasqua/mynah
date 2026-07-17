@@ -25,6 +25,7 @@ static int dtype_of(const char *s, mynah_dtype *out) {
     if (strcmp(s, "F16") == 0) { *out = MYNAH_DT_F16; return 0; }
     if (strcmp(s, "I8") == 0) { *out = MYNAH_DT_I8; return 0; }
     if (strcmp(s, "U8") == 0) { *out = MYNAH_DT_U8; return 0; }
+    if (strcmp(s, "I64") == 0) { *out = MYNAH_DT_I64; return 0; } /* BatchNorm num_batches_tracked */
     return -1;
 }
 

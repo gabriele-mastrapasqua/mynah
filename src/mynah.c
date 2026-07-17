@@ -76,11 +76,24 @@ mynah_model *mynah_load_quant(const char *model_dir, int quant) {
         goto fail;
     }
 
+    /* causalità dal config (l'init la inferisce dal naming dei pesi; il config vince) */
+    const cJSON *jenc = cJSON_GetObjectItem(m->cfg, "encoder");
+    const cJSON *jsub = jenc ? cJSON_GetObjectItem(jenc, "subsampling") : NULL;
+    if (jsub && cJSON_IsString(jsub)) {
+        m->enc.causal = strstr(jsub->valuestring, "causal") != NULL;
+        m->enc.ss.causal = m->enc.causal;
+    }
+
     const cJSON *jdec = cJSON_GetObjectItem(m->cfg, "decoder");
+    int durations[MYNAH_MAX_DURATIONS];
+    int n_durations = 0;
+    const cJSON *jdur = cJSON_GetObjectItem(jdec, "durations");
+    for (cJSON *d = jdur ? jdur->child : NULL; d && n_durations < MYNAH_MAX_DURATIONS; d = d->next)
+        durations[n_durations++] = d->valueint;
     if (mynah_decoder_init(&m->dec, m->weights,
                            cJSON_GetObjectItem(jdec, "blank_id")->valueint,
                            cJSON_GetObjectItem(jdec, "max_symbols_per_step")->valueint,
-                           quant) != 0) {
+                           quant, durations, n_durations) != 0) {
         fprintf(stderr, "mynah: decoder init fallita\n");
         goto fail;
     }
@@ -93,6 +106,7 @@ mynah_model *mynah_load_quant(const char *model_dir, int quant) {
     const mynah_tensor *fb = mynah_st_get(m->mel_filters, "mel_fb");
     const mynah_tensor *win = mynah_st_get(m->mel_filters, "window");
     if (!fb || !win) goto fail;
+    const cJSON *jnorm = cJSON_GetObjectItem(jf, "normalize");
     m->feat = (mynah_feat_cfg){
         .sample_rate = cJSON_GetObjectItem(jf, "sample_rate")->valueint,
         .n_mels = cJSON_GetObjectItem(jf, "n_mels")->valueint,
@@ -101,26 +115,34 @@ mynah_model *mynah_load_quant(const char *model_dir, int quant) {
         .hop_length = cJSON_GetObjectItem(jf, "hop_length")->valueint,
         .preemphasis = cJSON_GetObjectItem(jf, "preemphasis")->valuedouble,
         .log_zero_guard = cJSON_GetObjectItem(jf, "log_zero_guard")->valuedouble,
+        .normalize_per_feature = jnorm && cJSON_IsString(jnorm) &&
+                                 strcmp(jnorm->valuestring, "per_feature") == 0,
         .mel_fb = (const float *)fb->data,
         .window = (const float *)win->data,
     };
 
-    /* streaming presets: [[left, right], ...] */
+    /* streaming presets [[left, right], ...] — sezione assente per i modelli
+     * offline (Parakeet): attention full [-1,-1], niente stream API */
+    m->left_ctx = -1;
+    m->default_right = -1;
     const cJSON *js = cJSON_GetObjectItem(m->cfg, "streaming");
-    const cJSON *presets = cJSON_GetObjectItem(js, "att_context_presets");
-    const int def = cJSON_GetObjectItem(js, "default_preset_index")->valueint;
-    int i = 0;
-    for (cJSON *p = presets->child; p && i < 8; p = p->next, i++) {
-        m->lookaheads[i] = cJSON_GetArrayItem(p, 1)->valueint;
-        if (i == def) {
-            m->left_ctx = cJSON_GetArrayItem(p, 0)->valueint;
-            m->default_right = m->lookaheads[i];
+    if (js) {
+        const cJSON *presets = cJSON_GetObjectItem(js, "att_context_presets");
+        const int def = cJSON_GetObjectItem(js, "default_preset_index")->valueint;
+        int i = 0;
+        for (cJSON *p = presets->child; p && i < 8; p = p->next, i++) {
+            m->lookaheads[i] = cJSON_GetArrayItem(p, 1)->valueint;
+            if (i == def) {
+                m->left_ctx = cJSON_GetArrayItem(p, 0)->valueint;
+                m->default_right = m->lookaheads[i];
+            }
         }
+        m->n_lookaheads = i;
     }
-    m->n_lookaheads = i;
 
-    m->default_prompt = cJSON_GetObjectItem(cJSON_GetObjectItem(m->cfg, "prompt"),
-                                            "default_id")->valueint;
+    /* prompt (Nemotron): assente nei modelli con LID implicita (Parakeet) */
+    const cJSON *jprompt = cJSON_GetObjectItem(m->cfg, "prompt");
+    m->default_prompt = jprompt ? cJSON_GetObjectItem(jprompt, "default_id")->valueint : -1;
     return m;
 
 fail:
@@ -140,9 +162,20 @@ void mynah_free(mynah_model *m) {
 }
 
 int mynah_lang_id(const mynah_model *m, const char *lang) {
-    const cJSON *dict = cJSON_GetObjectItem(cJSON_GetObjectItem(m->cfg, "prompt"), "dictionary");
-    const cJSON *e = cJSON_GetObjectItem(dict, lang);
+    const cJSON *jprompt = cJSON_GetObjectItem(m->cfg, "prompt");
+    if (!jprompt) return -1;
+    const cJSON *dict = cJSON_GetObjectItem(jprompt, "dictionary");
+    const cJSON *e = dict ? cJSON_GetObjectItem(dict, lang) : NULL;
     return e ? e->valueint : -1;
+}
+
+/* prompt id per la richiesta: -1 = modello senza prompt (valido, es. Parakeet),
+ * -2 = lingua sconosciuta per un modello CON prompt (errore). */
+static int resolve_prompt(const mynah_model *m, const char *lang) {
+    if (m->default_prompt < 0) return -1;
+    if (!lang) return m->default_prompt;
+    const int id = mynah_lang_id(m, lang);
+    return id < 0 ? -2 : id;
 }
 
 int mynah_lookaheads(const mynah_model *m, int out[8]) {
@@ -165,8 +198,8 @@ int mynah_transcribe_batch(mynah_model *m, const float *const *samples,
 
     for (int b = 0; b < batch; b++) {
         texts[b] = NULL;
-        prompts[b] = langs && langs[b] ? mynah_lang_id(m, langs[b]) : m->default_prompt;
-        if (prompts[b] < 0) goto done;
+        prompts[b] = resolve_prompt(m, langs ? langs[b] : NULL);
+        if (prompts[b] == -2) goto done;
         int T_mel;
         feats[b] = mynah_log_mel(&m->feat, samples[b], n_samples[b], &T_mel, &valids[b]);
         if (!feats[b]) goto done;
@@ -221,8 +254,12 @@ struct mynah_stream {
 };
 
 mynah_stream *mynah_stream_open(mynah_model *m, const char *lang, int lookahead) {
-    const int prompt = lang ? mynah_lang_id(m, lang) : m->default_prompt;
-    if (prompt < 0) { fprintf(stderr, "mynah: lingua '%s' non supportata\n", lang); return NULL; }
+    if (m->n_lookaheads == 0) {
+        fprintf(stderr, "mynah: il modello è offline-only (niente streaming cache-aware)\n");
+        return NULL;
+    }
+    const int prompt = resolve_prompt(m, lang);
+    if (prompt == -2) { fprintf(stderr, "mynah: lingua '%s' non supportata\n", lang); return NULL; }
     const int right = lookahead >= 0 ? lookahead : m->default_right;
 
     mynah_stream *s = calloc(1, sizeof(*s));
@@ -339,8 +376,8 @@ int mynah_stream_finish(mynah_stream *s, mynah_result_cb cb, void *ud) {
 
 char *mynah_transcribe(mynah_model *m, const float *samples, size_t n_samples,
                        const char *lang, int lookahead, char *lang_out) {
-    const int prompt = lang ? mynah_lang_id(m, lang) : m->default_prompt;
-    if (prompt < 0) { fprintf(stderr, "mynah: lingua '%s' non supportata\n", lang); return NULL; }
+    const int prompt = resolve_prompt(m, lang);
+    if (prompt == -2) { fprintf(stderr, "mynah: lingua '%s' non supportata\n", lang); return NULL; }
     const int right = lookahead >= 0 ? lookahead : m->default_right;
 
     int T_mel, valid;

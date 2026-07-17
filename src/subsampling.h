@@ -1,6 +1,8 @@
-/* Subsampling FastConformer dw_striding causale 8x (3 stadi stride-2):
+/* Subsampling FastConformer dw_striding 8x (3 stadi stride-2):
  * conv_in piena + ReLU, poi 2x (depthwise + pointwise + ReLU), flatten
- * channel-major, linear -> d_model. Vedi docs/nemotron-arch.md. */
+ * channel-major, linear -> d_model. Padding causale (2,1) per Nemotron streaming
+ * o simmetrico (1,1) per i modelli offline (Parakeet).
+ * Vedi docs/nemotron-arch.md e docs/parakeet-tdt-arch.md. */
 #ifndef MYNAH_SUBSAMPLING_H
 #define MYNAH_SUBSAMPLING_H
 
@@ -14,13 +16,16 @@ typedef struct {
     const mynah_tensor *lin_w, *lin_b;                 /* [d_model, C*F'], [d_model] */
     int channels;                                      /* 256 */
     int d_model;                                       /* 1024 */
+    int causal;                                        /* 1 = pad (2,1), 0 = pad (1,1) */
 } mynah_subsampling;
 
-/* Risolve i tensori dal safetensors (prefisso HF "encoder.subsampling."). 0 = ok. */
+/* Risolve i tensori dal safetensors. Supporta entrambi i naming HF:
+ * Nemotron (conv_in/layers.{i}.depthwise_conv...) e Parakeet (layers.{0,2,3,5,6}).
+ * causal di default dal naming (Nemotron 1, Parakeet 0); il config puo' sovrascrivere. */
 int mynah_subsampling_init(mynah_subsampling *ss, const mynah_safetensors *st);
 
 /* feats [T, n_mels] float32 (solo frame validi) -> out [T_out, d_model] (malloc).
- * Scrive *t_out. NULL su errore. Offline: pad causale tempo (2,1) per stadio. */
+ * Scrive *t_out. NULL su errore. Padding tempo/freq secondo ss->causal. */
 float *mynah_subsampling_forward(const mynah_subsampling *ss, const float *feats,
                                  int T, int n_mels, int *t_out);
 

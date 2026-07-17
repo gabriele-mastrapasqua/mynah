@@ -55,16 +55,19 @@ int mynah_encoder_init(mynah_encoder *enc, const mynah_safetensors *st, int quan
     const mynah_tensor *bu = mynah_st_get(st, "encoder.layers.0.self_attn.bias_u");
     const mynah_tensor *dw = mynah_st_get(st, "encoder.layers.0.conv.depthwise_conv.weight");
     const mynah_tensor *ep = mynah_st_get(st, "encoder_projector.weight");
-    const mynah_tensor *p1 = mynah_st_get(st, "prompt_projector.linear_1.weight");
-    if (!bu || !dw || !ep || !p1) return -1;
+    const mynah_tensor *p1 = mynah_st_get(st, "prompt_projector.linear_1.weight"); /* opzionale */
+    if (!bu || !dw || !ep) return -1;
 
     enc->d_model = enc->ss.d_model;
     enc->n_heads = (int)bu->shape[0];
     enc->d_head = (int)bu->shape[1];
     enc->conv_k = (int)dw->shape[2];
     enc->d_out = (int)ep->shape[0];
-    enc->prompt_inter = (int)p1->shape[0];
-    enc->num_prompts = (int)p1->shape[1] - enc->d_model;
+    enc->causal = enc->ss.causal;  /* default dal naming; il config puo' sovrascrivere */
+    if (p1) {
+        enc->prompt_inter = (int)p1->shape[0];
+        enc->num_prompts = (int)p1->shape[1] - enc->d_model;
+    }
 
     /* conta i layer */
     int n = 0;
@@ -121,10 +124,37 @@ int mynah_encoder_init(mynah_encoder *enc, const mynah_safetensors *st, int quan
 
     enc->ffn_dim = enc->layers[0].ff1_w1.n;
 
-    enc->prompt_l1_w = (const float *)p1->data;
-    enc->prompt_l1_b = (const float *)mynah_st_get(st, "prompt_projector.linear_1.bias")->data;
-    enc->prompt_l2_w = (const float *)mynah_st_get(st, "prompt_projector.linear_2.weight")->data;
-    enc->prompt_l2_b = (const float *)mynah_st_get(st, "prompt_projector.linear_2.bias")->data;
+    /* conv norm = BatchNorm (Parakeet): fold delle running stats in scale+shift
+     * per-canale (inference: y = (x-mu)/sqrt(var+eps)*gamma+beta, eps 1e-5) */
+    if (mynah_st_get(st, "encoder.layers.0.conv.norm.running_mean")) {
+        const int d = enc->d_model;
+        enc->bn_fold = malloc((size_t)n * 2u * (size_t)d * sizeof(float));
+        if (!enc->bn_fold) return -1;
+        for (int li = 0; li < n; li++) {
+            mynah_enc_layer *L = &enc->layers[li];
+            const float *mu = T_(st, F, li, "conv.norm.running_mean");
+            const float *var = T_(st, F, li, "conv.norm.running_var");
+            if (!mu || !var) {
+                fprintf(stderr, "encoder: running stats BN mancanti al layer %d\n", li);
+                return -1;
+            }
+            float *scale = enc->bn_fold + (size_t)li * 2u * (size_t)d;
+            float *shift = scale + d;
+            for (int i = 0; i < d; i++) {
+                scale[i] = (float)((double)L->cnorm_w[i] / sqrt((double)var[i] + 1e-5));
+                shift[i] = L->cnorm_b[i] - mu[i] * scale[i];
+            }
+            L->cnorm_scale = scale;
+            L->cnorm_shift = shift;
+        }
+    }
+
+    if (p1) {
+        enc->prompt_l1_w = (const float *)p1->data;
+        enc->prompt_l1_b = (const float *)mynah_st_get(st, "prompt_projector.linear_1.bias")->data;
+        enc->prompt_l2_w = (const float *)mynah_st_get(st, "prompt_projector.linear_2.weight")->data;
+        enc->prompt_l2_b = (const float *)mynah_st_get(st, "prompt_projector.linear_2.bias")->data;
+    }
     enc->encproj_w = (const float *)ep->data;
     enc->encproj_b = (const float *)mynah_st_get(st, "encoder_projector.bias")->data;
     return 0;
@@ -140,7 +170,9 @@ void mynah_encoder_free(mynah_encoder *enc) {
         mynah_qmat_free(&L->pw1_w); mynah_qmat_free(&L->pw2_w);
     }
     free(enc->layers);
+    free(enc->bn_fold);
     enc->layers = NULL;
+    enc->bn_fold = NULL;
 }
 
 /* --------------------------------------------------------------- pos emb */
@@ -161,7 +193,7 @@ static void attention(const mynah_encoder *enc, const mynah_enc_layer *L, const 
                       float *out, int T, const float *pe, int left, int right) {
     const int d = enc->d_model, H = enc->n_heads, dk = enc->d_head, P = 2 * T - 1;
     const float scaling = 1.0f / sqrtf((float)dk);
-    const int chunk = right + 1, lc = left / chunk;
+    const int chunk = left >= 0 ? right + 1 : 1, lc = left >= 0 ? left / chunk : 0;
 
     float *q = malloc(3 * (size_t)T * (size_t)d * sizeof(float));
     float *k = q + (size_t)T * (size_t)d;
@@ -196,15 +228,19 @@ static void attention(const mynah_encoder *enc, const mynah_enc_layer *L, const 
         /* scores = (ac + rel_shift(bd)) * scaling + softmax, SOLO sulla finestra
          * chunked_limited — che per riga è contigua: jc in [tc-lc, tc]
          * => j in [ (tc-lc)*chunk, (tc+1)*chunk ). Niente -inf (UB con -ffast-math),
-         * niente lavoro sui masked (prior-art §A: finestra nei limiti del loop). */
+         * niente lavoro sui masked (prior-art §A: finestra nei limiti del loop).
+         * left < 0: attention full (att_context [-1,-1], modelli offline). */
         for (int t = 0; t < T; t++) {
             float *srow = scores + (size_t)t * (size_t)T;
             const float *brow = bd + (size_t)t * (size_t)P;
-            const int tc = t / chunk;
-            int j0 = (tc - lc) * chunk;
-            if (j0 < 0) j0 = 0;
-            int j1 = (tc + 1) * chunk;
-            if (j1 > T) j1 = T;
+            int j0 = 0, j1 = T;
+            if (left >= 0) {
+                const int tc = t / chunk;
+                j0 = (tc - lc) * chunk;
+                if (j0 < 0) j0 = 0;
+                j1 = (tc + 1) * chunk;
+                if (j1 > T) j1 = T;
+            }
 
             float maxv = -3.0e38f;
             for (int j = j0; j < j1; j++) {
@@ -252,18 +288,30 @@ static void conv_module(const mynah_encoder *enc, const mynah_enc_layer *L, cons
         for (int i = 0; i < d; i++) o[i] = a[i] / (1.0f + expf(-b[i]));
     }
 
-    /* depthwise causale k: pad left k-1 (zeri) — dw_w [d, 1, k] */
+    /* depthwise k — dw_w [d, 1, k]: causale (pad left k-1) o 'same' simmetrico
+     * (pad (k-1)/2 per lato); gli out-of-range leggono zero via bounds del loop */
+    const int pc = enc->causal ? k - 1 : (k - 1) / 2;
     for (int t = 0; t < T; t++) {
         float *o = c + (size_t)t * (size_t)d;
         memset(o, 0, (size_t)d * sizeof(float));
-        const int j0 = (t - (k - 1) < 0) ? (k - 1 - t) : 0;
-        for (int j = j0; j < k; j++) {
-            const float *src = g + (size_t)(t - (k - 1) + j) * (size_t)d;
+        int j0 = (t - pc < 0) ? (pc - t) : 0;
+        int j1 = (t - pc + k > T) ? (T - t + pc) : k;
+        for (int j = j0; j < j1; j++) {
+            const float *src = g + (size_t)(t - pc + j) * (size_t)d;
             for (int i = 0; i < d; i++) o[i] += L->dw_w[(size_t)i * (size_t)k + (size_t)j] * src[i];
         }
     }
 
-    layer_norm_f(c, L->cnorm_w, L->cnorm_b, g, T, d);
+    if (L->cnorm_scale) {
+        /* BatchNorm foldata: affine per-canale */
+        for (int t = 0; t < T; t++) {
+            const float *src = c + (size_t)t * (size_t)d;
+            float *o = g + (size_t)t * (size_t)d;
+            for (int i = 0; i < d; i++) o[i] = src[i] * L->cnorm_scale[i] + L->cnorm_shift[i];
+        }
+    } else {
+        layer_norm_f(c, L->cnorm_w, L->cnorm_b, g, T, d);
+    }
     silu_inplace(g, (size_t)T * (size_t)d);
     mynah_qmat_mul(&L->pw2_w, g, out, T);
     free(h2); free(g); free(c);
@@ -313,8 +361,11 @@ int mynah_encoder_layer(const mynah_encoder *enc, int li, float *x, int T,
 static int run_layers(const mynah_encoder *enc, float *x, int T, const float *pe,
                       int left_ctx, int right_ctx) {
 #ifdef MYNAH_METAL
+    /* Il kernel Metal implementa la semantica Nemotron (conv causale, LN sul conv
+     * module, finestra chunked): i modelli non-causali/BN/full-att restano su CPU. */
     if (mynah_backend() == MYNAH_BACKEND_METAL && enc->conv_k == 9 &&
-        enc->layers[0].q_w.qtype == MYNAH_Q_F32) {
+        enc->layers[0].q_w.qtype == MYNAH_Q_F32 &&
+        enc->causal && !enc->layers[0].cnorm_scale && left_ctx >= 0) {
         mynah_metal_layer_w *ws = malloc((size_t)enc->n_layers * sizeof(*ws));
         if (ws) {
             for (int li = 0; li < enc->n_layers; li++) {
@@ -354,6 +405,15 @@ void mynah_encoder_post(const mynah_encoder *enc, const float *x, int T, int pro
                         float *out) {
     const int d = enc->d_model, np = enc->num_prompts, di = enc->prompt_inter;
     const int dcat = d + np;
+
+    if (!enc->prompt_l1_w) {
+        /* modello senza prompt (Parakeet): solo encoder_projector */
+        matmul_wt(x, enc->encproj_w, out, T, enc->d_out, d);
+        for (int t = 0; t < T; t++)
+            for (int i = 0; i < enc->d_out; i++)
+                out[(size_t)t * (size_t)enc->d_out + (size_t)i] += enc->encproj_b[i];
+        return;
+    }
     float *cat = calloc((size_t)T * (size_t)dcat, sizeof(float));
     float *mid = malloc((size_t)T * (size_t)di * sizeof(float));
     float *fused = malloc((size_t)T * (size_t)d * sizeof(float));
@@ -737,9 +797,11 @@ int mynah_encoder_forward_batch(const mynah_encoder *enc, const float *const *fe
 
 #ifdef MYNAH_METAL
     /* Su Metal ogni segmento fa l'encoder intero su GPU (pesi residenti =
-     * weight-stationary comunque); il packing paga solo sulle GEMM CPU. */
+     * weight-stationary comunque); il packing paga solo sulle GEMM CPU.
+     * Stesso gate di run_layers: semantica Nemotron soltanto. */
     if (mynah_backend() == MYNAH_BACKEND_METAL &&
-        enc->layers[0].q_w.qtype == MYNAH_Q_F32) {
+        enc->layers[0].q_w.qtype == MYNAH_Q_F32 &&
+        enc->causal && !enc->layers[0].cnorm_scale && left_ctx >= 0) {
         for (int b = 0, off = 0; b < batch; off += t_outs[b], b++)
             if (run_layers(enc, x + (size_t)off * (size_t)d, t_outs[b], pes[b],
                            left_ctx, right_ctx) != 0) {

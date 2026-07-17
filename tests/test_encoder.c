@@ -13,6 +13,8 @@
 #include "../src/weights.h"
 
 double *npy_load_f(const char *path, size_t *n_elems);
+int test_model_cfg(const char *model_dir, int *normalize_pf, int *left, int *right,
+                   int *prompt_it); /* tests/testcfg.c */
 
 static int check(const char *name, const float *c, const char *golden_dir, size_t n_expect,
                  double rel_tol) {
@@ -58,10 +60,13 @@ int main(int argc, char **argv) {
 
     const mynah_tensor *fb = mynah_st_get(mf, "mel_fb");
     const mynah_tensor *win = mynah_st_get(mf, "window");
+    int norm_pf = 0, left, right, prompt_it;
+    if (test_model_cfg(argv[1], &norm_pf, &left, &right, &prompt_it) != 0) return 77;
     mynah_feat_cfg fcfg = {
         .sample_rate = 16000, .n_mels = (int)fb->shape[1], .n_fft = (int)(fb->shape[0] - 1) * 2,
         .win_length = (int)win->shape[0], .hop_length = 160,
         .preemphasis = 0.97, .log_zero_guard = pow(2.0, -24.0),
+        .normalize_per_feature = norm_pf,
         .mel_fb = (const float *)fb->data, .window = (const float *)win->data,
     };
     int T_mel, valid;
@@ -69,11 +74,12 @@ int main(int argc, char **argv) {
 
     mynah_encoder enc;
     if (mynah_encoder_init(&enc, st, 0) != 0) { fprintf(stderr, "encoder init fallita\n"); return 2; }
-    printf("encoder: %d layer, d=%d, heads=%d, ffn=%d, conv_k=%d, d_out=%d\n",
-           enc.n_layers, enc.d_model, enc.n_heads, enc.ffn_dim, enc.conv_k, enc.d_out);
+    printf("encoder: %d layer, d=%d, heads=%d, ffn=%d, conv_k=%d, d_out=%d, causal=%d, "
+           "att [%d,%d]\n", enc.n_layers, enc.d_model, enc.n_heads, enc.ffn_dim, enc.conv_k,
+           enc.d_out, enc.causal, left, right);
 
-    /* forward manuale per confrontare i layer intermedi (default it-IT preset [56,3]) */
-    const int left = 56, right = 3, prompt_it = 15;
+    /* forward manuale per confrontare i layer intermedi (contesto/prompt dal config:
+     * Nemotron preset default it-IT, Parakeet full [-1,-1] senza prompt) */
     int T;
     float *x = mynah_subsampling_forward(&enc.ss, feats, valid, fcfg.n_mels, &T);
     float *pe = malloc((size_t)(2 * T - 1) * (size_t)enc.d_model * sizeof(float));

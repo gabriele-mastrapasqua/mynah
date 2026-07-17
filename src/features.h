@@ -1,7 +1,9 @@
-/* Log-mel config-driven — replica del feature extractor Nemotron
- * (vedi docs/nemotron-arch.md e tools/oracle/features.py):
+/* Log-mel config-driven — replica dei feature extractor HF NeMo
+ * (vedi docs/nemotron-arch.md, docs/parakeet-tdt-arch.md, tools/oracle/features.py):
  * preemph -> center pad costante -> Hann simmetrica paddata a n_fft -> |rfft|^2
- * -> filterbank mel -> log(x + guard). Nessuna normalizzazione (normalize "NA"). */
+ * -> filterbank mel -> log(x + guard) -> normalizzazione opzionale.
+ * normalize "NA" (Nemotron) o "per_feature" (Parakeet: media/std per bin sui
+ * frame validi, ddof=1, x = (x-mu)/(std+1e-5)). */
 #ifndef MYNAH_FEATURES_H
 #define MYNAH_FEATURES_H
 
@@ -15,6 +17,7 @@ typedef struct {
     int hop_length;        /* 160 */
     double preemphasis;    /* 0.97 */
     double log_zero_guard; /* 2^-24 */
+    int normalize_per_feature; /* 0 = NA, 1 = per_feature (solo offline) */
     const float *mel_fb;   /* [n_fft/2+1, n_mels] da mel_filters.safetensors */
     const float *window;   /* [win_length] */
 } mynah_feat_cfg;

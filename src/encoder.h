@@ -19,6 +19,9 @@ typedef struct {
     const float *ln_conv_w, *ln_conv_b;
     mynah_qmat pw1_w, pw2_w;
     const float *dw_w, *cnorm_w, *cnorm_b;
+    /* conv norm = batch_norm (Parakeet): affine per-canale foldata al load
+     * (y = x*scale + shift); NULL => layer_norm con cnorm_w/b (Nemotron) */
+    const float *cnorm_scale, *cnorm_shift;
     const float *ln_ff2_w, *ln_ff2_b;
     mynah_qmat ff2_w1, ff2_w2;
     const float *ln_out_w, *ln_out_b;
@@ -28,7 +31,9 @@ typedef struct {
     mynah_subsampling ss;
     mynah_enc_layer *layers;
     int n_layers, d_model, n_heads, d_head, ffn_dim, conv_k;
-    /* prompt (post-encoder) + projector verso il joint space */
+    int causal;            /* 1 = depthwise conv causale (Nemotron), 0 = 'same' (Parakeet) */
+    float *bn_fold;        /* buffer scale+shift della BN foldata (NULL se layer_norm) */
+    /* prompt (post-encoder, opzionale: NULL per i modelli senza) + projector */
     const float *prompt_l1_w, *prompt_l1_b, *prompt_l2_w, *prompt_l2_b;
     const float *encproj_w, *encproj_b;
     int num_prompts, prompt_inter, d_out;
@@ -43,11 +48,13 @@ void mynah_encoder_free(mynah_encoder *enc);
  * Buffer allocato dal caller: (2T-1)*d_model float. */
 void mynah_pos_emb(const mynah_encoder *enc, int T, float *pe);
 
-/* Un blocco conformer in-place su x [T, d_model]. left/right = att context. */
+/* Un blocco conformer in-place su x [T, d_model]. left/right = att context;
+ * left < 0 = attention full (modelli offline, att_context [-1,-1]). */
 int mynah_encoder_layer(const mynah_encoder *enc, int li, float *x, int T,
                         const float *pe, int left_ctx, int right_ctx);
 
-/* Prompt one-hot + prompt_projector + encoder_projector: x [T,d_model] -> out [T,d_out]. */
+/* [Prompt one-hot + prompt_projector se presente +] encoder_projector:
+ * x [T,d_model] -> out [T,d_out]. prompt_id ignorato se il modello non ha prompt. */
 void mynah_encoder_post(const mynah_encoder *enc, const float *x, int T, int prompt_id,
                         float *out);
 
