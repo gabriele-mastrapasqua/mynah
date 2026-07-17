@@ -51,6 +51,11 @@ encoder 0.70 s vs 2.1 s della v3; totale **RTF 0.051 vs 0.068 CPU (−25%)**
 (v3: 0.072). Testo identico IT/EN/DE/FR/ES, 0 leak. Sotto 24 righe (chunk
 streaming) si resta su CPU. `MYNAH_METAL_PROF=1` stampa encode/wait/GPU time.
 
+Con la pipeline CPU ottimizzata (greedy a blocchi, subsampling im2col, mel
+sparso — vedi TODO M5 2026-07-17), i totali warm sul 63 s scendono a
+**Metal RTF 0.042, CPU 0.060**. Nota: il decode resta SEMPRE su BLAS CPU
+anche col backend Metal (determinismo tra backend: stessi logits, stesso testo).
+
 ## CUDA (Linux, `make cuda`)
 
 `src/cuda_gemm.cu`: cuBLAS sgemm con weight-cache residente per-pointer, buffer device

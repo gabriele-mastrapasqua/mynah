@@ -199,9 +199,9 @@ float *mynah_subsampling_forward(const mynah_subsampling *ss, const float *feats
     if (!flat || !out) { free(a); free(bbuf); free(flat); free(out); return NULL; }
     for (int t = 0; t < To; t++)
         for (int c = 0; c < C; c++)
-            for (int fq = 0; fq < Fo; fq++)
-                flat[(size_t)t * (size_t)CF + (size_t)c * (size_t)Fo + (size_t)fq] =
-                    a[(size_t)c * (size_t)To * (size_t)Fo + (size_t)t * (size_t)Fo + (size_t)fq];
+            memcpy(flat + (size_t)t * (size_t)CF + (size_t)c * (size_t)Fo,
+                   a + ((size_t)c * (size_t)To + (size_t)t) * (size_t)Fo,
+                   (size_t)Fo * sizeof(float));
 
     /* out = flat @ W^T + b — W [d_model, CF] row-major => GEMM con B trasposta */
     cblas_sgemm(CblasRowMajor, CblasNoTrans, CblasTrans, To, ss->d_model, CF,
@@ -303,9 +303,9 @@ int mynah_ss_stream_step(const mynah_subsampling *ss, mynah_ss_stream *sst,
     if (!flat) { free(a); free(bbuf); return -1; }
     for (int t = 0; t < To; t++)
         for (int c = 0; c < C; c++)
-            for (int fq = 0; fq < Fo; fq++)
-                flat[(size_t)t * (size_t)CF + (size_t)c * (size_t)Fo + (size_t)fq] =
-                    a[(size_t)c * (size_t)To * (size_t)Fo + (size_t)t * (size_t)Fo + (size_t)fq];
+            memcpy(flat + (size_t)t * (size_t)CF + (size_t)c * (size_t)Fo,
+                   a + ((size_t)c * (size_t)To + (size_t)t) * (size_t)Fo,
+                   (size_t)Fo * sizeof(float));
     cblas_sgemm(CblasRowMajor, CblasNoTrans, CblasTrans, To, ss->d_model, CF,
                 1.0f, flat, CF, (const float *)ss->lin_w->data, CF, 0.0f, out, ss->d_model);
     const float *lb = (const float *)ss->lin_b->data;
