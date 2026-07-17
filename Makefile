@@ -43,7 +43,7 @@ tests/%: tests/%.o tests/npy.o tests/testcfg.o $(OBJ)
 
 # Parità C vs oracolo (Nemotron streaming + Parakeet TDT offline).
 # Skip (exit 77) se mancano modello o dump golden. Rigenera con: make golden-dump
-PARITY_BOTH := tests/test_features tests/test_subsampling tests/test_encoder
+PARITY_BOTH := tests/test_features tests/test_subsampling tests/test_encoder tests/test_batch
 test: $(TESTS) mynah
 	@for t in $(TESTS); do \
 	  if [ $$t = tests/test_qmat ]; then $$t; rc=$$?; \

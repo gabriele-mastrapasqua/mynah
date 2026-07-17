@@ -91,10 +91,14 @@ joint `ReLU(enc_proj + pred_proj) → head`, max_symbols_per_step 10, dither 1e-
 Come per Nemotron: head CTC ausiliaria di training (interctc), **non presente nei pesi
 HF esportati** (verificato: nessun tensore `ctc*` nell'header) — il runtime la ignora.
 
-## Punti da verificare nell'oracolo (prima del C)
-1. Semantica esatta `per_feature` (ddof, frame validi vs padding) vs HF
-   `ParakeetFeatureExtractor` — parità numerica sul mel.
-2. eps del BatchNorm e fold corretto (parità su un layer encoder).
-3. Regola di avanzamento del greedy TDT su `dur=0` (blank e non-blank) e interazione
-   con max_symbols — riferimento: NeMo `rnnt_greedy_decoding.py` TDT / HF ParakeetForTDT.
-4. Padding simmetrico subsampling: shape attese dei bin freq (16, non 17).
+## Punti verificati in implementazione (2026-07-17)
+Reference vendorizzata in `reference/transformers-parakeet/`; tutti chiusi:
+1. `per_feature` (da `ParakeetFeatureExtractor`): media sui frame validi per bin,
+   varianza **ddof=1**, `x = (x-μ)/(σ+1e-5)`; frame validi = S//hop come Nemotron.
+2. BatchNorm eps **1e-5** (default `nn.BatchNorm1d`), foldata in scale+shift al load.
+3. Greedy TDT (da `ParakeetTDTGenerationMixin`): a OGNI step il frame avanza della
+   duration predetta (`durations[argmax(logits[V:])]`), anche su non-blank;
+   blank con dur 0 → forzata a 1; non-blank con dur 0 → riemette sullo stesso frame
+   (guardia max_symbols per-frame, semantica NeMo). Niente inner/outer loop RNNT.
+4. Padding simmetrico confermato: `Conv2d(padding=1)` tempo E freq → 16 bin freq.
+Parità per-stadio C vs oracolo e trascrizioni identiche su it/en/de/fr/es in `make test`.

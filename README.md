@@ -28,12 +28,13 @@ decoder intercambiabili, streaming come cittadino di prima classe.
 
 ## Stato
 
-**v0.3-dev** — il runtime funziona end-to-end (offline + streaming) con il modello v1:
+**v0.4-dev** — il runtime funziona end-to-end (offline + streaming) con due engine:
 
 | Modello | Stato |
 |---|---|
 | [nvidia/nemotron-3.5-asr-streaming-0.6b](https://huggingface.co/nvidia/nemotron-3.5-asr-streaming-0.6b) — streaming, 40 lingue | ✅ funzionante |
-| famiglia Parakeet (TDT/RNNT/CTC) | pianificato (v0.4+) |
+| [nvidia/parakeet-tdt-0.6b-v3](https://huggingface.co/nvidia/parakeet-tdt-0.6b-v3) — offline TDT, 25 lingue EU, PnC+ITN | ✅ funzionante |
+| resto famiglia Parakeet (RNNT/CTC/110M) | pianificato (v0.5) |
 | famiglia Canary (ASR + traduzione) | pianificato (v0.8+) |
 
 Ogni stadio numerico è validato contro un oracolo numpy di riferimento
