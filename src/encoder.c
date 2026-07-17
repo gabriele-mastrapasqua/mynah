@@ -394,13 +394,57 @@ int mynah_enc_stream_init(mynah_enc_stream *es, const mynah_encoder *enc,
     es->k_cache = calloc(kv, sizeof(float));
     es->v_cache = calloc(kv, sizeof(float));
     es->conv_cache = calloc(cv, sizeof(float));
-    return (es->k_cache && es->v_cache && es->conv_cache) ? 0 : -1;
+    if (!es->k_cache || !es->v_cache || !es->conv_cache) return -1;
+
+    /* scratch unico del percorso caldo (dimensioni massime, riusato ogni chunk) */
+    const size_t d = (size_t)enc->d_model, ck = (size_t)enc->conv_k;
+    const size_t Qm = (size_t)es->q + 2, Km = (size_t)left_ctx + Qm, Pm = 2 * Km - 1;
+    const size_t sz = Qm * d                  /* sx  */
+                    + Qm * d                  /* stmp */
+                    + Qm * (size_t)enc->ffn_dim /* stmp2 */
+                    + Qm * d                  /* sxn */
+                    + 2 * Qm * d              /* skn */
+                    + Pm * d                  /* sa_pe */
+                    + Qm * d                  /* sa_q */
+                    + 2 * Km * d              /* sa_keys */
+                    + Pm * d                  /* sa_rk */
+                    + Qm * Km                 /* sa_sc */
+                    + Qm * Pm                 /* sa_bd */
+                    + Qm * d                  /* sa_qb */
+                    + Qm * d                  /* sa_ctx */
+                    + Qm * 2 * d              /* sc_h2 */
+                    + (Qm + ck - 1) * d       /* sc_gp */
+                    + Qm * d                  /* sc_c */
+                    + Qm * d;                 /* sc_t */
+    es->scr = malloc(sz * sizeof(float));
+    if (!es->scr) return -1;
+    float *p = es->scr;
+    #define CARVE(f, n) es->f = p; p += (n)
+    CARVE(sx, Qm * d);
+    CARVE(stmp, Qm * d);
+    CARVE(stmp2, Qm * (size_t)enc->ffn_dim);
+    CARVE(sxn, Qm * d);
+    CARVE(skn, 2 * Qm * d);
+    CARVE(sa_pe, Pm * d);
+    CARVE(sa_q, Qm * d);
+    CARVE(sa_keys, 2 * Km * d);
+    CARVE(sa_rk, Pm * d);
+    CARVE(sa_sc, Qm * Km);
+    CARVE(sa_bd, Qm * Pm);
+    CARVE(sa_qb, Qm * d);
+    CARVE(sa_ctx, Qm * d);
+    CARVE(sc_h2, Qm * 2 * d);
+    CARVE(sc_gp, (Qm + ck - 1) * d);
+    CARVE(sc_c, Qm * d);
+    CARVE(sc_t, Qm * d);
+    #undef CARVE
+    return 0;
 }
 
 void mynah_enc_stream_free(mynah_enc_stream *es) {
     mynah_ss_stream_free(&es->ss);
-    free(es->k_cache); free(es->v_cache); free(es->conv_cache);
-    es->k_cache = es->v_cache = es->conv_cache = NULL;
+    free(es->k_cache); free(es->v_cache); free(es->conv_cache); free(es->scr);
+    es->k_cache = es->v_cache = es->conv_cache = es->scr = NULL;
 }
 
 int mynah_enc_stream_need(const mynah_enc_stream *es) {
@@ -410,28 +454,24 @@ int mynah_enc_stream_need(const mynah_enc_stream *es) {
 }
 
 /* Attention streaming: Q righe query, K/V = [cache valida ; chunk], senza mask
- * (la cache contiene esattamente il left context ammesso dalla griglia chunked). */
-static void stream_attention(const mynah_encoder *enc, const mynah_enc_layer *L,
+ * (la cache contiene esattamente il left context ammesso dalla griglia chunked).
+ * pe [2K-1, d] calcolata dal chiamante (una volta per chunk, non per layer);
+ * scratch preallocati in es (zero malloc nel percorso caldo). */
+static void stream_attention(mynah_enc_stream *es, const mynah_enc_layer *L,
                              const float *x, const float *kn, const float *vn,
-                             float *out, int Q,
+                             const float *pe, float *out, int Q,
                              const float *k_cache, const float *v_cache, int valid) {
+    const mynah_encoder *enc = es->enc;
     const int d = enc->d_model, H = enc->n_heads, dk = enc->d_head;
     const int K = valid + Q, P = 2 * K - 1;
     const float scaling = 1.0f / sqrtf((float)dk);
 
-    float *qkv = malloc((size_t)Q * (size_t)d * sizeof(float));
-    float *keys = malloc(2 * (size_t)K * (size_t)d * sizeof(float));
-    float *pe = malloc((size_t)P * (size_t)enc->d_model * sizeof(float));
-    float *rk = malloc((size_t)P * (size_t)d * sizeof(float));
-    float *scores = malloc((size_t)Q * (size_t)K * sizeof(float));
-    float *bd = malloc((size_t)Q * (size_t)P * sizeof(float));
-    float *qb = malloc((size_t)Q * (size_t)d * sizeof(float));
-    float *ctx = malloc((size_t)Q * (size_t)d * sizeof(float));
-    if (!qkv || !keys || !pe || !rk || !scores || !bd || !qb || !ctx) goto done;
+    float *rk = es->sa_rk, *scores = es->sa_sc, *bd = es->sa_bd;
+    float *qb = es->sa_qb, *ctx = es->sa_ctx;
 
     {
-        float *q = qkv;
-        float *kk = keys, *vv = keys + (size_t)K * (size_t)d;
+        float *q = es->sa_q;
+        float *kk = es->sa_keys, *vv = es->sa_keys + (size_t)K * (size_t)d;
         mynah_qmat_mul(&L->q_w, x, q, Q);
 
         /* keys = cache valida ++ nuove (l'update della cache lo fa il chiamante) */
@@ -440,7 +480,6 @@ static void stream_attention(const mynah_encoder *enc, const mynah_enc_layer *L,
         memcpy(vv, v_cache, (size_t)valid * (size_t)d * sizeof(float));
         memcpy(vv + (size_t)valid * (size_t)d, vn, (size_t)Q * (size_t)d * sizeof(float));
 
-        mynah_pos_emb(enc, K, pe); /* [2K-1, d], posizioni K-1..-(K-1) */
         matmul_wt(pe, L->relk_w, rk, P, d, d);
 
         for (int h = 0; h < H; h++) {
@@ -483,8 +522,6 @@ static void stream_attention(const mynah_encoder *enc, const mynah_enc_layer *L,
         }
         mynah_qmat_mul(&L->o_w, ctx, out, Q);
     }
-done:
-    free(qkv); free(keys); free(pe); free(rk); free(scores); free(bd); free(qb); free(ctx);
 }
 
 /* aggiorna la cache K/V di un layer con le nuove righe k/v del chunk */
@@ -504,13 +541,11 @@ static void update_kv_cache(float *cache, const float *fresh, int valid, int Q,
 }
 
 /* Conv module streaming: cache [k-1, d] anteposta, aggiornata con le ultime k-1 righe. */
-static void stream_conv_module(const mynah_encoder *enc, const mynah_enc_layer *L,
+static void stream_conv_module(mynah_enc_stream *es, const mynah_enc_layer *L,
                                const float *x, float *out, int Q, float *cache) {
+    const mynah_encoder *enc = es->enc;
     const int d = enc->d_model, k = enc->conv_k;
-    float *h2 = malloc((size_t)Q * 2u * (size_t)d * sizeof(float));
-    float *gp = malloc((size_t)(Q + k - 1) * (size_t)d * sizeof(float));
-    float *c = malloc((size_t)Q * (size_t)d * sizeof(float));
-    if (!h2 || !gp || !c) { free(h2); free(gp); free(c); return; }
+    float *h2 = es->sc_h2, *gp = es->sc_gp, *c = es->sc_c;
 
     mynah_qmat_mul(&L->pw1_w, x, h2, Q);
     memcpy(gp, cache, (size_t)(k - 1) * (size_t)d * sizeof(float));
@@ -531,14 +566,9 @@ static void stream_conv_module(const mynah_encoder *enc, const mynah_enc_layer *
             for (int i = 0; i < d; i++) o[i] += L->dw_w[(size_t)i * (size_t)k + (size_t)j] * src[i];
         }
     }
-    float *tmp = malloc((size_t)Q * (size_t)d * sizeof(float));
-    if (tmp) {
-        layer_norm_f(c, L->cnorm_w, L->cnorm_b, tmp, Q, d);
-        silu_inplace(tmp, (size_t)Q * (size_t)d);
-        mynah_qmat_mul(&L->pw2_w, tmp, out, Q);
-        free(tmp);
-    }
-    free(h2); free(gp); free(c);
+    layer_norm_f(c, L->cnorm_w, L->cnorm_b, es->sc_t, Q, d);
+    silu_inplace(es->sc_t, (size_t)Q * (size_t)d);
+    mynah_qmat_mul(&L->pw2_w, es->sc_t, out, Q);
 }
 
 int mynah_enc_stream_step(mynah_enc_stream *es, const float *mel, int n_mel,
@@ -546,17 +576,15 @@ int mynah_enc_stream_step(mynah_enc_stream *es, const float *mel, int n_mel,
     const mynah_encoder *enc = es->enc;
     const int d = enc->d_model;
 
-    float *x = malloc((size_t)(es->q + 2) * (size_t)d * sizeof(float));
-    if (!x) return -1;
+    float *x = es->sx;
     const int Q = mynah_ss_stream_step(&enc->ss, &es->ss, mel, n_mel, n_mels, is_last, x);
-    if (Q <= 0) { free(x); return -1; }
+    if (Q <= 0) return -1;
 
     const size_t nd = (size_t)Q * (size_t)d;
-    float *tmp = malloc(nd * sizeof(float));
-    float *tmp2 = malloc((size_t)Q * (size_t)enc->ffn_dim * sizeof(float));
-    float *xn = malloc(nd * sizeof(float));
-    float *kn = malloc(2 * nd * sizeof(float));
-    if (!tmp || !tmp2 || !xn || !kn) { free(x); free(tmp); free(tmp2); free(xn); free(kn); return -1; }
+    float *tmp = es->stmp, *tmp2 = es->stmp2, *xn = es->sxn, *kn = es->skn;
+
+    /* pos emb del passo: dipende solo da K = valid + Q, uguale per tutti i layer */
+    mynah_pos_emb(enc, es->cache_valid + Q, es->sa_pe);
 
     for (int li = 0; li < enc->n_layers; li++) {
         const mynah_enc_layer *L = &enc->layers[li];
@@ -575,14 +603,15 @@ int mynah_enc_stream_step(mynah_enc_stream *es, const float *mel, int n_mel,
         layer_norm_f(x, L->ln_att_w, L->ln_att_b, xn, Q, d);
         mynah_qmat_mul(&L->k_w, xn, kn, Q);
         mynah_qmat_mul(&L->v_w, xn, kn + nd, Q);
-        stream_attention(enc, L, xn, kn, kn + nd, tmp, Q, kc, vc, es->cache_valid);
+        stream_attention(es, L, xn, kn, kn + nd, es->sa_pe, tmp, Q, kc, vc,
+                         es->cache_valid);
         update_kv_cache(kc, kn, es->cache_valid, Q, es->left, d);
         update_kv_cache(vc, kn + nd, es->cache_valid, Q, es->left, d);
         for (size_t i = 0; i < nd; i++) x[i] += tmp[i];
 
         /* Conv con cache */
         layer_norm_f(x, L->ln_conv_w, L->ln_conv_b, xn, Q, d);
-        stream_conv_module(enc, L, xn, tmp, Q, cc);
+        stream_conv_module(es, L, xn, tmp, Q, cc);
         for (size_t i = 0; i < nd; i++) x[i] += tmp[i];
 
         /* ½ FFN2 + LN out */
@@ -598,7 +627,6 @@ int mynah_enc_stream_step(mynah_enc_stream *es, const float *mel, int n_mel,
     es->cache_valid = (es->cache_valid + Q < es->left) ? es->cache_valid + Q : es->left;
 
     mynah_encoder_post(enc, x, Q, prompt_id, out);
-    free(x); free(tmp); free(tmp2); free(xn); free(kn);
     return Q;
 }
 

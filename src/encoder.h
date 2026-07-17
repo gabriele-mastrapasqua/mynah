@@ -77,6 +77,13 @@ typedef struct {
     float *conv_cache;          /* [n_layers, conv_k-1, d_model] */
     int left, right, q;         /* q = right+1 frame encoder per chunk */
     int cache_valid;            /* frame validi nella cache K/V (0..left) */
+    /* scratch del percorso caldo, UN malloc all'init (zero malloc per chunk):
+     * puntatori ritagliati da scr. Dimensionati su Qmax = q+2, Kmax = left+Qmax. */
+    float *scr;
+    float *sx, *stmp, *stmp2, *sxn, *skn;                    /* step */
+    float *sa_pe, *sa_q, *sa_keys, *sa_rk, *sa_sc, *sa_bd,   /* attention */
+          *sa_qb, *sa_ctx;
+    float *sc_h2, *sc_gp, *sc_c, *sc_t;                      /* conv module */
 } mynah_enc_stream;
 
 int mynah_enc_stream_init(mynah_enc_stream *es, const mynah_encoder *enc,
