@@ -1,9 +1,10 @@
-# CI Mynah: build matrix + test FUNZIONALI col modello reale (lezione qwen-tts:
-# la CI build-only non protegge). Il modello dei test è parakeet-tdt_ctc-110m
-# (114M, CC-BY-4.0, RTF ~0.03): il runner scarica il .nemo da HF, lo converte
-# col tooling ufficiale (torch CPU) e mette in cache gli artefatti convertiti —
-# nessun peso ospitato da noi. Nemotron/v3 restano test locali (exit 77 = SKIP).
-name: ci
+# Mynah CI: build matrix + FUNCTIONAL tests with a real model (lesson from
+# qwen-tts: build-only CI protects nothing). The test model is
+# parakeet-tdt_ctc-110m (114M, CC-BY-4.0, RTF ~0.03): the runner downloads the
+# .nemo from HF, converts it with the official tooling (CPU torch) and caches
+# the converted artifacts — no weights hosted by us. Nemotron/v3 and the big
+# models remain local-only tests (exit 77 = SKIP).
+name: CI
 
 on:
   push:
@@ -16,11 +17,12 @@ env:
 
 jobs:
   build-test:
+    name: Build & Test
     strategy:
       fail-fast: false
       matrix:
         include:
-          - os: ubuntu-latest        # x86_64: valida anche i kernel AVX2/VNNI
+          - os: ubuntu-latest        # x86_64: also validates the AVX2/VNNI kernels
           - os: ubuntu-24.04-arm     # aarch64: NEON/SDOT
           - os: macos-latest         # arm64: Accelerate + Metal
     runs-on: ${{ matrix.os }}
@@ -28,23 +30,23 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Dipendenze (Linux)
+      - name: Install dependencies (Linux)
         if: runner.os == 'Linux'
         run: sudo apt-get update && sudo apt-get install -y libopenblas-dev
 
       - name: Build
         run: make
 
-      - name: Kernel self-test (senza modello)
+      - name: Kernel self-test (no model needed)
         run: make tests/test_qmat && tests/test_qmat
 
-      - name: Kernel self-test — livelli SIMD espliciti (x86)
+      - name: Kernel self-test — explicit SIMD levels (x86)
         if: matrix.os == 'ubuntu-latest'
         run: |
           MYNAH_CAPS=scalar tests/test_qmat
-          MYNAH_CAPS=avx2   tests/test_qmat   # declassa con nota se non supportato
+          MYNAH_CAPS=avx2   tests/test_qmat   # downgrades with a note if unsupported
 
-      - name: Cache modello convertito + golden
+      - name: Cache converted model + goldens
         id: model-cache
         uses: actions/cache@v4
         with:
@@ -53,10 +55,10 @@ jobs:
             tests/golden/parakeet110_en
           key: ${{ env.MODEL }}-v1-${{ hashFiles('tools/convert_nemo.py', 'tools/oracle/**') }}
 
-      - name: Setup uv              # serve anche a test-samples (eval Python)
+      - name: Setup uv                # also needed by test-samples (Python eval)
         uses: astral-sh/setup-uv@v5
 
-      - name: Scarica e converti il modello (.nemo -> mynah), golden dump
+      - name: Download and convert the model (.nemo -> mynah), golden dump
         if: steps.model-cache.outputs.cache-hit != 'true'
         run: |
           mkdir -p models/$MODEL
@@ -65,44 +67,13 @@ jobs:
           uv run python convert_nemo.py ../models/$MODEL
           uv run python -m oracle.transcribe ../models/$MODEL \
             ../tests/audio/test_en.wav --dump-dir ../tests/golden/parakeet110_en
-          cd .. && rm models/$MODEL/$MODEL.nemo   # la cache tiene solo il convertito
+          cd .. && rm models/$MODEL/$MODEL.nemo   # the cache keeps only the converted model
 
-      - name: Checkpoint int8 (esercita il percorso quantize)
+      - name: Int8 checkpoint (exercises the quantize path)
         run: ./mynah quantize -m models/${{ env.MODEL }} --quant int8
 
-      - name: Test (parita' vs oracolo + e2e; i modelli grandi skippano)
+      - name: Tests (parity vs oracle + e2e; big models skip)
         run: make test
 
-      - name: Qualita' su audio reale (samples/ FLEURS, CER col 110m)
+      - name: Quality on real audio (samples/ FLEURS, CER with the 110m)
         run: make test-samples
-
-  sanitizers:
-    runs-on: ubuntu-latest
-    timeout-minutes: 30
-    steps:
-      - uses: actions/checkout@v4
-      - name: Dipendenze
-        run: sudo apt-get update && sudo apt-get install -y libopenblas-dev
-      - name: Cache modello convertito + golden
-        id: model-cache
-        uses: actions/cache@v4
-        with:
-          path: |
-            models/${{ env.MODEL }}
-            tests/golden/parakeet110_en
-          key: ${{ env.MODEL }}-v1-${{ hashFiles('tools/convert_nemo.py', 'tools/oracle/**') }}
-      - name: Setup uv
-        if: steps.model-cache.outputs.cache-hit != 'true'
-        uses: astral-sh/setup-uv@v5
-      - name: Scarica e converti il modello, golden dump
-        if: steps.model-cache.outputs.cache-hit != 'true'
-        run: |
-          mkdir -p models/$MODEL
-          curl -fL --retry 3 -o models/$MODEL/$MODEL.nemo "$MODEL_URL"
-          cd tools && uv sync --extra oracle
-          uv run python convert_nemo.py ../models/$MODEL
-          uv run python -m oracle.transcribe ../models/$MODEL \
-            ../tests/audio/test_en.wav --dump-dir ../tests/golden/parakeet110_en
-          cd .. && rm models/$MODEL/$MODEL.nemo
-      - name: ASan+UBSan (build ED esecuzione test)
-        run: make asan

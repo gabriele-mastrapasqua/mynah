@@ -1,0 +1,50 @@
+# Memory safety: ASan+UBSan build AND full test execution with a real model.
+# Linux only: ASan on macOS is extremely slow (locally: make leaks + make ubsan).
+name: Memory Safety
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+env:
+  MODEL: parakeet-tdt_ctc-110m
+  MODEL_URL: https://huggingface.co/nvidia/parakeet-tdt_ctc-110m/resolve/main/parakeet-tdt_ctc-110m.nemo
+
+jobs:
+  asan:
+    name: ASan + UBSan
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: sudo apt-get update && sudo apt-get install -y libopenblas-dev
+
+      - name: Cache converted model + goldens
+        id: model-cache
+        uses: actions/cache@v4
+        with:
+          path: |
+            models/${{ env.MODEL }}
+            tests/golden/parakeet110_en
+          key: ${{ env.MODEL }}-v1-${{ hashFiles('tools/convert_nemo.py', 'tools/oracle/**') }}
+
+      - name: Setup uv
+        if: steps.model-cache.outputs.cache-hit != 'true'
+        uses: astral-sh/setup-uv@v5
+
+      - name: Download and convert the model, golden dump
+        if: steps.model-cache.outputs.cache-hit != 'true'
+        run: |
+          mkdir -p models/$MODEL
+          curl -fL --retry 3 -o models/$MODEL/$MODEL.nemo "$MODEL_URL"
+          cd tools && uv sync --extra oracle
+          uv run python convert_nemo.py ../models/$MODEL
+          uv run python -m oracle.transcribe ../models/$MODEL \
+            ../tests/audio/test_en.wav --dump-dir ../tests/golden/parakeet110_en
+          cd .. && rm models/$MODEL/$MODEL.nemo
+
+      - name: ASan+UBSan (build AND test execution)
+        run: make asan

@@ -1,0 +1,52 @@
+# Static analysis: CodeQL + clang-tidy (same pattern as qwen-tts).
+name: Code Quality
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  codeql:
+    name: CodeQL Analysis
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      security-events: write
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: sudo apt-get update && sudo apt-get install -y libopenblas-dev
+
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@v4
+        with:
+          languages: c-cpp
+
+      - name: Build
+        run: make
+
+      - name: Perform CodeQL Analysis
+        uses: github/codeql-action/analyze@v4
+
+  clang-tidy:
+    name: clang-tidy
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: sudo apt-get update && sudo apt-get install -y libopenblas-dev clang-tidy
+
+      - name: Run clang-tidy
+        run: |
+          clang-tidy \
+            -checks='clang-analyzer-core.*,clang-analyzer-unix.*,clang-analyzer-security.*,-clang-analyzer-security.insecureAPI.DeprecatedOrUnsafeBufferHandling,-clang-analyzer-deadcode.DeadStores,bugprone-*,-bugprone-easily-swappable-parameters,-bugprone-narrowing-conversions,-bugprone-implicit-widening-of-multiplication-result,-bugprone-suspicious-realloc-usage,-bugprone-multi-level-implicit-pointer-conversion,-bugprone-misplaced-widening-cast,-bugprone-branch-clone' \
+            -warnings-as-errors='' \
+            src/*.c cli/main.c server/main.c server/http_util.c \
+            -- -std=c11 -iquote src -D_DEFAULT_SOURCE -DMYNAH_BLAS_OPENBLAS \
+               -DMYNAH_BUILD='"ci"'
