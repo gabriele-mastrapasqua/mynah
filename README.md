@@ -4,9 +4,11 @@
 
 # Mynah ASR
 
-**A lightweight native C runtime for multilingual speech recognition & translation.**
+**A fast native C inference engine for speech recognition & translation** —
+llama.cpp-style: streaming and offline, CPU/Metal/CUDA, no Python at runtime.
 
-Run NVIDIA NeMo speech models anywhere — streaming and offline, no Python at runtime.
+Today it runs the best open speech models (Parakeet, Canary, Nemotron); the
+engine layer is model-agnostic and built to host more families tomorrow.
 
 ```
 $ mynah transcribe -m models/parakeet-tdt-0.6b-v3 -i audio.wav --timestamps
