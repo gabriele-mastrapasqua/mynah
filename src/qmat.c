@@ -444,6 +444,62 @@ static float dot_q4_neon(const float *x, const uint8_t *q, const float *scales,
 #define MYNAH_HAVE_NEON 1
 #endif
 
+/* --------------------------------------------- GEMM int8xint8 per T grande
+ * Blocco di QGEMM_ROWS righe peso per task: ogni riga peso viene caricata una
+ * volta e dottata contro tutte le T attivazioni (già quantizzate, calde in
+ * cache). I task scrivono colonne disgiunte di out -> bit-identico al seriale. */
+#define QGEMM_ROWS 32
+
+#if defined(MYNAH_HAVE_SDOT) || defined(MYNAH_HAVE_X86)
+#include "threads.h"
+
+typedef struct {
+    const mynah_qmat *m;
+    const int8_t *qx;      /* [T, k] attivazioni int8 (x86-q4: pre-permutate) */
+    const float *sx;       /* [T] scale attivazioni */
+    float *out;            /* [T, n] */
+    int T;
+} qgemm_ctx;
+
+static void qgemm_block(void *ctx, int blk) {
+    const qgemm_ctx *c = ctx;
+    const mynah_qmat *m = c->m;
+    const int i0 = blk * QGEMM_ROWS;
+    const int i1 = i0 + QGEMM_ROWS < m->n ? i0 + QGEMM_ROWS : m->n;
+#ifdef MYNAH_HAVE_X86
+    const int caps = x86_caps();
+#endif
+    for (int i = i0; i < i1; i++) {
+        if (m->qtype == MYNAH_Q_INT8) {
+            const int8_t *qrow = m->q8 + (size_t)i * (size_t)m->k;
+            const float ws = m->scales[i];
+            for (int t = 0; t < c->T; t++) {
+                const int8_t *qxt = c->qx + (size_t)t * (size_t)m->k;
+#ifdef MYNAH_HAVE_SDOT
+                c->out[(size_t)t * (size_t)m->n + i] = dot_q8_sdot(qxt, c->sx[t], qrow, ws, m->k);
+#else
+                c->out[(size_t)t * (size_t)m->n + i] = caps >= MYNAH_CAPS_VNNI
+                    ? dot_q8_vnni(qxt, c->sx[t], qrow, ws, m->k)
+                    : dot_q8_avx2(qxt, c->sx[t], qrow, ws, m->k);
+#endif
+            }
+        } else {
+            const int groups = m->k / MYNAH_Q4_GROUP;
+            const uint8_t *qrow = m->q4 + (size_t)i * (size_t)(m->k / 2);
+            const float *srow = m->scales + (size_t)i * (size_t)groups;
+            for (int t = 0; t < c->T; t++) {
+                const int8_t *qxt = c->qx + (size_t)t * (size_t)m->k;
+#ifdef MYNAH_HAVE_SDOT
+                c->out[(size_t)t * (size_t)m->n + i] = dot_q4_sdot(qxt, c->sx[t], qrow, srow, m->k);
+#else
+                c->out[(size_t)t * (size_t)m->n + i] = dot_q4_x86(qxt, c->sx[t], qrow, srow, m->k);
+#endif
+            }
+        }
+    }
+}
+#endif
+
 void mynah_qmat_mul(const mynah_qmat *m, const float *x, float *out, int T) {
     if (m->qtype == MYNAH_Q_F32) {
         mynah_gemm_wt(x, m->f32, out, T, m->n, m->k);
@@ -539,7 +595,53 @@ void mynah_qmat_mul(const mynah_qmat *m, const float *x, float *out, int T) {
         }
         return;
     }
-    /* dequant per-chiamata + GEMM: l'overhead (ms) si ammortizza sul T grande */
+    /* T grande, OPT-IN via env MYNAH_QGEMM=1: GEMM int8xint8 threaded —
+     * attivazioni quantizzate UNA volta (T righe int8 + scale), parallel-for a
+     * blocchi sulle righe peso (peso letto una volta in int8 = 4x meno banda
+     * del dequant f32, attivazioni calde in cache).
+     * MISURATO 2026-07-18 su M-series: PERDE vs dequant+sgemm (l'AMX di
+     * Accelerate domina) e l'act-quant cambia la numerica -> default OFF.
+     * Il margine atteso è su x86 VNNI (niente AMX): validare lì prima di
+     * considerare un default per piattaforma. */
+#if defined(MYNAH_HAVE_SDOT) || defined(MYNAH_HAVE_X86)
+    static int g_qgemm = -1;
+    if (g_qgemm < 0) {
+        const char *e = getenv("MYNAH_QGEMM");
+        g_qgemm = e && e[0] == '1';
+    }
+#ifdef MYNAH_HAVE_X86
+    const int gnative = g_qgemm && x86_caps() >= MYNAH_CAPS_AVX2 && m->k <= QMAT_K_MAX;
+#else
+    const int gnative = g_qgemm && m->k <= QMAT_K_MAX;
+#endif
+    if (gnative) {
+        int8_t *qx = malloc((size_t)T * (size_t)m->k);
+        float *sx = malloc((size_t)T * sizeof(float));
+        if (qx && sx) {
+            for (int t = 0; t < T; t++)
+                sx[t] = quantize_act_int8(qx + (size_t)t * (size_t)m->k,
+                                          x + (size_t)t * (size_t)m->k, m->k);
+#if defined(MYNAH_HAVE_X86) && !defined(MYNAH_HAVE_SDOT)
+            if (m->qtype == MYNAH_Q_INT4) {
+                /* il kernel q4 AVX2 vuole le attivazioni pre-permutate */
+                for (int t = 0; t < T; t++) {
+                    int8_t xp[QMAT_K_MAX];
+                    q4_permute_act(qx + (size_t)t * (size_t)m->k, xp, m->k);
+                    memcpy(qx + (size_t)t * (size_t)m->k, xp, (size_t)m->k);
+                }
+            }
+#endif
+            qgemm_ctx c = {.m = m, .qx = qx, .sx = sx, .out = out, .T = T};
+            mynah_parallel_for((m->n + QGEMM_ROWS - 1) / QGEMM_ROWS, qgemm_block, &c);
+            free(qx);
+            free(sx);
+            return;
+        }
+        free(qx);
+        free(sx);
+    }
+#endif
+    /* dequant per-chiamata + GEMM: fallback (kernel nativi assenti) */
     float *wd = malloc((size_t)m->n * (size_t)m->k * sizeof(float));
     if (!wd) return;
     for (int i = 0; i < m->n; i++) dequant_row(m, i, wd + (size_t)i * (size_t)m->k);
