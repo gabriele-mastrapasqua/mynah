@@ -53,6 +53,7 @@ decoder intercambiabili, streaming come cittadino di prima classe.
 | nemotron-3.5 (offline-chunked) | 0.108 | 2.4 GB |
 | parakeet-rnnt/ctc-1.1b | 0.19 | 4.0 GB |
 | canary-180m-flash (AED, +traduzione) | 0.14 | 0.71 GB |
+| canary-1b-flash (AED, +traduzione) | 0.37 | 3.3 GB |
 
 Con `--backend metal` (encoder su GPU, audio ~67 s warm): 110m 0.018→0.011,
 tdt-0.6b-v3 0.053→**0.033**, rnnt-0.6b 0.050→0.028, ctc-0.6b 0.042→0.022

@@ -62,7 +62,7 @@ test: $(TESTS) mynah examples/minimal
 	done
 	@for m in $(MODEL_DIR) $(PARAKEET_DIR) $(PARAKEET110_DIR) \
 	          models/parakeet-rnnt-0.6b models/parakeet-ctc-0.6b \
-	          models/canary-180m-flash; do \
+	          models/canary-180m-flash models/canary-1b-flash; do \
 	  sh tests/test_e2e.sh $$m; rc=$$?; \
 	  if [ $$rc -eq 77 ]; then echo "SKIP e2e: $$m assente"; \
 	  elif [ $$rc -ne 0 ]; then exit $$rc; fi; \
@@ -104,14 +104,16 @@ src/cuda_gemm.o: src/cuda_gemm.cu
 # basso). ASan è LENTISSIMO su Mac e tende a impallarsi col modello grande: solo CI Linux.
 debug:
 	$(MAKE) clean && $(MAKE) CFLAGS="-std=c11 -O0 -g -Wall -Wextra -Isrc -D$(BLAS_DEF)"
+# NOTA: clean anche in coda — gli oggetti sanitizzati (senza -DMYNAH_METAL e con
+# riferimenti al runtime ubsan) NON devono restare a inquinare la build normale
 ubsan:
 	$(MAKE) clean && $(MAKE) CFLAGS="-std=c11 -O2 -g -fsanitize=undefined \
 	  -fno-omit-frame-pointer -Wall -Wextra -Isrc -D$(BLAS_DEF) -DACCELERATE_NEW_LAPACK" \
-	  LDFLAGS="$(LDFLAGS) -fsanitize=undefined" all test
+	  LDFLAGS="$(LDFLAGS) -fsanitize=undefined" all test && $(MAKE) clean
 asan:
 	$(MAKE) clean && $(MAKE) CFLAGS="-std=c11 -O1 -g -fsanitize=address,undefined \
 	  -fno-omit-frame-pointer -Wall -Wextra -Isrc -D$(BLAS_DEF) -DACCELERATE_NEW_LAPACK" \
-	  LDFLAGS="$(LDFLAGS) -fsanitize=address,undefined" all test
+	  LDFLAGS="$(LDFLAGS) -fsanitize=address,undefined" all test && $(MAKE) clean
 
 # bench riproducibile: RTF warm + picco RAM per ogni modello presente
 bench: mynah
