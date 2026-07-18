@@ -29,6 +29,8 @@ def main() -> None:
     ap.add_argument("--dump-dir", default=None, help="salva attivazioni intermedie .npy")
     ap.add_argument("--decoder", choices=["default", "ctc"], default="default",
                     help="ctc: head ausiliaria dei modelli hybrid (tdt_ctc)")
+    ap.add_argument("--target-lang", default=None,
+                    help="AED (Canary): lingua di uscita (≠ --lang = traduzione)")
     args = ap.parse_args()
 
     model_dir = Path(args.model_dir)
@@ -52,6 +54,9 @@ def main() -> None:
     enc = oracle.encode(feats[:valid], prompt_id, lookahead=args.lookahead, dumps=dumps)
     if args.decoder == "ctc":
         tokens = oracle.greedy_decode_ctc(dumps["encoder_out"])
+    elif oracle.cfg["decoder"]["type"] == "aed_transformer":
+        src = "en" if args.lang == "auto" else args.lang.split("-")[0]
+        tokens = oracle.greedy_decode_aed(enc, src, args.target_lang or src)
     else:
         tokens = oracle.greedy_decode(enc)
     text, lang = oracle.detokenize(tokens)

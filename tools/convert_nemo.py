@@ -234,11 +234,38 @@ _NEMO_RENAMES = [
     ("joint.pred.", "decoder.decoder_projector."),
 ]
 
+# Rename del ramo AED (EncDecMultiTaskModel: Canary) — docs/canary-arch.md.
+_AED_RENAMES = [
+    ("encoder_decoder_proj.", "enc_dec_proj."),
+    ("transf_decoder._embedding.token_embedding.weight", "aed.embedding.weight"),
+    ("transf_decoder._embedding.position_embedding.pos_enc", "aed.pos_enc"),
+    ("transf_decoder._embedding.layer_norm.", "aed.emb_norm."),
+    ("transf_decoder._decoder.final_layer_norm.", "aed.final_norm."),
+    ("transf_decoder._decoder.layers.", "aed.layers."),
+    ("log_softmax.mlp.layer0.", "aed.head."),
+    (".layer_norm_1.", ".ln_self."),
+    (".first_sub_layer.", ".self_attn."),
+    (".layer_norm_2.", ".ln_cross."),
+    (".second_sub_layer.", ".cross_attn."),
+    (".layer_norm_3.", ".ln_ffn."),
+    (".third_sub_layer.", ".ffn."),
+    (".query_net.", ".q_proj."),
+    (".key_net.", ".k_proj."),
+    (".value_net.", ".v_proj."),
+    (".out_projection.", ".o_proj."),
+    (".dense_in.", ".linear1."),
+    (".dense_out.", ".linear2."),
+]
+
 
 def rename_nemo_key(k: str) -> str | None:
     """None = tensore da saltare (preprocessor, stats inutili, head CTC ausiliaria)."""
     if k.startswith("preprocessor.") or k.endswith("num_batches_tracked"):
         return None
+    if k.startswith(("transf_decoder.", "log_softmax.", "encoder_decoder_proj.")):
+        for old, new in _AED_RENAMES:
+            k = k.replace(old, new)
+        return k
     m = re.fullmatch(r"joint\.joint_net\.\d+\.(weight|bias)", k)
     if m:
         return f"joint.head.{m.group(1)}"
@@ -269,8 +296,9 @@ def yaml_features_section(fe: dict) -> dict:
 
 
 def yaml_encoder_section(enc: dict) -> dict:
-    assert enc["att_context_style"] == "regular" and not enc["causal_downsampling"], \
-        "solo Parakeet offline non-causale da .nemo (per ora)"
+    assert enc.get("att_context_style", "regular") == "regular" \
+        and not enc.get("causal_downsampling", False), \
+        "solo encoder offline non-causali da .nemo (per ora)"
     return {
         "n_layers": enc["n_layers"],
         "d_model": enc["d_model"],
@@ -283,7 +311,7 @@ def yaml_encoder_section(enc: dict) -> dict:
         "subsampling_conv_channels": enc["subsampling_conv_channels"],
         "use_bias": enc.get("use_bias", True),        # default NeMo: bias presenti
         "activation": "silu",
-        "att_context_style": enc["att_context_style"],
+        "att_context_style": enc.get("att_context_style", "regular"),
         "pos_emb_max_len": enc["pos_emb_max_len"],
         # xscaling: input dei layer scalato per sqrt(d_model) (modelli piu' vecchi)
         "xscaling": bool(enc.get("xscaling", False)),
@@ -337,6 +365,68 @@ def build_parakeet_ctc_from_yaml(model_dir: Path, y: dict) -> dict:
     }
 
 
+def build_canary_from_yaml(model_dir: Path, y: dict) -> dict:
+    """Canary Flash (EncDecMultiTaskModel): AED con decoder Transformer.
+    docs/canary-arch.md. I token del prompt restano STRINGHE nel mynah.json:
+    il runtime li risolve in id via tokens.json (niente doppia contabilità)."""
+    dcfg = y["transf_decoder"]["config_dict"]
+    langs = [l for l in y["tokenizer"]["langs"] if l != "spl_tokens"]
+    slots = y["prompt_defaults"][0]["slots"]
+    assert y["prompt_format"] == "canary2", f"prompt_format non supportato: {y['prompt_format']}"
+    assert dcfg["pre_ln"] and dcfg["hidden_act"] == "relu"
+    return {
+        "mynah_format": 1,
+        "name": model_dir.name,
+        "arch": "fastconformer_aed",
+        "engine": "canary-aed",
+        "weights": "model.safetensors",
+        "features": yaml_features_section(y["preprocessor"]),
+        "encoder": yaml_encoder_section(y["encoder"]),
+        "decoder": {
+            "type": "aed_transformer",
+            "n_layers": dcfg["num_layers"],
+            "d_model": dcfg["hidden_size"],
+            "n_heads": dcfg["num_attention_heads"],
+            "ffn_dim": dcfg["inner_size"],
+            "max_seq": dcfg["max_sequence_length"],
+            "vocab_size": y["head"]["num_classes"],
+            "eos_token": "<|endoftext|>",
+            "max_generation_delta": y["decoding"]["beam"].get("max_generation_delta", 50),
+        },
+        "prompt": {
+            "format": "canary2",
+            # template canary2 (Canary2PromptFormatter): boctx, contesto (vuoto di
+            # default), bos, poi gli slot in quest'ordine
+            "template": ["<|startofcontext|>", "{decodercontext}", "<|startoftranscript|>",
+                         "{emotion}", "{source_lang}", "{target_lang}", "{pnc}",
+                         "{itn}", "{timestamp}", "{diarize}"],
+            "defaults": {k: v for k, v in slots.items()},
+            "languages": langs,          # <|xx|> come token; xx = codice lingua
+        },
+        "tokenizer": {"type": "spe_bpe_agg", "pieces": "tokens.json"},
+    }
+
+
+def canary_pieces(tar, names, y: dict) -> tuple[list[str], int]:
+    """Tokenizer aggregato: pezzi in ordine di id GLOBALE (sub-tokenizer nell'ordine
+    dello yaml, offset cumulativi). Ritorna (pieces, spl_size)."""
+    import sentencepiece as spm
+
+    pieces: list[str] = []
+    spl_size = 0
+    for lang, sub in y["tokenizer"]["langs"].items():
+        member = sub["model_path"].replace("nemo:", "")
+        hits = [n for n in names if n.endswith(member)]
+        assert len(hits) == 1, f"{member}: {hits}"
+        sp = spm.SentencePieceProcessor()
+        sp.load_from_serialized_proto(tar.extractfile(hits[0]).read())
+        n = sp.get_piece_size()
+        pieces += [sp.id_to_piece(i) for i in range(n)]
+        if lang == "spl_tokens":
+            spl_size = n
+    return pieces, spl_size
+
+
 def convert_from_nemo(model_dir: Path, nemo_file: Path) -> None:
     import io
     import tarfile
@@ -353,7 +443,10 @@ def convert_from_nemo(model_dir: Path, nemo_file: Path) -> None:
         return hits[0]
 
     ycfg = yaml.safe_load(tar.extractfile(member("model_config.yaml")).read())
-    if "ConvASRDecoder" in ycfg["decoder"]["_target_"]:
+    aed = ycfg.get("target", "").endswith("EncDecMultiTaskModel")
+    if aed:
+        mynah = build_canary_from_yaml(model_dir, ycfg)
+    elif "ConvASRDecoder" in ycfg["decoder"]["_target_"]:
         mynah = build_parakeet_ctc_from_yaml(model_dir, ycfg)
     else:
         mynah = build_parakeet_tdt_from_yaml(model_dir, ycfg)
@@ -377,9 +470,14 @@ def convert_from_nemo(model_dir: Path, nemo_file: Path) -> None:
                "window": window.astype(np.float32)},
               model_dir / "mel_filters.safetensors")
 
-    # pieces dallo yaml (in ordine di id) + blank in coda
-    vocab = ycfg.get("joint", {}).get("vocabulary") or ycfg["decoder"]["vocabulary"]
-    pieces = list(vocab) + ["<blank>"]
+    if aed:
+        # tokenizer aggregato dai sub-modelli SPE nel tar
+        pieces, spl_size = canary_pieces(tar, names, ycfg)
+        mynah["tokenizer"]["spl_size"] = spl_size
+    else:
+        # pieces dallo yaml (in ordine di id) + blank in coda
+        vocab = ycfg.get("joint", {}).get("vocabulary") or ycfg["decoder"]["vocabulary"]
+        pieces = list(vocab) + ["<blank>"]
     assert len(pieces) == mynah["decoder"]["vocab_size"]
     (model_dir / "tokens.json").write_text(json.dumps(pieces, ensure_ascii=False))
     (model_dir / "mynah.json").write_text(json.dumps(mynah, indent=1, ensure_ascii=False))

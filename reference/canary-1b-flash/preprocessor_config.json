@@ -1,0 +1,22 @@
+{
+  "_filterbanks": null,
+  "f_max": 8000,
+  "f_min": 0,
+  "feature_extractor_type": "FastConformerFeatureExtractor",
+  "feature_size": 128,
+  "hop_length": 160,
+  "mag_power": 2.0,
+  "mel_norm": "slaney",
+  "mel_scale": "htk",
+  "n_fft": 512,
+  "n_mels": 128,
+  "normalize": "per_feature",
+  "padding_side": "right",
+  "padding_value": 0.0,
+  "preemph": 0.97,
+  "return_attention_mask": true,
+  "sampling_rate": 16000,
+  "win_length": 400,
+  "window_size": 0.025,
+  "window_stride": 0.01
+}

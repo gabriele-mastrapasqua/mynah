@@ -1,0 +1,33 @@
+{
+  "activation_dropout": 0.1,
+  "activation_function": "silu",
+  "architectures": [
+    "FastConformerModel"
+  ],
+  "attention_dropout": 0.1,
+  "bos_token_id": 1,
+  "conv_kernel_size": 9,
+  "d_model": 1024,
+  "dropout": 0.1,
+  "dropout_emb": 0.0,
+  "encoder_attention_heads": 8,
+  "encoder_ffn_dim": 4096,
+  "encoder_layerdrop": 0.1,
+  "encoder_layers": 32,
+  "eos_token_id": 2,
+  "initializer_range": 0.02,
+  "model_type": "fastconformer",
+  "nemo_decoder_type": "none",
+  "nemo_encoder_type": "nemo.collections.asr.modules.ConformerEncoder",
+  "nemo_model_name": "nvidia/canary-1b-flash",
+  "nemo_model_type": "canary",
+  "num_mel_bins": 128,
+  "pad_token_id": 0,
+  "subsampling_conv_channels": 256,
+  "subsampling_factor": 8,
+  "torch_dtype": "float32",
+  "transformers_version": "4.53.0.dev0",
+  "use_bias": true,
+  "vocab_size": 1024,
+  "xscaling": false
+}

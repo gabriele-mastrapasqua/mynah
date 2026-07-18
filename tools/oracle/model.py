@@ -60,10 +60,12 @@ class Oracle:
         self.causal = "causal" in enc["subsampling"]
         self.conv_norm = enc.get("conv_norm", "layer_norm")
         self.xscale = np.sqrt(self.d_model) if enc.get("xscaling") else 1.0
-        self.blank = dec["blank_id"]
-        self.max_symbols = dec["max_symbols_per_step"]
+        self.blank = dec.get("blank_id")                       # assente per AED
+        self.max_symbols = dec.get("max_symbols_per_step")
         self.durations: list[int] = dec.get("durations", [])   # TDT; [] = RNNT
-        self.has_prompt = "prompt" in self.cfg
+        # prompt POST-encoder alla Nemotron (Canary ha "prompt" nel json ma è
+        # il prompt del DECODER: si distingue dai pesi)
+        self.has_prompt = "prompt_projector.linear_1.weight" in self.w
         # inv_freq del rel pos encoding (interleaved sin/cos)
         self.inv_freq = 1.0 / (10000.0 ** (np.arange(0, self.d_model, 2, dtype=np.float64) / self.d_model))
 
@@ -311,6 +313,8 @@ class Oracle:
 
     def greedy_decode(self, enc: np.ndarray) -> list[int]:
         """Greedy RNNT su enc [T, 640]. SOS = blank; stato LSTM avanza solo su non-blank."""
+        if self.cfg["decoder"]["type"] == "aed_transformer":
+            return self.greedy_decode_aed(enc)
         if self.cfg["decoder"]["type"] == "ctc":
             return self.greedy_decode_ctc(enc)   # CTC puro: enc = encoder out
         if self.durations:
@@ -380,6 +384,83 @@ class Oracle:
                 emitted_here = 0
             t += dur
         return tokens
+
+    # ------------------------------------------------------- decoder AED (Canary)
+    def aed_prompt_ids(self, source_lang: str, target_lang: str) -> list[int]:
+        """Prompt canary2 come id globali; slot vuoti (decodercontext) = 0 token."""
+        pr = self.cfg["prompt"]
+        piece_id = {p: i for i, p in reversed(list(enumerate(self.pieces)))}  # prima occorrenza vince
+        slots = dict(pr["defaults"])
+        slots["source_lang"] = f"<|{source_lang}|>"
+        slots["target_lang"] = f"<|{target_lang}|>"
+        ids = []
+        for item in pr["template"]:
+            tok = slots.get(item[1:-1], "") if item.startswith("{") else item
+            if tok:
+                ids.append(piece_id[tok])
+        return ids
+
+    def _aed_mha(self, x_q, x_kv, prefix: str, causal: bool):
+        """MultiHeadAttention NeMo (transformer_modules): q e k divisi per dk^(1/4)
+        ciascuno (= scaling 1/sqrt(dk) sugli score), proiezioni con bias."""
+        w = self.w
+        dec = self.cfg["decoder"]
+        H, d = dec["n_heads"], dec["d_model"]
+        dk = d // H
+        Tq, Tk = x_q.shape[0], x_kv.shape[0]
+
+        def proj(x, name):
+            y = x @ w[prefix + name + ".weight"].T.astype(np.float64) + w[prefix + name + ".bias"]
+            return y.reshape(x.shape[0], H, dk).transpose(1, 0, 2)
+
+        q = proj(x_q, "q_proj") / dk ** 0.25
+        k = proj(x_kv, "k_proj") / dk ** 0.25
+        v = proj(x_kv, "v_proj")
+        scores = q @ k.transpose(0, 2, 1)                              # [H, Tq, Tk]
+        if causal:
+            mask = np.triu(np.ones((Tq, Tk), dtype=bool), k=1)
+            scores = np.where(mask[None], -np.inf, scores)
+        out = (softmax(scores, axis=-1) @ v).transpose(1, 0, 2).reshape(Tq, d)
+        return out @ w[prefix + "o_proj.weight"].T.astype(np.float64) + w[prefix + "o_proj.bias"]
+
+    def _aed_forward(self, ids: list[int], enc: np.ndarray) -> np.ndarray:
+        """Decoder Transformer pre-LN sull'intera sequenza (oracolo: chiarezza).
+        Ritorna i logits dell'ULTIMA posizione."""
+        w = self.w
+        dec = self.cfg["decoder"]
+        x = w["aed.embedding.weight"][ids].astype(np.float64) \
+            + w["aed.pos_enc"][:len(ids)].astype(np.float64)
+        x = layer_norm(x, w["aed.emb_norm.weight"], w["aed.emb_norm.bias"])
+        for li in range(dec["n_layers"]):
+            p = f"aed.layers.{li}."
+            ln = lambda name, t: layer_norm(t, w[p + name + ".weight"], w[p + name + ".bias"])
+            x = x + self._aed_mha(ln("ln_self", x), ln("ln_self", x), p + "self_attn.", causal=True)
+            x = x + self._aed_mha(ln("ln_cross", x), enc, p + "cross_attn.", causal=False)
+            h = ln("ln_ffn", x)
+            h = np.maximum(h @ w[p + "ffn.linear1.weight"].T.astype(np.float64)
+                           + w[p + "ffn.linear1.bias"], 0.0)
+            x = x + h @ w[p + "ffn.linear2.weight"].T.astype(np.float64) + w[p + "ffn.linear2.bias"]
+        x = layer_norm(x, w["aed.final_norm.weight"], w["aed.final_norm.bias"])
+        return x[-1] @ w["aed.head.weight"].T.astype(np.float64) + w["aed.head.bias"]
+
+    def greedy_decode_aed(self, enc_out: np.ndarray, source_lang: str = "en",
+                          target_lang: str | None = None) -> list[int]:
+        """Greedy AED: enc_out [T, d_enc] -> proiezione -> loop autoregressivo
+        col prompt canary2; stop a <|endoftext|> o alla guardia di lunghezza."""
+        w = self.w
+        dec = self.cfg["decoder"]
+        enc = enc_out @ w["enc_dec_proj.weight"].T.astype(np.float64) + w["enc_dec_proj.bias"]
+        prompt = self.aed_prompt_ids(source_lang, target_lang or source_lang)
+        eos = self.pieces.index(dec["eos_token"])
+        max_len = min(dec["max_seq"],
+                      len(prompt) + enc.shape[0] + dec["max_generation_delta"])
+        ids = list(prompt)
+        while len(ids) < max_len:
+            k = int(np.argmax(self._aed_forward(ids, enc)))
+            if k == eos:
+                break
+            ids.append(k)
+        return ids[len(prompt):]
 
     # ------------------------------------------------------------------ testo
     def detokenize(self, tokens: list[int]) -> tuple[str, str | None]:
