@@ -37,7 +37,7 @@ static void layer_norm_f(const float *x, const float *w, const float *b, float *
 }
 
 static void silu_inplace(float *x, size_t n) {
-    for (size_t i = 0; i < n; i++) x[i] = x[i] / (1.0f + expf(-x[i]));
+    for (size_t i = 0; i < n; i++) x[i] = x[i] * mynah_sigmoid(x[i]);
 }
 
 /* x[T, n] += b (broadcast per riga); no-op se b == NULL (modelli senza bias) */
@@ -314,7 +314,7 @@ static void conv_module(const mynah_encoder *enc, const mynah_enc_layer *L, cons
         const float *a = h2 + (size_t)t * 2u * (size_t)d;
         const float *b = a + d;
         float *o = g + (size_t)t * (size_t)d;
-        for (int i = 0; i < d; i++) o[i] = a[i] / (1.0f + expf(-b[i]));
+        for (int i = 0; i < d; i++) o[i] = a[i] * mynah_sigmoid(b[i]);
     }
 
     /* depthwise k — dw_w [d, 1, k]: causale (pad left k-1) o 'same' simmetrico
@@ -677,7 +677,7 @@ static void stream_conv_module(mynah_enc_stream *es, const mynah_enc_layer *L,
         const float *a = h2 + (size_t)t * 2u * (size_t)d;
         const float *b = a + d;
         float *o = gp + (size_t)(k - 1 + t) * (size_t)d;
-        for (int i = 0; i < d; i++) o[i] = a[i] / (1.0f + expf(-b[i]));
+        for (int i = 0; i < d; i++) o[i] = a[i] * mynah_sigmoid(b[i]);
     }
     /* aggiorna cache = ultime k-1 righe di gp */
     memcpy(cache, gp + (size_t)Q * (size_t)d, (size_t)(k - 1) * (size_t)d * sizeof(float));

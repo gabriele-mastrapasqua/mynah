@@ -660,7 +660,7 @@ void mynah_qmat_ffn(const mynah_qmat *w1, const mynah_qmat *w2, const float *x,
     mynah_qmat_mul(w1, x, scratch, T);
     const size_t nmid = (size_t)T * (size_t)w1->n;
     for (size_t i = 0; i < nmid; i++)
-        scratch[i] = scratch[i] / (1.0f + expf(-scratch[i]));
+        scratch[i] = scratch[i] * mynah_sigmoid(scratch[i]);
     mynah_qmat_mul(w2, scratch, out, T);
 }
 

@@ -21,6 +21,18 @@
 
 enum { MYNAH_Q_F32 = 0, MYNAH_Q_INT8 = 1, MYNAH_Q_INT4 = 2 };
 
+#include <math.h>
+
+/* Sigmoide STABILE: mai expf(argomento positivo grande) -> inf. Con -ffast-math
+ * l'inf è UB: gcc x86 vettorizza expf via libmvec e l'inf diventa NaN (visto in
+ * CI 2026-07-18: encoder NaN solo su linux x86; clang/ARM sopravvivevano per
+ * caso). expf(x) con x <= 0 non overflowa mai. */
+static inline float mynah_sigmoid(float x) {
+    if (x >= 0.0f) return 1.0f / (1.0f + expf(-x));
+    const float e = expf(x);
+    return e / (1.0f + e);
+}
+
 #define MYNAH_Q4_GROUP 32
 
 typedef struct {

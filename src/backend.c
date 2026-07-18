@@ -1,4 +1,5 @@
 #include "backend.h"
+#include "qmat.h"
 
 #include <stdio.h>
 #include <math.h>
@@ -89,7 +90,7 @@ void mynah_ffn_wt(const float *x, const float *w1, int n1, const float *w2, int 
     mynah_gemm_wt(x, w1, scratch, T, n1, k);
     const size_t nmid = (size_t)T * (size_t)n1;
     for (size_t i = 0; i < nmid; i++)
-        scratch[i] = scratch[i] / (1.0f + expf(-scratch[i]));
+        scratch[i] = scratch[i] * mynah_sigmoid(scratch[i]);
     mynah_gemm_wt(scratch, w2, out, T, n2, n1);
 }
 

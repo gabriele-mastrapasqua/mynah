@@ -67,7 +67,7 @@ void mynah_dec_state_reset(const mynah_decoder *dec, mynah_dec_state *s) {
     s->last_token = -1;
 }
 
-static inline float sigmoid_f(float x) { return 1.0f / (1.0f + expf(-x)); }
+static inline float sigmoid_f(float x) { return mynah_sigmoid(x); }
 
 /* Un passo LSTM stacked + projector: input = embedding[token]. Aggiorna h/c e s->g. */
 static void pred_step(const mynah_decoder *dec, mynah_dec_state *s, int token) {
