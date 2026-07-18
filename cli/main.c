@@ -166,6 +166,11 @@ static int quantizable(const char *name, const mynah_tensor *t) {
     if (strstr(name, "self_attn.") && strstr(name, "_proj.weight")) return 1;
     if (strstr(name, "conv.pointwise_conv") && !strstr(name, "subsampling")) return 1;
     if (strcmp(name, "joint.head.weight") == 0) return 1;
+    /* decoder AED (Canary): attention self/cross, FFN, head, proiezione encoder */
+    if (strstr(name, "cross_attn.") && strstr(name, "_proj.weight")) return 1;
+    if (strstr(name, "aed.") && strstr(name, "ffn.linear")) return 1;
+    if (strcmp(name, "aed.head.weight") == 0) return 1;
+    if (strcmp(name, "enc_dec_proj.weight") == 0) return 1;
     return 0;
 }
 

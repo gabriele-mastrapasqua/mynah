@@ -11,11 +11,11 @@
 #include <cblas.h>
 #endif
 
-/* y = W x + b, W [n, k] row-major */
-static void mv(const float *w, const float *b, const float *x, float *y, int n, int k) {
-    cblas_sgemv(CblasRowMajor, CblasNoTrans, n, k, 1.0f, w, k, x, 1, 0.0f, y, 1);
+/* y = W x + b (T=1 sui qmat: kernel dot diretto per int8/int4) */
+static void mv(const mynah_qmat *w, const float *b, const float *x, float *y) {
+    mynah_qmat_mul(w, x, y, 1);
     if (b)
-        for (int i = 0; i < n; i++) y[i] += b[i];
+        for (int i = 0; i < w->n; i++) y[i] += b[i];
 }
 
 static void ln(const float *x, const float *w, const float *b, float *y, int d) {
@@ -39,7 +39,8 @@ static void softmax_inplace(float *s, int n) {
 #define T_(st, name) ((const float *)(mynah_st_get((st), (name)) ? mynah_st_get((st), (name))->data : NULL))
 
 int mynah_aed_init(mynah_aed *a, const mynah_safetensors *st,
-                   int n_layers, int n_heads, int max_seq, int max_gen_delta) {
+                   int n_layers, int n_heads, int max_seq, int max_gen_delta,
+                   int quantize) {
     memset(a, 0, sizeof(*a));
     const mynah_tensor *emb = mynah_st_get(st, "aed.embedding.weight");
     if (!emb) return -1;
@@ -55,48 +56,60 @@ int mynah_aed_init(mynah_aed *a, const mynah_safetensors *st,
     a->embln_b = T_(st, "aed.emb_norm.bias");
     a->fin_w = T_(st, "aed.final_norm.weight");
     a->fin_b = T_(st, "aed.final_norm.bias");
-    a->head_w = T_(st, "aed.head.weight");
     a->head_b = T_(st, "aed.head.bias");
-    const mynah_tensor *proj = mynah_st_get(st, "enc_dec_proj.weight");
-    if (proj) {                       /* assente quando enc hidden == dec hidden */
-        a->proj_w = (const float *)proj->data;
+    if (!a->pos || !a->embln_w || !a->fin_w || !a->head_b) return -1;
+    if (mynah_qmat_init_st(&a->head, st, "aed.head.weight", quantize) != 0) return -1;
+    if (mynah_qmat_init_st(&a->proj, st, "enc_dec_proj.weight", quantize) == 0) {
         a->proj_b = T_(st, "enc_dec_proj.bias");
-        a->d_enc = (int)proj->shape[1];
+        a->d_enc = a->proj.k;
     } else {
-        a->d_enc = a->d;
+        a->d_enc = a->d;                /* enc hidden == dec hidden: identity */
     }
-    const mynah_tensor *ff1 = mynah_st_get(st, "aed.layers.0.ffn.linear1.weight");
-    if (!a->pos || !a->embln_w || !a->fin_w || !a->head_w || !ff1) return -1;
-    a->ffn = (int)ff1->shape[0];
 
     a->layers = calloc((size_t)n_layers, sizeof(*a->layers));
     if (!a->layers) return -1;
     for (int li = 0; li < n_layers; li++) {
         mynah_aed_layer *L = &a->layers[li];
         char n[96];
-#define G(field, suffix) \
+#define GF(field, suffix) \
         snprintf(n, sizeof(n), "aed.layers.%d." suffix, li); \
         L->field = T_(st, n); \
         if (!L->field) { fprintf(stderr, "mynah: aed manca %s\n", n); return -1; }
-        G(ln_self_w, "ln_self.weight")   G(ln_self_b, "ln_self.bias")
-        G(sq_w, "self_attn.q_proj.weight") G(sq_b, "self_attn.q_proj.bias")
-        G(sk_w, "self_attn.k_proj.weight") G(sk_b, "self_attn.k_proj.bias")
-        G(sv_w, "self_attn.v_proj.weight") G(sv_b, "self_attn.v_proj.bias")
-        G(so_w, "self_attn.o_proj.weight") G(so_b, "self_attn.o_proj.bias")
-        G(ln_cross_w, "ln_cross.weight") G(ln_cross_b, "ln_cross.bias")
-        G(cq_w, "cross_attn.q_proj.weight") G(cq_b, "cross_attn.q_proj.bias")
-        G(ck_w, "cross_attn.k_proj.weight") G(ck_b, "cross_attn.k_proj.bias")
-        G(cv_w, "cross_attn.v_proj.weight") G(cv_b, "cross_attn.v_proj.bias")
-        G(co_w, "cross_attn.o_proj.weight") G(co_b, "cross_attn.o_proj.bias")
-        G(ln_ffn_w, "ln_ffn.weight")     G(ln_ffn_b, "ln_ffn.bias")
-        G(ff1_w, "ffn.linear1.weight")   G(ff1_b, "ffn.linear1.bias")
-        G(ff2_w, "ffn.linear2.weight")   G(ff2_b, "ffn.linear2.bias")
-#undef G
+#define GQ(field, suffix) \
+        snprintf(n, sizeof(n), "aed.layers.%d." suffix, li); \
+        if (mynah_qmat_init_st(&L->field, st, n, quantize) != 0) { \
+            fprintf(stderr, "mynah: aed manca %s\n", n); return -1; }
+        GF(ln_self_w, "ln_self.weight")   GF(ln_self_b, "ln_self.bias")
+        GQ(sq, "self_attn.q_proj.weight") GF(sq_b, "self_attn.q_proj.bias")
+        GQ(sk, "self_attn.k_proj.weight") GF(sk_b, "self_attn.k_proj.bias")
+        GQ(sv, "self_attn.v_proj.weight") GF(sv_b, "self_attn.v_proj.bias")
+        GQ(so, "self_attn.o_proj.weight") GF(so_b, "self_attn.o_proj.bias")
+        GF(ln_cross_w, "ln_cross.weight") GF(ln_cross_b, "ln_cross.bias")
+        GQ(cq, "cross_attn.q_proj.weight") GF(cq_b, "cross_attn.q_proj.bias")
+        GQ(ck, "cross_attn.k_proj.weight") GF(ck_b, "cross_attn.k_proj.bias")
+        GQ(cv, "cross_attn.v_proj.weight") GF(cv_b, "cross_attn.v_proj.bias")
+        GQ(co, "cross_attn.o_proj.weight") GF(co_b, "cross_attn.o_proj.bias")
+        GF(ln_ffn_w, "ln_ffn.weight")     GF(ln_ffn_b, "ln_ffn.bias")
+        GQ(ff1, "ffn.linear1.weight")     GF(ff1_b, "ffn.linear1.bias")
+        GQ(ff2, "ffn.linear2.weight")     GF(ff2_b, "ffn.linear2.bias")
+#undef GF
+#undef GQ
     }
+    a->ffn = a->layers[0].ff1.n;
     return 0;
 }
 
 void mynah_aed_free(mynah_aed *a) {
+    for (int li = 0; li < a->n_layers && a->layers; li++) {
+        mynah_aed_layer *L = &a->layers[li];
+        mynah_qmat_free(&L->sq); mynah_qmat_free(&L->sk);
+        mynah_qmat_free(&L->sv); mynah_qmat_free(&L->so);
+        mynah_qmat_free(&L->cq); mynah_qmat_free(&L->ck);
+        mynah_qmat_free(&L->cv); mynah_qmat_free(&L->co);
+        mynah_qmat_free(&L->ff1); mynah_qmat_free(&L->ff2);
+    }
+    mynah_qmat_free(&a->head);
+    mynah_qmat_free(&a->proj);
     free(a->layers);
     a->layers = NULL;
 }
@@ -117,6 +130,12 @@ static void attend(const float *q, const float *K, const float *V, int n_kv,
     }
 }
 
+static void add_bias_rows(float *x, const float *b, int T, int d) {
+    if (!b) return;
+    for (int t = 0; t < T; t++)
+        for (int i = 0; i < d; i++) x[(size_t)t * (size_t)d + i] += b[i];
+}
+
 int mynah_aed_decode(const mynah_aed *a, const float *enc, int T,
                      const int *prompt, int n_prompt, int eos,
                      int *tokens, int cap) {
@@ -126,14 +145,11 @@ int mynah_aed_decode(const mynah_aed *a, const float *enc, int T,
 
     /* proiezione encoder -> spazio decoder */
     float *encp;
-    if (a->proj_w) {
+    if (a->proj.n) {
         encp = malloc((size_t)T * (size_t)d * sizeof(float));
         if (!encp) return -1;
-        cblas_sgemm(CblasRowMajor, CblasNoTrans, CblasTrans, T, d, a->d_enc,
-                    1.0f, enc, a->d_enc, a->proj_w, a->d_enc, 0.0f, encp, d);
-        if (a->proj_b)
-            for (int t = 0; t < T; t++)
-                for (int i = 0; i < d; i++) encp[(size_t)t * d + i] += a->proj_b[i];
+        mynah_qmat_mul(&a->proj, enc, encp, T);
+        add_bias_rows(encp, a->proj_b, T, d);
     } else {
         encp = (float *)enc;
     }
@@ -147,21 +163,16 @@ int mynah_aed_decode(const mynah_aed *a, const float *enc, int T,
     int rc = -1, n_out = 0;
     if (!ckv || !skv || !scr || !logits) goto done;
     float *x = scr, *xn = scr + d, *q = scr + 2 * d, *att = scr + 3 * d,
-          *tmp = scr + 4 * d, *kv = scr + 5 * d, *ff = scr + 6 * d,
+          *tmp = scr + 4 * d, *fin = scr + 5 * d, *ff = scr + 6 * d,
           *scores = scr + 6 * d + a->ffn;
 
     for (int li = 0; li < nl; li++) {
         const mynah_aed_layer *L = &a->layers[li];
         float *CK = ckv + (size_t)(2 * li) * td, *CV = CK + td;
-        cblas_sgemm(CblasRowMajor, CblasNoTrans, CblasTrans, T, d, d,
-                    1.0f, encp, d, L->ck_w, d, 0.0f, CK, d);
-        cblas_sgemm(CblasRowMajor, CblasNoTrans, CblasTrans, T, d, d,
-                    1.0f, encp, d, L->cv_w, d, 0.0f, CV, d);
-        for (int t = 0; t < T; t++)
-            for (int i = 0; i < d; i++) {
-                CK[(size_t)t * d + i] += L->ck_b[i];
-                CV[(size_t)t * d + i] += L->cv_b[i];
-            }
+        mynah_qmat_mul(&L->ck, encp, CK, T);
+        mynah_qmat_mul(&L->cv, encp, CV, T);
+        add_bias_rows(CK, L->ck_b, T, d);
+        add_bias_rows(CV, L->cv_b, T, d);
     }
 
     int cur = prompt[0];
@@ -176,24 +187,24 @@ int mynah_aed_decode(const mynah_aed *a, const float *enc, int T,
             float *SK = skv + (size_t)(2 * li) * md, *SV = SK + md;
             /* self-attention causale: nuova k/v in cache, attention su [0..p] */
             ln(x, L->ln_self_w, L->ln_self_b, xn, d);
-            mv(L->sq_w, L->sq_b, xn, q, d, d);
-            mv(L->sk_w, L->sk_b, xn, SK + (size_t)p * d, d, d);
-            mv(L->sv_w, L->sv_b, xn, SV + (size_t)p * d, d, d);
+            mv(&L->sq, L->sq_b, xn, q);
+            mv(&L->sk, L->sk_b, xn, SK + (size_t)p * d);
+            mv(&L->sv, L->sv_b, xn, SV + (size_t)p * d);
             attend(q, SK, SV, p + 1, H, dk, scores, att);
-            mv(L->so_w, L->so_b, att, tmp, d, d);
+            mv(&L->so, L->so_b, att, tmp);
             for (int i = 0; i < d; i++) x[i] += tmp[i];
             /* cross-attention sull'encoder proiettato */
             ln(x, L->ln_cross_w, L->ln_cross_b, xn, d);
-            mv(L->cq_w, L->cq_b, xn, q, d, d);
+            mv(&L->cq, L->cq_b, xn, q);
             attend(q, ckv + (size_t)(2 * li) * td, ckv + (size_t)(2 * li) * td + td,
                    T, H, dk, scores, att);
-            mv(L->co_w, L->co_b, att, tmp, d, d);
+            mv(&L->co, L->co_b, att, tmp);
             for (int i = 0; i < d; i++) x[i] += tmp[i];
             /* FFN ReLU */
             ln(x, L->ln_ffn_w, L->ln_ffn_b, xn, d);
-            mv(L->ff1_w, L->ff1_b, xn, ff, a->ffn, d);
+            mv(&L->ff1, L->ff1_b, xn, ff);
             for (int i = 0; i < a->ffn; i++) if (ff[i] < 0.0f) ff[i] = 0.0f;
-            mv(L->ff2_w, L->ff2_b, ff, tmp, d, a->ffn);
+            mv(&L->ff2, L->ff2_b, ff, tmp);
             for (int i = 0; i < d; i++) x[i] += tmp[i];
         }
 
@@ -201,8 +212,8 @@ int mynah_aed_decode(const mynah_aed *a, const float *enc, int T,
             cur = prompt[p + 1];
             continue;
         }
-        ln(x, a->fin_w, a->fin_b, kv, d);
-        mv(a->head_w, a->head_b, kv, logits, a->vocab, d);
+        ln(x, a->fin_w, a->fin_b, fin, d);
+        mv(&a->head, a->head_b, fin, logits);
         int best = 0;
         for (int i = 1; i < a->vocab; i++) if (logits[i] > logits[best]) best = i;
         if (best == eos) break;

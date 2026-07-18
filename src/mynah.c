@@ -108,7 +108,8 @@ mynah_model *mynah_load_quant(const char *model_dir, int quant) {
                            cJSON_GetObjectItem(jdec, "n_layers")->valueint,
                            cJSON_GetObjectItem(jdec, "n_heads")->valueint,
                            cJSON_GetObjectItem(jdec, "max_seq")->valueint,
-                           cJSON_GetObjectItem(jdec, "max_generation_delta")->valueint) != 0) {
+                           cJSON_GetObjectItem(jdec, "max_generation_delta")->valueint,
+                           quant) != 0) {
             fprintf(stderr, "mynah: decoder AED init fallita\n");
             goto fail;
         }
