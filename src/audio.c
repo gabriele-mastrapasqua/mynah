@@ -1,6 +1,10 @@
 #include "audio.h"
 
 #include <math.h>
+
+#ifndef M_PI                       /* non-ISO: glibc lo nasconde con -std=c11 */
+#define M_PI 3.14159265358979323846
+#endif
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
