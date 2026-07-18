@@ -467,17 +467,26 @@ int mynah_stream_finish(mynah_stream *s, mynah_result_cb cb, void *ud) {
 }
 
 /* Prompt canary2 -> id globali (template dal mynah.json, token come stringhe;
- * slot vuoti = 0 token). lang sorgente ("auto"/NULL -> "en"); target da
- * mynah_set_target_lang ("" = sorgente). Ritorna n token, -1 = lingua ignota. */
+ * slot vuoti = 0 token). lang sorgente ("auto"/NULL -> "en"); la forma
+ * "src>tgt" (es. "en>de") chiede la traduzione PER-CHIAMATA (thread-safe, usata
+ * dal server); altrimenti target da mynah_set_target_lang ("" = sorgente).
+ * Ritorna n token, -1 = lingua ignota. */
 static int aed_build_prompt(const mynah_model *m, const char *lang, int *ids) {
-    char src[8] = "en";
-    if (lang && *lang && strcmp(lang, "auto") != 0) {
+    char src[8] = "en", tgt_buf[8] = "";
+    if (lang && *lang && strncmp(lang, "auto", 4) != 0) {
         int i = 0;
-        for (; lang[i] && lang[i] != '-' && lang[i] != '_' && i < 7; i++)
+        for (; lang[i] && lang[i] != '-' && lang[i] != '_' && lang[i] != '>' && i < 7; i++)
             src[i] = (char)(lang[i] >= 'A' && lang[i] <= 'Z' ? lang[i] + 32 : lang[i]);
         src[i] = '\0';
     }
-    const char *tgt = m->aed_target[0] ? m->aed_target : src;
+    const char *gt = lang ? strchr(lang, '>') : NULL;
+    if (gt && gt[1]) {
+        int i = 0;
+        for (gt++; gt[i] && gt[i] != '-' && gt[i] != '_' && i < 7; i++)
+            tgt_buf[i] = (char)(gt[i] >= 'A' && gt[i] <= 'Z' ? gt[i] + 32 : gt[i]);
+        tgt_buf[i] = '\0';
+    }
+    const char *tgt = tgt_buf[0] ? tgt_buf : (m->aed_target[0] ? m->aed_target : src);
     const cJSON *jp = cJSON_GetObjectItem(m->cfg, "prompt");
     const cJSON *jl = cJSON_GetObjectItem(jp, "languages");
     int ok_src = 0, ok_tgt = 0;
@@ -515,6 +524,8 @@ static int aed_build_prompt(const mynah_model *m, const char *lang, int *ids) {
     }
     return n;
 }
+
+int mynah_can_translate(const mynah_model *m) { return m->is_aed; }
 
 int mynah_set_target_lang(mynah_model *m, const char *lang) {
     if (!lang || !*lang) { m->aed_target[0] = '\0'; return 0; }

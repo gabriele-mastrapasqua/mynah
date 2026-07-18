@@ -1,6 +1,7 @@
 /* mynah-server — API HTTP OpenAI-compatible + WebSocket streaming.
  *
  * Endpoint:
+ *   POST /v1/audio/translations     come sopra + target_language (default en) — solo AED
  *   POST /v1/audio/transcriptions   multipart (file=..., language, response_format,
  *                                   lookahead) -> json | text | verbose_json
  *   GET  /v1/models, /v1/health     info
@@ -201,7 +202,7 @@ static void send_error(int fd, int code, const char *msg) {
 typedef struct {
     const uint8_t *file;
     size_t file_len;
-    char language[24], response_format[24];
+    char language[24], response_format[24], target_language[8];
     int lookahead;
 } form_data;
 
@@ -247,6 +248,9 @@ static void parse_multipart(const uint8_t *body, size_t len, const char *boundar
         } else if (strcmp(name, "response_format") == 0 && data_len < sizeof(out->response_format)) {
             memcpy(out->response_format, data, data_len);
             out->response_format[data_len] = '\0';
+        } else if (strcmp(name, "target_language") == 0 && data_len < sizeof(out->target_language)) {
+            memcpy(out->target_language, data, data_len);
+            out->target_language[data_len] = '\0';
         } else if (strcmp(name, "lookahead") == 0 && data_len < 8) {
             char tmp[8] = {0};
             memcpy(tmp, data, data_len);
@@ -257,9 +261,12 @@ static void parse_multipart(const uint8_t *body, size_t len, const char *boundar
     }
 }
 
-/* ------------------------------------------------------- POST /transcriptions */
+/* -------------------------------------- POST /transcriptions e /translations
+ * translate = 1: endpoint /v1/audio/translations (solo modelli AED) — la lingua
+ * di uscita è target_language (default "en", stile OpenAI/Whisper); la
+ * traduzione per-richiesta viaggia nel lang come "src>tgt" (thread-safe). */
 static void handle_transcribe(int fd, const char *headers, const uint8_t *body,
-                              size_t body_len) {
+                              size_t body_len, int translate) {
     form_data f = {.lookahead = -1, .language = "auto", .response_format = "json"};
 
     const char *ct = strstr(headers, "Content-Type:");
@@ -276,6 +283,17 @@ static void handle_transcribe(int fd, const char *headers, const uint8_t *body,
         f.file_len = body_len;
     }
     if (!f.file || f.file_len < 44) { send_error(fd, 400, "manca il file audio (multipart 'file' o body WAV)"); return; }
+
+    char src_lang[24];
+    snprintf(src_lang, sizeof(src_lang), "%s", f.language);
+    if (translate || f.target_language[0]) {
+        if (!mynah_can_translate(g_model)) {
+            send_error(fd, 400, "il modello non supporta la traduzione (serve un engine AED, es. Canary)");
+            return;
+        }
+        const char *tgt = f.target_language[0] ? f.target_language : "en";
+        snprintf(f.language, sizeof(f.language), "%s>%s", src_lang, tgt);
+    }
 
     size_t n_samples;
     int sr;
@@ -319,8 +337,9 @@ static void handle_transcribe(int fd, const char *headers, const uint8_t *body,
         cJSON *j = cJSON_CreateObject();
         cJSON_AddStringToObject(j, "text", text);
         if (strcmp(f.response_format, "verbose_json") == 0) {
-            cJSON_AddStringToObject(j, "task", "transcribe");
-            cJSON_AddStringToObject(j, "language", lang_out[0] ? lang_out : f.language);
+            cJSON_AddStringToObject(j, "task", translate || f.target_language[0]
+                                              ? "translate" : "transcribe");
+            cJSON_AddStringToObject(j, "language", lang_out[0] ? lang_out : src_lang);
             cJSON_AddNumberToObject(j, "duration", duration);
             if (words) {   /* percorso non-batch: timestamp per parola */
                 cJSON *jw = cJSON_AddArrayToObject(j, "words");
@@ -514,7 +533,10 @@ static void handle_conn(int fd) {
         cJSON_Delete(j);
     } else if (strcmp(method, "GET") == 0 && strcmp(path, "/v1/audio/stream") == 0) {
         handle_ws_stream(fd, hdr, query);
-    } else if (strcmp(method, "POST") == 0 && strcmp(path, "/v1/audio/transcriptions") == 0) {
+    } else if (strcmp(method, "POST") == 0 &&
+               (strcmp(path, "/v1/audio/transcriptions") == 0 ||
+                strcmp(path, "/v1/audio/translations") == 0)) {
+        const int translate = strcmp(path, "/v1/audio/translations") == 0;
         size_t content_len = 0;
         const char *cl = strstr(hdr, "Content-Length:");
         if (!cl) cl = strstr(hdr, "content-length:");
@@ -534,7 +556,7 @@ static void handle_conn(int fd) {
             if (r <= 0) break;
             have += (size_t)r;
         }
-        if (have == content_len) handle_transcribe(fd, hdr, body, content_len);
+        if (have == content_len) handle_transcribe(fd, hdr, body, content_len, translate);
         else send_error(fd, 400, "body incompleto");
         free(body);
     } else {

@@ -38,6 +38,31 @@ check transcribe-raw-body \
 check error-400 \
     "curl -s -X POST --data-binary 'garbage' http://localhost:$PORT/v1/audio/transcriptions" \
     '"error"'
+check translations-no-aed \
+    "curl -s -F file=@tests/audio/test_en.wav http://localhost:$PORT/v1/audio/translations" \
+    'non supporta la traduzione'
+
+# /v1/audio/translations con un modello AED (Canary), se presente
+if [ -f models/canary-180m-flash/mynah.json ]; then
+    PORT2=$((PORT + 1))
+    ./mynah-server -m models/canary-180m-flash -p "$PORT2" --threads 2 --batch 2 2>/dev/null &
+    SRV2_PID=$!
+    trap 'kill $SRV_PID $SRV2_PID 2>/dev/null' EXIT
+    for i in $(seq 1 50); do
+        curl -sf "http://localhost:$PORT2/v1/health" >/dev/null 2>&1 && break
+        sleep 0.2
+    done
+    check translate-de-en \
+        "curl -s -F file=@tests/audio/test_de.wav -F language=de http://localhost:$PORT2/v1/audio/translations" \
+        "The meeting begins"
+    check translate-en-de-verbose \
+        "curl -s -F file=@tests/audio/test_en.wav -F language=en -F target_language=de -F response_format=verbose_json http://localhost:$PORT2/v1/audio/translations" \
+        '"task":"translate"'
+    kill $SRV2_PID 2>/dev/null
+    wait $SRV2_PID 2>/dev/null
+else
+    echo "server translate SKIP (canary-180m-flash assente)"
+fi
 
 # 4 richieste concorrenti (wait SOLO sulle curl: wait nudo aspetterebbe anche il server)
 CURL_PIDS=""
