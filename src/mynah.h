@@ -52,6 +52,11 @@ int mynah_lang_id(const mynah_model *m, const char *lang);
  * -1 se il modello non supporta il decoder richiesto. */
 int mynah_set_decoder(mynah_model *m, const char *name);
 
+/* Solo modelli AED (Canary): lingua di USCITA delle trascrizioni successive
+ * ("en", "de", ...). Diversa dalla sorgente = speech translation. NULL o "" =
+ * uguale alla sorgente (ASR). -1 se non supportata dal modello. */
+int mynah_set_target_lang(mynah_model *m, const char *lang);
+
 /* Limite di durata per segmento nella trascrizione offline: gli audio più lunghi
  * vengono divisi sul minimo di energia (silenzio) vicino al confine e trascritti
  * a segmenti indipendenti (testo e timestamp concatenati). Default 300 s —

@@ -61,7 +61,8 @@ test: $(TESTS) mynah examples/minimal
 	  done; \
 	done
 	@for m in $(MODEL_DIR) $(PARAKEET_DIR) $(PARAKEET110_DIR) \
-	          models/parakeet-rnnt-0.6b models/parakeet-ctc-0.6b; do \
+	          models/parakeet-rnnt-0.6b models/parakeet-ctc-0.6b \
+	          models/canary-180m-flash; do \
 	  sh tests/test_e2e.sh $$m; rc=$$?; \
 	  if [ $$rc -eq 77 ]; then echo "SKIP e2e: $$m assente"; \
 	  elif [ $$rc -ne 0 ]; then exit $$rc; fi; \

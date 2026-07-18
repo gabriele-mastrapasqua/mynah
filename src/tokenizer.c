@@ -174,3 +174,9 @@ char *mynah_detokenize(const mynah_tokenizer *tk, const int *tokens, int n,
     while (len > 0 && out[len - 1] == ' ') out[--len] = '\0';
     return out;
 }
+
+int mynah_tok_find(const mynah_tokenizer *tk, const char *piece) {
+    for (int i = 0; i < tk->n_pieces; i++)
+        if (strcmp(tk->pieces[i], piece) == 0) return i;
+    return -1;
+}

@@ -6,6 +6,7 @@
 #include <string.h>
 
 #include "decoder.h"
+#include "decoder_aed.h"
 #include "decoder_ctc.h"
 #include "encoder.h"
 #include "features.h"
@@ -15,6 +16,8 @@
 
 const char *mynah_version(void) { return MYNAH_VERSION; }
 
+#define MYNAH_AED_PROMPT_MAX 16
+
 struct mynah_model {
     cJSON *cfg;                     /* mynah.json (vivo per il prompt dictionary) */
     mynah_safetensors *weights;
@@ -23,6 +26,9 @@ struct mynah_model {
     mynah_decoder dec;
     mynah_ctc ctc;                  /* head CTC (hybrid o CTC puro); w NULL se assente */
     int use_ctc, ctc_only;
+    mynah_aed aed;                  /* decoder AED (Canary); layers NULL se assente */
+    int is_aed, aed_eos;
+    char aed_target[8];             /* lingua di uscita ("" = come la sorgente) */
     mynah_tokenizer tok;
     mynah_feat_cfg feat;
     int left_ctx, default_right;    /* att context dal preset di default */
@@ -97,7 +103,17 @@ mynah_model *mynah_load_quant(const char *model_dir, int quant) {
 
     const cJSON *jdec = cJSON_GetObjectItem(m->cfg, "decoder");
     const char *dec_type = cJSON_GetObjectItem(jdec, "type")->valuestring;
-    if (strcmp(dec_type, "ctc") == 0) {
+    if (strcmp(dec_type, "aed_transformer") == 0) {
+        if (mynah_aed_init(&m->aed, m->weights,
+                           cJSON_GetObjectItem(jdec, "n_layers")->valueint,
+                           cJSON_GetObjectItem(jdec, "n_heads")->valueint,
+                           cJSON_GetObjectItem(jdec, "max_seq")->valueint,
+                           cJSON_GetObjectItem(jdec, "max_generation_delta")->valueint) != 0) {
+            fprintf(stderr, "mynah: decoder AED init fallita\n");
+            goto fail;
+        }
+        m->is_aed = 1;
+    } else if (strcmp(dec_type, "ctc") == 0) {
         /* CTC puro: niente prednet/joint, la head È il decoder */
         if (mynah_ctc_init(&m->ctc, m->weights) != 0) {
             fprintf(stderr, "mynah: head CTC mancante\n");
@@ -168,9 +184,16 @@ mynah_model *mynah_load_quant(const char *model_dir, int quant) {
         m->n_lookaheads = i;
     }
 
-    /* prompt (Nemotron): assente nei modelli con LID implicita (Parakeet) */
+    /* prompt (Nemotron): assente nei modelli con LID implicita (Parakeet);
+     * per l'AED (Canary) la sezione prompt è quella del DECODER (niente default_id) */
     const cJSON *jprompt = cJSON_GetObjectItem(m->cfg, "prompt");
-    m->default_prompt = jprompt ? cJSON_GetObjectItem(jprompt, "default_id")->valueint : -1;
+    const cJSON *jdid = jprompt ? cJSON_GetObjectItem(jprompt, "default_id") : NULL;
+    m->default_prompt = jdid ? jdid->valueint : -1;
+    if (m->is_aed) {
+        const cJSON *jeos = cJSON_GetObjectItem(jdec, "eos_token");
+        m->aed_eos = jeos ? mynah_tok_find(&m->tok, jeos->valuestring) : -1;
+        if (m->aed_eos < 0) { fprintf(stderr, "mynah: EOS AED non trovato\n"); goto fail; }
+    }
     return m;
 
 fail:
@@ -181,6 +204,7 @@ fail:
 void mynah_free(mynah_model *m) {
     if (!m) return;
     mynah_qmat_free(&m->dec.head);
+    mynah_aed_free(&m->aed);
     mynah_encoder_free(&m->enc);
     mynah_tokenizer_free(&m->tok);
     mynah_st_close(m->weights);
@@ -223,6 +247,8 @@ static int resolve_prompt(const mynah_model *m, const char *lang) {
     return id < 0 ? -2 : id;
 }
 
+static int aed_build_prompt(const mynah_model *m, const char *lang, int *ids);
+
 int mynah_lookaheads(const mynah_model *m, int out[8]) {
     memcpy(out, m->lookaheads, sizeof(m->lookaheads));
     return m->n_lookaheads;
@@ -259,7 +285,17 @@ int mynah_transcribe_batch(mynah_model *m, const float *const *samples,
         if (!encs[b]) continue;
         int n_tok = 0;
         int *tokens;
-        if (m->use_ctc && m->ctc.d_in == m->enc.d_out) {
+        if (m->is_aed) {
+            int pids[MYNAH_AED_PROMPT_MAX];
+            const int n_p = aed_build_prompt(m, langs ? langs[b] : NULL, pids);
+            if (n_p < 0) continue;
+            const int cap = t_encs[b] + m->aed.max_gen_delta;
+            tokens = malloc((size_t)cap * sizeof(int));
+            if (tokens)
+                n_tok = mynah_aed_decode(&m->aed, encs[b], t_encs[b], pids, n_p,
+                                         m->aed_eos, tokens, cap);
+            if (n_tok < 0) { free(tokens); continue; }
+        } else if (m->use_ctc && m->ctc.d_in == m->enc.d_out) {
             /* CTC puro: encoder_post senza projector = encoder out */
             tokens = malloc((size_t)t_encs[b] * sizeof(int));
             if (tokens)
@@ -430,9 +466,75 @@ int mynah_stream_finish(mynah_stream *s, mynah_result_cb cb, void *ud) {
     return 0;
 }
 
+/* Prompt canary2 -> id globali (template dal mynah.json, token come stringhe;
+ * slot vuoti = 0 token). lang sorgente ("auto"/NULL -> "en"); target da
+ * mynah_set_target_lang ("" = sorgente). Ritorna n token, -1 = lingua ignota. */
+static int aed_build_prompt(const mynah_model *m, const char *lang, int *ids) {
+    char src[8] = "en";
+    if (lang && *lang && strcmp(lang, "auto") != 0) {
+        int i = 0;
+        for (; lang[i] && lang[i] != '-' && lang[i] != '_' && i < 7; i++)
+            src[i] = (char)(lang[i] >= 'A' && lang[i] <= 'Z' ? lang[i] + 32 : lang[i]);
+        src[i] = '\0';
+    }
+    const char *tgt = m->aed_target[0] ? m->aed_target : src;
+    const cJSON *jp = cJSON_GetObjectItem(m->cfg, "prompt");
+    const cJSON *jl = cJSON_GetObjectItem(jp, "languages");
+    int ok_src = 0, ok_tgt = 0;
+    for (const cJSON *e = jl ? jl->child : NULL; e; e = e->next) {
+        ok_src |= strcmp(e->valuestring, src) == 0;
+        ok_tgt |= strcmp(e->valuestring, tgt) == 0;
+    }
+    if (!ok_src || !ok_tgt) {
+        fprintf(stderr, "mynah: lingua '%s' non supportata dal modello\n",
+                ok_src ? tgt : src);
+        return -1;
+    }
+    const cJSON *jd = cJSON_GetObjectItem(jp, "defaults");
+    int n = 0;
+    for (const cJSON *e = cJSON_GetObjectItem(jp, "template")->child;
+         e && n < MYNAH_AED_PROMPT_MAX; e = e->next) {
+        const char *item = e->valuestring;
+        char tok[32];
+        if (item[0] == '{') {
+            char slot[24];
+            snprintf(slot, sizeof(slot), "%.*s", (int)strlen(item) - 2, item + 1);
+            if (strcmp(slot, "source_lang") == 0) snprintf(tok, sizeof(tok), "<|%s|>", src);
+            else if (strcmp(slot, "target_lang") == 0) snprintf(tok, sizeof(tok), "<|%s|>", tgt);
+            else {
+                const cJSON *dv = cJSON_GetObjectItem(jd, slot);
+                if (!dv || !cJSON_IsString(dv) || !dv->valuestring[0]) continue;
+                snprintf(tok, sizeof(tok), "%s", dv->valuestring);
+            }
+        } else {
+            snprintf(tok, sizeof(tok), "%s", item);
+        }
+        const int id = mynah_tok_find(&m->tok, tok);
+        if (id < 0) { fprintf(stderr, "mynah: token prompt '%s' ignoto\n", tok); return -1; }
+        ids[n++] = id;
+    }
+    return n;
+}
+
+int mynah_set_target_lang(mynah_model *m, const char *lang) {
+    if (!lang || !*lang) { m->aed_target[0] = '\0'; return 0; }
+    if (!m->is_aed) {
+        fprintf(stderr, "mynah: il modello non supporta la traduzione (solo AED)\n");
+        return -1;
+    }
+    const cJSON *jl = cJSON_GetObjectItem(cJSON_GetObjectItem(m->cfg, "prompt"), "languages");
+    for (const cJSON *e = jl ? jl->child : NULL; e; e = e->next)
+        if (strcmp(e->valuestring, lang) == 0) {
+            snprintf(m->aed_target, sizeof(m->aed_target), "%s", lang);
+            return 0;
+        }
+    fprintf(stderr, "mynah: lingua target '%s' non supportata\n", lang);
+    return -1;
+}
+
 /* Trascrizione di UN segmento (audio intero o fetta tra due silenzi). */
 static char *transcribe_segment(mynah_model *m, const float *samples, size_t n_samples,
-                                int prompt, int right, char *lang_out,
+                                int prompt, int right, const char *lang, char *lang_out,
                                 mynah_word **words, int *n_words) {
     if (words) { *words = NULL; *n_words = 0; }
     int T_mel, valid;
@@ -441,7 +543,22 @@ static char *transcribe_segment(mynah_model *m, const float *samples, size_t n_s
 
     int T_enc, n_tok = 0;
     int *tokens = NULL, *frames = NULL;
-    if (m->use_ctc) {
+    if (m->is_aed) {
+        int pids[MYNAH_AED_PROMPT_MAX];
+        const int n_p = aed_build_prompt(m, lang, pids);
+        if (n_p < 0) { free(feats); return NULL; }
+        float *enc = mynah_encoder_forward(&m->enc, feats, valid, m->feat.n_mels, -1,
+                                           m->left_ctx, right, &T_enc);
+        free(feats);
+        if (!enc) return NULL;
+        const int cap = T_enc + m->aed.max_gen_delta;
+        tokens = malloc((size_t)cap * sizeof(int));
+        if (tokens)
+            n_tok = mynah_aed_decode(&m->aed, enc, T_enc, pids, n_p, m->aed_eos,
+                                     tokens, cap);
+        free(enc);
+        if (n_tok < 0) { free(tokens); return NULL; }
+    } else if (m->use_ctc) {
         float *enc = mynah_encoder_forward_raw(&m->enc, feats, valid, m->feat.n_mels,
                                                m->left_ctx, right, &T_enc);
         free(feats);
@@ -506,7 +623,7 @@ char *mynah_transcribe_ts(mynah_model *m, const float *samples, size_t n_samples
     const int sr = m->feat.sample_rate;
     const size_t seg_max = (size_t)(m->seg_sec * sr);
     if (n_samples <= seg_max + seg_max / 10)   /* +10%: non spezzare per poco */
-        return transcribe_segment(m, samples, n_samples, prompt, right, lang_out,
+        return transcribe_segment(m, samples, n_samples, prompt, right, lang, lang_out,
                                   words, n_words);
 
     /* audio lungo: segmenti indipendenti divisi sul silenzio, risultato concatenato */
@@ -527,7 +644,7 @@ char *mynah_transcribe_ts(mynah_model *m, const float *samples, size_t n_samples
         mynah_word *sw = NULL;
         int sn = 0;
         char *seg = transcribe_segment(m, samples + cur, end - cur, prompt, right,
-                                       seg_lang, words ? &sw : NULL, &sn);
+                                       lang, seg_lang, words ? &sw : NULL, &sn);
         if (!seg) { free(text); if (words) mynah_words_free(*words, *n_words); return NULL; }
         if (lang_out && seg_lang[0] && cur == 0) memcpy(lang_out, seg_lang, sizeof(seg_lang));
 

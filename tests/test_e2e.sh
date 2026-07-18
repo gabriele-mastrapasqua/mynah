@@ -46,6 +46,19 @@ elif [ "$ENGINE" = "parakeet-tdt" ]; then
     check tests/audio/test_de.wav auto "die Besprechung beginnt um 9 Uhr im großen Saal"
     check tests/audio/test_fr.wav auto "la réunion commence à 9h dans la grande salle"
     check tests/audio/test_es.wav auto "la reunión empieza a las 9 en la sala grande"
+elif [ "$ENGINE" = "canary-aed" ]; then
+    # Canary Flash: ASR en/de/fr + speech translation (target-lang)
+    Q_WAV=tests/audio/test_en.wav
+    Q_SUB="speech recognition test"
+    SEG_TAIL="today"
+    check tests/audio/test_en.wav en "Hello, this is a speech recognition test. The weather is nice today."
+    check tests/audio/test_de.wav de "Die Besprechung beginnt um neun Uhr"
+    check tests/audio/test_fr.wav fr "la réunion commence à neuf heures"
+    out=$(./mynah transcribe -m "$MODEL_DIR" -i tests/audio/test_en.wav --lang en --target-lang de 2>/dev/null)
+    case "$out" in
+        *"Spracherkennungstest"*) echo "e2e translate-de OK: $out" ;;
+        *) echo "e2e translate-de FAIL: $out"; fail=1 ;;
+    esac
 else
     check tests/audio/test_it.wav auto  "Ciao, questo è un test di riconoscimento vocale in italiano."
     check tests/audio/test_it.wav it-IT "Il gatto dorme sul divano."
@@ -67,7 +80,9 @@ checkq() { # quant, expected substring
 [ -f "$MODEL_DIR/model.int4.safetensors" ] && checkq int4 "$Q_SUB"
 
 # timestamp per parola: righe "t0 t1 parola", t0 monotono non-decrescente,
-# t1 entro la durata dell'audio (fixture <= 5.2s + margine di un frame)
+# t1 entro la durata dell'audio (fixture <= 5.2s + margine di un frame).
+# AED (Canary): niente allineamento ai frame -> check saltato
+if [ "$ENGINE" != "canary-aed" ]; then
 ts=$(./mynah transcribe -m "$MODEL_DIR" -i "$Q_WAV" --timestamps 2>/dev/null)
 ts_ok=$(printf '%s\n' "$ts" | awk 'NF<3 {bad=1} $1+0>$2+0 {bad=1} $1+0<prev {bad=1}
     {prev=$1+0; n++} END {print (bad || n<5 || prev>5.3) ? "FAIL" : "OK"}')
@@ -75,6 +90,7 @@ if [ "$ts_ok" = "OK" ]; then
     echo "e2e timestamps OK: $(printf '%s\n' "$ts" | wc -l | tr -d ' ') parole"
 else
     echo "e2e timestamps FAIL:"; printf '%s\n' "$ts"; fail=1
+fi
 fi
 
 # segmentazione file lunghi: limite forzato a 4 s sul fixture -> 2 segmenti

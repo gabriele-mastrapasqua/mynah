@@ -12,6 +12,10 @@ typedef struct {
 int mynah_tokenizer_load(mynah_tokenizer *tk, const char *tokens_json_path);
 void mynah_tokenizer_free(mynah_tokenizer *tk);
 
+/* id della PRIMA occorrenza del piece (i tokenizer aggregati ripetono <unk> nei
+ * sub-vocab: gli speciali stanno nel primo). -1 se assente. */
+int mynah_tok_find(const mynah_tokenizer *tk, const char *piece);
+
 /* Decodifica tokens -> testo (malloc, caller free). Se un tag lingua è presente
  * scrive fino a 15 char in lang_out (se non NULL). ▁ -> spazio, spazio iniziale via. */
 char *mynah_detokenize(const mynah_tokenizer *tk, const int *tokens, int n,
