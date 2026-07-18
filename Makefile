@@ -1,6 +1,6 @@
 # Mynah — build. CPU-first: BLAS = Accelerate (macOS) / OpenBLAS (Linux).
 CC      ?= cc
-CFLAGS  ?= -std=c11 -O3 -march=native -ffast-math -Wall -Wextra -iquote src
+CFLAGS  ?= -std=c11 -O3 -march=native -ffast-math -Wall -Wextra -iquote src -D_DEFAULT_SOURCE
 LDFLAGS ?=
 
 CFLAGS += -fPIC
@@ -125,16 +125,16 @@ build/src/cuda_gemm.o: src/cuda_gemm.cu
 # Policy memoria/UB su macOS: `make leaks` (nativo, veloce) + `make ubsan` (overhead
 # basso). ASan è LENTISSIMO su Mac e tende a impallarsi col modello grande: solo CI Linux.
 debug:
-	$(MAKE) clean && $(MAKE) CFLAGS="-std=c11 -O0 -g -Wall -Wextra -iquote src -D$(BLAS_DEF)"
+	$(MAKE) clean && $(MAKE) CFLAGS="-std=c11 -O0 -g -Wall -Wextra -iquote src -D_DEFAULT_SOURCE -D$(BLAS_DEF)"
 # NOTA: clean anche in coda — gli oggetti sanitizzati (senza -DMYNAH_METAL e con
 # riferimenti al runtime ubsan) NON devono restare a inquinare la build normale
 ubsan:
 	$(MAKE) clean && $(MAKE) CFLAGS="-std=c11 -O2 -g -fsanitize=undefined \
-	  -fno-omit-frame-pointer -Wall -Wextra -iquote src -D$(BLAS_DEF) -DACCELERATE_NEW_LAPACK" \
+	  -fno-omit-frame-pointer -Wall -Wextra -iquote src -D_DEFAULT_SOURCE -D$(BLAS_DEF) -DACCELERATE_NEW_LAPACK" \
 	  LDFLAGS="$(LDFLAGS) -fsanitize=undefined" all test && $(MAKE) clean
 asan:
 	$(MAKE) clean && $(MAKE) CFLAGS="-std=c11 -O1 -g -fsanitize=address,undefined \
-	  -fno-omit-frame-pointer -Wall -Wextra -iquote src -D$(BLAS_DEF) -DACCELERATE_NEW_LAPACK" \
+	  -fno-omit-frame-pointer -Wall -Wextra -iquote src -D_DEFAULT_SOURCE -D$(BLAS_DEF) -DACCELERATE_NEW_LAPACK" \
 	  LDFLAGS="$(LDFLAGS) -fsanitize=address,undefined" all test && $(MAKE) clean
 
 # bench riproducibile: RTF warm + picco RAM per ogni modello presente
