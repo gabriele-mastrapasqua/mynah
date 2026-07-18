@@ -36,7 +36,7 @@ jobs:
         run: make
 
       - name: Kernel self-test (senza modello)
-        run: tests/test_qmat
+        run: make tests/test_qmat && tests/test_qmat
 
       - name: Kernel self-test — livelli SIMD espliciti (x86)
         if: matrix.os == 'ubuntu-latest'
