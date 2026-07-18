@@ -135,6 +135,13 @@ test-nemo-langs: mynah
 fetch-lang-samples:
 	cd tools && uv run python fetch_lang_samples.py 3
 
+# Qualità su audio reale (samples/ FLEURS committati): CER ASR + qualità
+# traduzione Canary vs riferimenti paralleli, backend cpu+metal.
+test-samples: mynah
+	cd tools && uv run python -m eval.test_samples; rc=$$?; \
+	  if [ $$rc -eq 77 ]; then echo "SKIP test-samples: samples/ o modelli assenti"; \
+	  elif [ $$rc -ne 0 ]; then exit $$rc; fi
+
 # leak check veloce su macOS (tool nativo `leaks`, nessuna rebuild — su Mac ASan
 # è lentissimo: usarlo solo in CI Linux. Stesso pattern di qwen-tts).
 leaks: mynah tests/test_streaming

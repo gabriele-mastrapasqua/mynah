@@ -1,0 +1,87 @@
+{
+ "source": "FLEURS (google/fleurs) — Conneau et al., CC-BY 4.0",
+ "url": "https://huggingface.co/datasets/google/fleurs",
+ "note": "frasi parallele tra lingue: stesso id = stessa frase; l'inglese è il riferimento per la speech translation",
+ "samples": [
+  {
+   "file": "it/fleurs_1521.wav",
+   "lang": "it",
+   "fleurs_id": 1521,
+   "duration_sec": 11.0,
+   "text": "Il satellite nello spazio riceve il segnale e poi lo rimanda indietro quasi all'istante.",
+   "en_ref": "The satellite in space gets the call and then reflects it back down, almost instantly."
+  },
+  {
+   "file": "it/fleurs_1534.wav",
+   "lang": "it",
+   "fleurs_id": 1534,
+   "duration_sec": 10.0,
+   "text": "Anche in conseguenza della sua relativa inaccessibilità, \"Timbuctù\" ha finito per diventare metafora di terra esotica e lontana.",
+   "en_ref": "Combined with its relative inaccessibility, \"Timbuktu\" has come to be used as a metaphor for exotic, distant lands."
+  },
+  {
+   "file": "en/fleurs_1521.wav",
+   "lang": "en",
+   "fleurs_id": 1521,
+   "duration_sec": 7.4,
+   "text": "The satellite in space gets the call and then reflects it back down, almost instantly.",
+   "en_ref": "The satellite in space gets the call and then reflects it back down, almost instantly."
+  },
+  {
+   "file": "en/fleurs_1534.wav",
+   "lang": "en",
+   "fleurs_id": 1534,
+   "duration_sec": 11.9,
+   "text": "Combined with its relative inaccessibility, \"Timbuktu\" has come to be used as a metaphor for exotic, distant lands.",
+   "en_ref": "Combined with its relative inaccessibility, \"Timbuktu\" has come to be used as a metaphor for exotic, distant lands."
+  },
+  {
+   "file": "de/fleurs_1521.wav",
+   "lang": "de",
+   "fleurs_id": 1521,
+   "duration_sec": 13.4,
+   "text": "Der Satellit im Weltraum empfängt den Anruf und reflektiert ihn dann fast sofort zurück nach unten.",
+   "en_ref": "The satellite in space gets the call and then reflects it back down, almost instantly."
+  },
+  {
+   "file": "de/fleurs_1534.wav",
+   "lang": "de",
+   "fleurs_id": 1534,
+   "duration_sec": 10.5,
+   "text": "Dies in Kombination mit seiner relativen Unzugänglichkeit hat „Timbuktu“ zu einer Metapher für exotische, ferne Länder werden lassen.",
+   "en_ref": "Combined with its relative inaccessibility, \"Timbuktu\" has come to be used as a metaphor for exotic, distant lands."
+  },
+  {
+   "file": "es/fleurs_1521.wav",
+   "lang": "es",
+   "fleurs_id": 1521,
+   "duration_sec": 8.4,
+   "text": "El satélite en el espacio recibe la llamada y, luego, la refleja de vuelta casi de forma instantánea.",
+   "en_ref": "The satellite in space gets the call and then reflects it back down, almost instantly."
+  },
+  {
+   "file": "es/fleurs_1534.wav",
+   "lang": "es",
+   "fleurs_id": 1534,
+   "duration_sec": 10.0,
+   "text": "Ello, sumado a que resulta relativamente inaccesible, ha dado a «Tombuctú» una imagen de tierra exótica y lejana.",
+   "en_ref": "Combined with its relative inaccessibility, \"Timbuktu\" has come to be used as a metaphor for exotic, distant lands."
+  },
+  {
+   "file": "fr/fleurs_1521.wav",
+   "lang": "fr",
+   "fleurs_id": 1521,
+   "duration_sec": 7.1,
+   "text": "Le satellite reçoit l'appel dans l'espace puis le renvoie sur Terre, presque instantanément.",
+   "en_ref": "The satellite in space gets the call and then reflects it back down, almost instantly."
+  },
+  {
+   "file": "fr/fleurs_1534.wav",
+   "lang": "fr",
+   "fleurs_id": 1534,
+   "duration_sec": 10.4,
+   "text": "Combiné à sa relative inaccessibilité, « Tombouctou » est devenu une métaphore pour les pays lointains et exotiques.",
+   "en_ref": "Combined with its relative inaccessibility, \"Timbuktu\" has come to be used as a metaphor for exotic, distant lands."
+  }
+ ]
+}
