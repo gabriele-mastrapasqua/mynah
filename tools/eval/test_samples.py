@@ -29,13 +29,20 @@ from eval.test_langs import cer, normalize
 ROOT = Path(__file__).resolve().parent.parent.parent
 
 # modello -> (lingue ASR coperte dai sample, formato tag lingua)
+# nemotron: 40 locale (qui 11 con sample); v3: 25 lingue EU (niente ja)
 MODELS = {
-    "nemotron-3.5-asr-streaming-0.6b": {"langs": ["it", "en", "de", "es", "fr"], "tag": "locale"},
-    "parakeet-tdt-0.6b-v3": {"langs": ["it", "en", "de", "es", "fr"], "tag": "auto"},
+    "nemotron-3.5-asr-streaming-0.6b": {
+        "langs": ["it", "en", "de", "es", "fr", "pt", "nl", "pl", "ru", "uk", "ja"],
+        "tag": "locale"},
+    "parakeet-tdt-0.6b-v3": {
+        "langs": ["it", "en", "de", "es", "fr", "pt", "nl", "pl", "ru", "uk"],
+        "tag": "auto"},
     "parakeet-tdt_ctc-110m": {"langs": ["en"], "tag": "auto"},
     "canary-180m-flash": {"langs": ["en", "de", "es", "fr"], "tag": "short"},
 }
-LOCALE = {"it": "it-IT", "en": "en-US", "de": "de-DE", "es": "es-ES", "fr": "fr-FR"}
+LOCALE = {"it": "it-IT", "en": "en-US", "de": "de-DE", "es": "es-ES", "fr": "fr-FR",
+          "pt": "pt-BR", "nl": "nl-NL", "pl": "pl-PL", "ru": "ru-RU", "uk": "uk-UA",
+          "ja": "ja-JP"}
 
 
 def word_overlap(ref: str, hyp: str, min_len: int = 4) -> float:
@@ -67,8 +74,12 @@ def main() -> None:
         sys.exit(77)
     samples = json.loads(manifest_path.read_text())["samples"]
     by_lang: dict[str, list[dict]] = {}
+    long_samples = []
     for s in samples:
-        by_lang.setdefault(s["lang"], []).append(s)
+        if s.get("long"):
+            long_samples.append(s)
+        else:
+            by_lang.setdefault(s["lang"], []).append(s)
 
     models = [m for m in args.models.split(",")
               if (ROOT / "models" / m / "mynah.json").exists()]
@@ -128,6 +139,46 @@ def main() -> None:
                     if not ok:
                         print(f"     ref: {ref['text']}\n     hyp: {hyp}")
                         fails += 1
+    # clip lungo: segmentazione su silenzio, timestamp monotoni, streaming reale
+    # (solo cpu: percorsi già provati su metal sopra; qui contano le feature)
+    for s in long_samples:
+        wav = str(ROOT / "samples" / s["file"])
+        if "parakeet-tdt-0.6b-v3" in models:
+            p = subprocess.run([args.mynah, "transcribe", "-m",
+                                str(ROOT / "models/parakeet-tdt-0.6b-v3"), "-i", wav,
+                                "--segment-sec", "30"],
+                               capture_output=True, text=True, timeout=600)
+            c = cer(s["text"], p.stdout.strip())
+            ok = c <= args.cer_max
+            print(f"{'OK ' if ok else 'FAIL'} seg  parakeet-tdt-0.6b-v3 "
+                  f"{s['file']} ({s['duration_sec']}s, segmenti da 30s) CER {c:.3f}")
+            fails += 0 if ok else 1
+
+            p = subprocess.run([args.mynah, "transcribe", "-m",
+                                str(ROOT / "models/parakeet-tdt-0.6b-v3"), "-i", wav,
+                                "--timestamps"],
+                               capture_output=True, text=True, timeout=600)
+            rows = [ln.split() for ln in p.stdout.splitlines() if len(ln.split()) >= 3]
+            t0s = [float(r[0]) for r in rows]
+            ok = (len(rows) > 50 and t0s == sorted(t0s)
+                  and float(rows[-1][1]) <= s["duration_sec"] + 1.0)
+            print(f"{'OK ' if ok else 'FAIL'} ts   parakeet-tdt-0.6b-v3 "
+                  f"{s['file']} {len(rows)} parole, monotoni, entro durata")
+            fails += 0 if ok else 1
+
+        if "nemotron-3.5-asr-streaming-0.6b" in models:
+            import soundfile as sf
+            audio, _sr = sf.read(ROOT / "samples" / s["file"], dtype="int16")
+            p = subprocess.run([args.mynah, "stream", "-m",
+                                str(ROOT / "models/nemotron-3.5-asr-streaming-0.6b"),
+                                "--lang", "en-US"],
+                               input=audio.tobytes(), capture_output=True, timeout=600)
+            c = cer(s["text"], p.stdout.decode().strip())
+            ok = c <= args.cer_max
+            print(f"{'OK ' if ok else 'FAIL'} strm nemotron-3.5 (cache-aware) "
+                  f"{s['file']} CER {c:.3f}")
+            fails += 0 if ok else 1
+
     print(f"\n{'FAIL' if fails else 'OK'}: {fails} problemi su {len(models)} modelli, "
           f"backend {backends}")
     sys.exit(1 if fails else 0)

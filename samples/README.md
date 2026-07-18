@@ -9,11 +9,17 @@ La proprietà che li rende preziosi: le frasi sono **parallele tra le lingue**
 fa da riferimento per valutare la **speech translation** di Canary, non solo
 l'ASR. Trascrizioni e riferimenti in [`manifest.json`](manifest.json).
 
-| id | contenuto | lingue |
+| clip | contenuto | lingue |
 |---|---|---|
-| 1521 | il satellite che ritrasmette il segnale | it, en, de, es, fr |
-| 1534 | Timbuctù come metafora di terra lontana | it, en, de, es, fr |
+| fleurs_1521 | il satellite che ritrasmette il segnale | it, en, de, es, fr, pt, nl, pl, ru, uk, ja |
+| fleurs_1534 | Timbuctù come metafora di terra lontana | it, en, de, es, fr, pt, nl, pl, ru, uk, ja |
+| fleurs_long | ~95 s di frasi EN concatenate con pause | en |
 
-Uso: `make test-samples` (CER ASR + word-overlap traduzione, backend cpu+metal;
-vedi `tools/eval/test_samples.py`). Rigenerazione: `cd tools && uv run python
-fetch_fleurs_samples.py`.
+Le 11 lingue esercitano i 40 locale di Nemotron e le 25 lingue EU di v3
+(alfabeti: latino, cirillico, giapponese). Il clip lungo ha riferimento esatto:
+serve ai check di **segmentazione su silenzio**, **timestamp** su ~100 parole e
+**streaming cache-aware** (audio vero in stdin).
+
+Uso: `make test-samples` (CER ASR + word-overlap traduzione, backend cpu+metal,
+`--backend cuda` pronto per Linux; vedi `tools/eval/test_samples.py`).
+Rigenerazione: `cd tools && uv run python fetch_fleurs_samples.py`.

@@ -22,11 +22,19 @@ ROOT = Path(__file__).resolve().parent.parent
 BASE = "https://huggingface.co/datasets/google/fleurs/resolve/main/data"
 CACHE = Path("/tmp/fleurs")
 
-# lingua mynah -> config FLEURS
-LANGS = {"it": "it_it", "en": "en_us", "de": "de_de", "es": "es_419", "fr": "fr_fr"}
+# lingua mynah -> config FLEURS. Le prime 5 coprono Canary (traduzione) e i
+# fixture storici; le altre esercitano i 40 locale di Nemotron e le 25 lingue
+# EU di v3 (alfabeti inclusi: cirillico, giapponese).
+LANGS = {"it": "it_it", "en": "en_us", "de": "de_de", "es": "es_419", "fr": "fr_fr",
+         "pt": "pt_br", "nl": "nl_nl", "pl": "pl_pl", "ru": "ru_ru", "uk": "uk_ua",
+         "ja": "ja_jp"}
 # id FLEURS delle frasi scelte (parallele in tutte le lingue, 7-13 s,
 # contenuti distintivi: 1521 satellite, 1534 Timbuctù)
 IDS = ["1521", "1534"]
+# clip lungo EN (~90 s): frasi dev concatenate con pause da 0.6 s — riferimento
+# esatto per segmentazione su silenzio, timestamp lunghi e streaming
+LONG_N = 8
+LONG_PAUSE = 0.6
 
 
 def tsv_rows(cfg: str) -> dict[str, dict]:
@@ -89,6 +97,27 @@ def main() -> None:
                 "text": rows[i]["raw"],
                 "en_ref": texts["en"][i]["raw"],
             })
+    # clip lungo EN: le prime LONG_N frasi del dev (durata 8-14 s) concatenate
+    import numpy as np
+    import soundfile as sf
+    en = texts["en"]
+    long_ids = [i for i in sorted(en) if 8.0 <= en[i]["dur"] <= 14.0][:LONG_N]
+    extract(LANGS["en"], [en[i]["file"] for i in long_ids])
+    pieces, refs = [], []
+    for i in long_ids:
+        audio, sr = sf.read(CACHE / LANGS["en"] / "dev" / en[i]["file"], dtype="float32")
+        pieces += [audio, np.zeros(int(LONG_PAUSE * sr), dtype="float32")]
+        refs.append(en[i]["raw"])
+    long_audio = np.concatenate(pieces)
+    sf.write(samples_dir / "en" / "fleurs_long.wav", long_audio, 16000, subtype="PCM_16")
+    manifest["samples"].append({
+        "file": "en/fleurs_long.wav",
+        "lang": "en",
+        "long": True,
+        "duration_sec": round(len(long_audio) / 16000.0, 1),
+        "text": " ".join(refs),
+    })
+
     (samples_dir / "manifest.json").write_text(
         json.dumps(manifest, indent=1, ensure_ascii=False) + "\n")
     total = sum(s["duration_sec"] for s in manifest["samples"])
