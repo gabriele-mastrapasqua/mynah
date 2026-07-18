@@ -26,30 +26,82 @@ typedef struct {
     int n;
 } pf_state;
 
-static void *pf_worker(void *arg) {
-    pf_state *st = arg;
+static void pf_run(pf_state *st) {
     for (;;) {
         const int i = atomic_fetch_add_explicit(&st->next, 1, memory_order_relaxed);
         if (i >= st->n) break;
         st->fn(st->ctx, i);
     }
-    return NULL;
+}
+
+/* ------------------------------------------------------------ pool persistente
+ * I worker vengono creati alla prima parallel_for e dormono su condvar: niente
+ * pthread_create/join nel percorso caldo (prima: migliaia di spawn per
+ * trascrizione batchata). UN dispatch alla volta (g_pool_mu): se il pool è
+ * occupato — chiamate concorrenti dai worker del server — il chiamante gira
+ * inline seriale, che è già parallelo TRA le richieste (niente oversubscription).
+ * I worker sono detached e vivono fino all'exit del processo (come i pool BLAS). */
+static pthread_mutex_t g_pool_mu = PTHREAD_MUTEX_INITIALIZER;
+static pthread_mutex_t g_job_mu = PTHREAD_MUTEX_INITIALIZER;
+static pthread_cond_t g_job_cv = PTHREAD_COND_INITIALIZER;
+static pthread_cond_t g_done_cv = PTHREAD_COND_INITIALIZER;
+static pf_state *g_job;
+static unsigned g_gen;
+static int g_pending;
+static int g_workers;
+static pthread_once_t g_pool_once = PTHREAD_ONCE_INIT;
+
+static void *pool_worker(void *arg) {
+    (void)arg;
+    unsigned seen = 0;
+    pthread_mutex_lock(&g_job_mu);
+    for (;;) {
+        while (g_gen == seen) pthread_cond_wait(&g_job_cv, &g_job_mu);
+        seen = g_gen;
+        pf_state *job = g_job;
+        pthread_mutex_unlock(&g_job_mu);
+        pf_run(job);
+        pthread_mutex_lock(&g_job_mu);
+        if (--g_pending == 0) pthread_cond_signal(&g_done_cv);
+    }
+    return NULL;   /* mai raggiunto */
+}
+
+static void pool_init(void) {
+    const int nth = mynah_num_threads();
+    for (int k = 0; k < nth - 1; k++) {
+        pthread_t tid;
+        if (pthread_create(&tid, NULL, pool_worker, NULL) == 0) {
+            pthread_detach(tid);
+            g_workers++;
+        }
+    }
 }
 
 void mynah_parallel_for(int n, void (*fn)(void *ctx, int i), void *ctx) {
     if (n <= 0) return;
-    int nth = mynah_num_threads();
-    if (nth > n) nth = n;
-    if (nth <= 1) {
+    const int nth = mynah_num_threads();
+    if (nth <= 1 || n == 1) {
         for (int i = 0; i < n; i++) fn(ctx, i);
         return;
     }
+    pthread_once(&g_pool_once, pool_init);
+
     pf_state st = {.fn = fn, .ctx = ctx, .n = n};
     atomic_init(&st.next, 0);
-    pthread_t tids[PF_MAX_THREADS];
-    int spawned = 0;
-    for (int k = 0; k < nth - 1; k++)
-        if (pthread_create(&tids[spawned], NULL, pf_worker, &st) == 0) spawned++;
-    pf_worker(&st);          /* il chiamante lavora anche lui */
-    for (int k = 0; k < spawned; k++) pthread_join(tids[k], NULL);
+    if (g_workers == 0 || pthread_mutex_trylock(&g_pool_mu) != 0) {
+        pf_run(&st);              /* pool assente o occupato: inline */
+        return;
+    }
+    pthread_mutex_lock(&g_job_mu);
+    g_job = &st;
+    g_pending = g_workers;
+    g_gen++;
+    pthread_cond_broadcast(&g_job_cv);
+    pthread_mutex_unlock(&g_job_mu);
+    pf_run(&st);                  /* il chiamante lavora anche lui */
+    pthread_mutex_lock(&g_job_mu);
+    while (g_pending > 0) pthread_cond_wait(&g_done_cv, &g_job_mu);
+    pthread_mutex_unlock(&g_job_mu);
+    pthread_mutex_unlock(&g_pool_mu);
 }
