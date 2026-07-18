@@ -14,9 +14,10 @@ models
 __pycache__/
 *.pyc
 
-# Local planning notes (Italian, not part of the public repo)
+# Local planning notes and agent instructions (not part of the public repo)
 PLAN.md
 TODO.md
+CLAUDE.md
 
 # OS
 .DS_Store
