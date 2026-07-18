@@ -35,11 +35,11 @@ IDS = ["1521", "1534"]
 # esatto per segmentazione su silenzio, timestamp lunghi e streaming
 LONG_N = 8
 LONG_PAUSE = 0.6
-# clip LUNGHI in MP3 (ffmpeg CLI, 32 kbps mono: ~5 min EN ≈ 1.2 MB) per i test
-# di long transcribe / long translate: il runtime resta WAV-only, l'harness
-# decodifica con ffmpeg (skip se assente). de: solo frasi PARALLELE (id anche
-# in en) così il riferimento della traduzione è la concatenazione degli en.
-MP3_TARGETS = {"en": 300.0, "de": 120.0}
+# clip LUNGHI (WAV PCM16, committati: ~5 min EN + ~2 min DE ≈ 14 MB) per i test
+# di long transcribe / long translate — lossless dalle sorgenti FLEURS, nessuna
+# dipendenza ffmpeg nei test. de: solo frasi PARALLELE (id anche in en) così il
+# riferimento della traduzione è la concatenazione degli en.
+LONG_TARGETS = {"en": 300.0, "de": 120.0}
 
 
 def tsv_rows(cfg: str) -> dict[str, dict]:
@@ -123,41 +123,34 @@ def main() -> None:
         "text": " ".join(refs),
     })
 
-    # clip lunghi mp3 (richiede ffmpeg nel PATH)
-    if subprocess.run(["which", "ffmpeg"], capture_output=True).returncode == 0:
-        (samples_dir / "long").mkdir(exist_ok=True)
-        for lang, target in MP3_TARGETS.items():
-            rows = texts[lang]
-            pool = [i for i in sorted(rows) if 6.0 <= rows[i]["dur"] <= 16.0
-                    and (lang == "en" or i in texts["en"])]
-            ids, tot = [], 0.0
-            for i in pool:
-                if tot >= target:
-                    break
-                ids.append(i)
-                tot += rows[i]["dur"] + LONG_PAUSE
-            extract(LANGS[lang], [rows[i]["file"] for i in ids])
-            pieces, refs, en_refs = [], [], []
-            for i in ids:
-                audio, sr = sf.read(CACHE / LANGS[lang] / "dev" / rows[i]["file"],
-                                    dtype="float32")
-                pieces += [audio, np.zeros(int(LONG_PAUSE * sr), dtype="float32")]
-                refs.append(rows[i]["raw"])
-                if lang != "en":
-                    en_refs.append(texts["en"][i]["raw"])
-            tmp = CACHE / f"long_{lang}.wav"
-            sf.write(tmp, np.concatenate(pieces), 16000, subtype="PCM_16")
-            dst = samples_dir / "long" / f"{lang}_long.mp3"
-            subprocess.run(["ffmpeg", "-y", "-loglevel", "error", "-i", str(tmp),
-                            "-b:a", "32k", str(dst)], check=True)
-            entry = {"file": f"long/{lang}_long.mp3", "lang": lang, "long": True,
-                     "format": "mp3", "duration_sec": round(tot, 1),
-                     "text": " ".join(refs)}
-            if en_refs:
-                entry["en_ref"] = " ".join(en_refs)
-            manifest["samples"].append(entry)
-    else:
-        print("nota: ffmpeg assente -> clip lunghi mp3 saltati")
+    # clip lunghi WAV
+    (samples_dir / "long").mkdir(exist_ok=True)
+    for lang, target in LONG_TARGETS.items():
+        rows = texts[lang]
+        pool = [i for i in sorted(rows) if 6.0 <= rows[i]["dur"] <= 16.0
+                and (lang == "en" or i in texts["en"])]
+        ids, tot = [], 0.0
+        for i in pool:
+            if tot >= target:
+                break
+            ids.append(i)
+            tot += rows[i]["dur"] + LONG_PAUSE
+        extract(LANGS[lang], [rows[i]["file"] for i in ids])
+        pieces, refs, en_refs = [], [], []
+        for i in ids:
+            audio, sr = sf.read(CACHE / LANGS[lang] / "dev" / rows[i]["file"],
+                                dtype="float32")
+            pieces += [audio, np.zeros(int(LONG_PAUSE * sr), dtype="float32")]
+            refs.append(rows[i]["raw"])
+            if lang != "en":
+                en_refs.append(texts["en"][i]["raw"])
+        dst = samples_dir / "long" / f"{lang}_long.wav"
+        sf.write(dst, np.concatenate(pieces), 16000, subtype="PCM_16")
+        entry = {"file": f"long/{lang}_long.wav", "lang": lang, "long": True,
+                 "duration_sec": round(tot, 1), "text": " ".join(refs)}
+        if en_refs:
+            entry["en_ref"] = " ".join(en_refs)
+        manifest["samples"].append(entry)
 
     (samples_dir / "manifest.json").write_text(
         json.dumps(manifest, indent=1, ensure_ascii=False) + "\n")
