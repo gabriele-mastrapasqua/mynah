@@ -137,7 +137,7 @@ int mynah_qmat_init_st(mynah_qmat *m, const mynah_safetensors *st, const char *n
         }
     }
     const mynah_tensor *tf = mynah_st_get(st, name);
-    if (!tf) return -1;
+    if (!tf || tf->shape[0] <= 0) return -1;
     return mynah_qmat_init(m, (const float *)tf->data, (int)tf->shape[0],
                            (int)(tf->n_elems / (size_t)tf->shape[0]), qtype);
 }

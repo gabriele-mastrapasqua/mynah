@@ -250,11 +250,27 @@ static id<MTLBuffer> weight_buffer_f16(const float *w, size_t n_elems) {
     if (!buf) return nil;
     cvt_f32_to_f16(w, buf.contents, n_elems);
     if (g_wc_n == g_wc_cap) {
-        g_wc_cap = g_wc_cap ? g_wc_cap * 2 : 256;
-        g_wc = realloc(g_wc, (size_t)g_wc_cap * sizeof(wc_ent));
+        const int cap = g_wc_cap ? g_wc_cap * 2 : 256;
+        wc_ent *wc = realloc(g_wc, (size_t)cap * sizeof(wc_ent));
+        if (!wc) return buf;      /* niente cache: il buffer resta valido per la chiamata */
+        g_wc = wc;
+        g_wc_cap = cap;
     }
     g_wc[g_wc_n++] = (wc_ent){.host_ptr = w, .buf = (void *)CFBridgingRetain(buf)};
     return buf;
+}
+
+/* Svuota la cache pesi residenti. Da chiamare quando i puntatori host cessano di
+ * essere validi (mynah_free: i safetensors vengono munmap-ati e un load successivo
+ * può riusare gli stessi indirizzi virtuali -> la GPU userebbe i pesi VECCHI).
+ * I forward successivi ri-caricano i pesi alla prima chiamata. */
+void mynah_metal_weights_evict(void) {
+    pthread_mutex_lock(&g_mu);
+    for (int i = 0; i < g_wc_n; i++) CFBridgingRelease(g_wc[i].buf);
+    free(g_wc);
+    g_wc = NULL;
+    g_wc_n = g_wc_cap = 0;
+    pthread_mutex_unlock(&g_mu);
 }
 
 static id<MTLBuffer> io_buffer(id<MTLBuffer> __strong *slot, size_t *cap, size_t bytes) {

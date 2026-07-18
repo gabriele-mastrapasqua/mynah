@@ -41,12 +41,21 @@ int mynah_decoder_init(mynah_decoder *dec, const mynah_safetensors *st,
         const mynah_tensor *w = mynah_st_get(st, name);
         if (!w) break;
         dec->w_ih[n] = (const float *)w->data;
+        /* layer parziale (checkpoint corrotto): errore pulito, non null-deref */
+        const mynah_tensor *whh, *bih, *bhh;
         snprintf(name, sizeof(name), "decoder.lstm.weight_hh_l%d", n);
-        dec->w_hh[n] = (const float *)mynah_st_get(st, name)->data;
+        whh = mynah_st_get(st, name);
         snprintf(name, sizeof(name), "decoder.lstm.bias_ih_l%d", n);
-        dec->b_ih[n] = (const float *)mynah_st_get(st, name)->data;
+        bih = mynah_st_get(st, name);
         snprintf(name, sizeof(name), "decoder.lstm.bias_hh_l%d", n);
-        dec->b_hh[n] = (const float *)mynah_st_get(st, name)->data;
+        bhh = mynah_st_get(st, name);
+        if (!whh || !bih || !bhh) {
+            fprintf(stderr, "mynah: LSTM layer %d incompleto nel checkpoint\n", n);
+            return -1;
+        }
+        dec->w_hh[n] = (const float *)whh->data;
+        dec->b_ih[n] = (const float *)bih->data;
+        dec->b_hh[n] = (const float *)bhh->data;
     }
     dec->n_layers = n;
     return (n > 0 && dec->hidden <= 1024) ? 0 : -1;

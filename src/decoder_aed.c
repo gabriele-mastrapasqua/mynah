@@ -140,6 +140,7 @@ int mynah_aed_decode(const mynah_aed *a, const float *enc, int T,
                      const int *prompt, int n_prompt, int eos,
                      int *tokens, int cap) {
     const int d = a->d, H = a->n_heads, dk = d / H, nl = a->n_layers;
+    if (n_prompt <= 0 || !prompt) return -1;   /* serve almeno un token di avvio */
     /* budget di generazione = cap del caller (che sa se i timestamp sono attivi) */
     int max_len = n_prompt + cap;
     if (max_len > a->max_seq) max_len = a->max_seq;

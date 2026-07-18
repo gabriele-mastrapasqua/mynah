@@ -5,6 +5,7 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include "backend.h"
 #include "decoder.h"
 #include "decoder_aed.h"
 #include "decoder_ctc.h"
@@ -57,6 +58,35 @@ static cJSON *load_json(const char *dir, const char *file) {
     return j;
 }
 
+/* Accessor sicuri sul mynah.json: chiave mancante o tipo sbagliato -> messaggio
+ * su stderr + *bad = 1 (il load fallisce pulito invece di dereferenziare NULL). */
+static const cJSON *jneed(const cJSON *o, const char *k, int *bad) {
+    const cJSON *j = o ? cJSON_GetObjectItem(o, k) : NULL;
+    if (!j) {
+        fprintf(stderr, "mynah: mynah.json: manca \"%s\"\n", k);
+        if (bad) *bad = 1;
+    }
+    return j;
+}
+
+static int jint(const cJSON *o, const char *k, int *bad) {
+    const cJSON *j = jneed(o, k, bad);
+    if (j && !cJSON_IsNumber(j)) { fprintf(stderr, "mynah: \"%s\" non numerico\n", k); if (bad) *bad = 1; }
+    return j && cJSON_IsNumber(j) ? j->valueint : 0;
+}
+
+static double jnum(const cJSON *o, const char *k, int *bad) {
+    const cJSON *j = jneed(o, k, bad);
+    if (j && !cJSON_IsNumber(j)) { fprintf(stderr, "mynah: \"%s\" non numerico\n", k); if (bad) *bad = 1; }
+    return j && cJSON_IsNumber(j) ? j->valuedouble : 0.0;
+}
+
+static const char *jstr(const cJSON *o, const char *k, int *bad) {
+    const cJSON *j = jneed(o, k, bad);
+    if (j && !cJSON_IsString(j)) { fprintf(stderr, "mynah: \"%s\" non stringa\n", k); if (bad) *bad = 1; }
+    return j && cJSON_IsString(j) ? j->valuestring : "";
+}
+
 mynah_model *mynah_load(const char *model_dir) { return mynah_load_quant(model_dir, MYNAH_QUANT_F32); }
 
 mynah_model *mynah_load_quant(const char *model_dir, int quant) {
@@ -66,9 +96,11 @@ mynah_model *mynah_load_quant(const char *model_dir, int quant) {
 
     m->cfg = load_json(model_dir, "mynah.json");
     if (!m->cfg) goto fail;
+    int bad = 0;
 
     /* pre-quantizzato su disco? (mynah quantize) -> load istantaneo, niente f32 */
-    const char *wfile = cJSON_GetObjectItem(m->cfg, "weights")->valuestring;
+    const char *wfile = jstr(m->cfg, "weights", &bad);
+    if (bad) goto fail;
     m->weights = NULL;
     if (quant != MYNAH_QUANT_F32) {
         snprintf(path, sizeof(path), "%s/model.%s.safetensors", model_dir,
@@ -101,15 +133,17 @@ mynah_model *mynah_load_quant(const char *model_dir, int quant) {
     if (jxs && cJSON_IsTrue(jxs))
         m->enc.xscale = sqrtf((float)m->enc.d_model);
 
-    const cJSON *jdec = cJSON_GetObjectItem(m->cfg, "decoder");
-    const char *dec_type = cJSON_GetObjectItem(jdec, "type")->valuestring;
+    const cJSON *jdec = jneed(m->cfg, "decoder", &bad);
+    const char *dec_type = jstr(jdec, "type", &bad);
+    if (bad) goto fail;
     if (strcmp(dec_type, "aed_transformer") == 0) {
-        if (mynah_aed_init(&m->aed, m->weights,
-                           cJSON_GetObjectItem(jdec, "n_layers")->valueint,
-                           cJSON_GetObjectItem(jdec, "n_heads")->valueint,
-                           cJSON_GetObjectItem(jdec, "max_seq")->valueint,
-                           cJSON_GetObjectItem(jdec, "max_generation_delta")->valueint,
-                           quant) != 0) {
+        const int a_layers = jint(jdec, "n_layers", &bad);
+        const int a_heads = jint(jdec, "n_heads", &bad);
+        const int a_maxseq = jint(jdec, "max_seq", &bad);
+        const int a_delta = jint(jdec, "max_generation_delta", &bad);
+        if (bad) goto fail;
+        if (mynah_aed_init(&m->aed, m->weights, a_layers, a_heads, a_maxseq,
+                           a_delta, quant) != 0) {
             fprintf(stderr, "mynah: decoder AED init fallita\n");
             goto fail;
         }
@@ -128,9 +162,10 @@ mynah_model *mynah_load_quant(const char *model_dir, int quant) {
         const cJSON *jdur = cJSON_GetObjectItem(jdec, "durations");
         for (cJSON *d = jdur ? jdur->child : NULL; d && n_durations < MYNAH_MAX_DURATIONS; d = d->next)
             durations[n_durations++] = d->valueint;
-        if (mynah_decoder_init(&m->dec, m->weights,
-                               cJSON_GetObjectItem(jdec, "blank_id")->valueint,
-                               cJSON_GetObjectItem(jdec, "max_symbols_per_step")->valueint,
+        const int blank_id = jint(jdec, "blank_id", &bad);
+        const int max_sym = jint(jdec, "max_symbols_per_step", &bad);
+        if (bad) goto fail;
+        if (mynah_decoder_init(&m->dec, m->weights, blank_id, max_sym,
                                quant, durations, n_durations) != 0) {
             fprintf(stderr, "mynah: decoder init fallita\n");
             goto fail;
@@ -142,24 +177,25 @@ mynah_model *mynah_load_quant(const char *model_dir, int quant) {
     if (mynah_tokenizer_load(&m->tok, path) != 0) goto fail;
 
     /* feature config */
-    const cJSON *jf = cJSON_GetObjectItem(m->cfg, "features");
+    const cJSON *jf = jneed(m->cfg, "features", &bad);
     const mynah_tensor *fb = mynah_st_get(m->mel_filters, "mel_fb");
     const mynah_tensor *win = mynah_st_get(m->mel_filters, "window");
     if (!fb || !win) goto fail;
-    const cJSON *jnorm = cJSON_GetObjectItem(jf, "normalize");
+    const cJSON *jnorm = jf ? cJSON_GetObjectItem(jf, "normalize") : NULL;
     m->feat = (mynah_feat_cfg){
-        .sample_rate = cJSON_GetObjectItem(jf, "sample_rate")->valueint,
-        .n_mels = cJSON_GetObjectItem(jf, "n_mels")->valueint,
-        .n_fft = cJSON_GetObjectItem(jf, "n_fft")->valueint,
-        .win_length = cJSON_GetObjectItem(jf, "win_length")->valueint,
-        .hop_length = cJSON_GetObjectItem(jf, "hop_length")->valueint,
-        .preemphasis = cJSON_GetObjectItem(jf, "preemphasis")->valuedouble,
-        .log_zero_guard = cJSON_GetObjectItem(jf, "log_zero_guard")->valuedouble,
+        .sample_rate = jint(jf, "sample_rate", &bad),
+        .n_mels = jint(jf, "n_mels", &bad),
+        .n_fft = jint(jf, "n_fft", &bad),
+        .win_length = jint(jf, "win_length", &bad),
+        .hop_length = jint(jf, "hop_length", &bad),
+        .preemphasis = jnum(jf, "preemphasis", &bad),
+        .log_zero_guard = jnum(jf, "log_zero_guard", &bad),
         .normalize_per_feature = jnorm && cJSON_IsString(jnorm) &&
                                  strcmp(jnorm->valuestring, "per_feature") == 0,
         .mel_fb = (const float *)fb->data,
         .window = (const float *)win->data,
     };
+    if (bad || m->feat.sample_rate <= 0 || m->feat.hop_length <= 0) goto fail;
 
     const cJSON *jsf = jenc ? cJSON_GetObjectItem(jenc, "subsampling_factor") : NULL;
     m->frame_sec = (double)m->feat.hop_length * (jsf ? jsf->valueint : 8)
@@ -172,13 +208,16 @@ mynah_model *mynah_load_quant(const char *model_dir, int quant) {
     m->default_right = -1;
     const cJSON *js = cJSON_GetObjectItem(m->cfg, "streaming");
     if (js) {
-        const cJSON *presets = cJSON_GetObjectItem(js, "att_context_presets");
-        const int def = cJSON_GetObjectItem(js, "default_preset_index")->valueint;
+        const cJSON *presets = jneed(js, "att_context_presets", &bad);
+        const int def = jint(js, "default_preset_index", &bad);
+        if (bad) goto fail;
         int i = 0;
         for (cJSON *p = presets->child; p && i < 8; p = p->next, i++) {
-            m->lookaheads[i] = cJSON_GetArrayItem(p, 1)->valueint;
+            const cJSON *pl = cJSON_GetArrayItem(p, 0), *pr = cJSON_GetArrayItem(p, 1);
+            if (!pl || !pr) { fprintf(stderr, "mynah: preset streaming malformato\n"); goto fail; }
+            m->lookaheads[i] = pr->valueint;
             if (i == def) {
-                m->left_ctx = cJSON_GetArrayItem(p, 0)->valueint;
+                m->left_ctx = pl->valueint;
                 m->default_right = m->lookaheads[i];
             }
         }
@@ -208,6 +247,10 @@ void mynah_free(mynah_model *m) {
     mynah_aed_free(&m->aed);
     mynah_encoder_free(&m->enc);
     mynah_tokenizer_free(&m->tok);
+#ifdef MYNAH_METAL
+    /* i pesi GPU cache-ati puntano nel mmap che stiamo per chiudere */
+    mynah_metal_weights_evict();
+#endif
     mynah_st_close(m->weights);
     mynah_st_close(m->mel_filters);
     cJSON_Delete(m->cfg);
@@ -289,7 +332,7 @@ int mynah_transcribe_batch(mynah_model *m, const float *const *samples,
         if (m->is_aed) {
             int pids[MYNAH_AED_PROMPT_MAX];
             const int n_p = aed_build_prompt(m, langs ? langs[b] : NULL, pids, 0);
-            if (n_p < 0) continue;
+            if (n_p <= 0) continue;
             const int cap = t_encs[b] + m->aed.max_gen_delta;
             tokens = malloc((size_t)cap * sizeof(int));
             if (tokens)
@@ -502,9 +545,11 @@ static int aed_build_prompt(const mynah_model *m, const char *lang, int *ids, in
         return -1;
     }
     const cJSON *jd = cJSON_GetObjectItem(jp, "defaults");
+    const cJSON *jt = jp ? cJSON_GetObjectItem(jp, "template") : NULL;
+    if (!jt) { fprintf(stderr, "mynah: prompt.template mancante\n"); return -1; }
     int n = 0;
-    for (const cJSON *e = cJSON_GetObjectItem(jp, "template")->child;
-         e && n < MYNAH_AED_PROMPT_MAX; e = e->next) {
+    for (const cJSON *e = jt->child; e && n < MYNAH_AED_PROMPT_MAX; e = e->next) {
+        if (!cJSON_IsString(e)) continue;
         const char *item = e->valuestring;
         char tok[32];
         if (item[0] == '{') {
@@ -547,13 +592,17 @@ int mynah_set_target_lang(mynah_model *m, const char *lang) {
     return -1;
 }
 
-/* Piece "<|N|>" (solo cifre) -> N, altrimenti -1. */
+/* Piece "<|N|>" (solo cifre) -> N, altrimenti -1. Clamp anti-overflow: nessun
+ * audio reale supera ~10^7 frame (9 giorni), tokens.json ostili sì. */
 static int aed_ts_frame(const char *piece) {
     if (strncmp(piece, "<|", 2) != 0) return -1;
     const char *p = piece + 2;
     if (*p < '0' || *p > '9') return -1;
     int v = 0;
-    for (; *p >= '0' && *p <= '9'; p++) v = v * 10 + (*p - '0');
+    for (; *p >= '0' && *p <= '9'; p++) {
+        if (v > 10000000) return -1;
+        v = v * 10 + (*p - '0');
+    }
     return strcmp(p, "|>") == 0 ? v : -1;
 }
 
@@ -571,6 +620,7 @@ static int aed_words_from_tokens(const mynah_tokenizer *tk, const int *toks, int
     if (!ws) return -1;
 
     for (int i = 0; i < n; i++) {
+        if (toks[i] < 0 || toks[i] >= tk->n_pieces) continue;
         const char *piece = tk->pieces[toks[i]];
         const int ts = aed_ts_frame(piece);
         if (ts >= 0) {
@@ -633,7 +683,7 @@ static char *transcribe_segment(mynah_model *m, const float *samples, size_t n_s
     if (m->is_aed) {
         int pids[MYNAH_AED_PROMPT_MAX];
         const int n_p = aed_build_prompt(m, lang, pids, words != NULL);
-        if (n_p < 0) { free(feats); return NULL; }
+        if (n_p <= 0) { free(feats); return NULL; }
         float *enc = mynah_encoder_forward(&m->enc, feats, valid, m->feat.n_mels, -1,
                                            m->left_ctx, right, &T_enc);
         free(feats);
@@ -741,7 +791,11 @@ char *mynah_transcribe_ts(mynah_model *m, const float *samples, size_t n_samples
 
         const size_t sl = strlen(seg);
         char *nt = realloc(text, text_len + sl + 2);
-        if (!nt) { free(seg); free(text); mynah_words_free(sw, sn); return NULL; }
+        if (!nt) {
+            free(seg); free(text); mynah_words_free(sw, sn);
+            if (words) { mynah_words_free(*words, *n_words); *words = NULL; *n_words = 0; }
+            return NULL;
+        }
         text = nt;
         if (text_len > 0 && sl > 0) text[text_len++] = ' ';
         memcpy(text + text_len, seg, sl + 1);
@@ -750,7 +804,12 @@ char *mynah_transcribe_ts(mynah_model *m, const float *samples, size_t n_samples
 
         if (words && sn > 0) {
             mynah_word *nw = realloc(*words, ((size_t)*n_words + (size_t)sn) * sizeof(mynah_word));
-            if (!nw) { mynah_words_free(sw, sn); free(text); return NULL; }
+            if (!nw) {
+                mynah_words_free(sw, sn); free(text);
+                /* realloc fallita NON libera il vecchio blocco */
+                mynah_words_free(*words, *n_words); *words = NULL; *n_words = 0;
+                return NULL;
+            }
             *words = nw;
             const double off = (double)cur / sr;
             for (int i = 0; i < sn; i++) {

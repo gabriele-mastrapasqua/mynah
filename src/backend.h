@@ -48,6 +48,10 @@ typedef struct {
 int mynah_metal_encoder_layers(const mynah_metal_layer_w *Ls, int n_layers,
                                float *x, const float *pe, int T, int d, int H,
                                int ffn, int left, int right, int conv_pad);
+
+/* Svuota la cache dei pesi GPU (chiamata da mynah_free: i puntatori host mmap
+ * cessano di essere validi e un load successivo può riusarne gli indirizzi). */
+void mynah_metal_weights_evict(void);
 #endif
 
 #endif
