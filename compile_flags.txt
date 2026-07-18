@@ -1,5 +1,6 @@
 -std=c11
--Isrc
+-iquote
+src
 -Wall
 -Wextra
 -DMYNAH_BLAS_ACCELERATE
