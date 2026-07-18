@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="assets/mynah-logo3-generic.png" alt="Mynah ASR" width="320">
+</p>
+
 # Mynah ASR
 
 **A lightweight native C runtime for multilingual streaming and offline speech recognition.**
