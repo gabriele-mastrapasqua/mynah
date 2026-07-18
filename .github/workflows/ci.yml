@@ -53,8 +53,7 @@ jobs:
             tests/golden/parakeet110_en
           key: ${{ env.MODEL }}-v1-${{ hashFiles('tools/convert_nemo.py', 'tools/oracle/**') }}
 
-      - name: Setup uv
-        if: steps.model-cache.outputs.cache-hit != 'true'
+      - name: Setup uv              # serve anche a test-samples (eval Python)
         uses: astral-sh/setup-uv@v5
 
       - name: Scarica e converti il modello (.nemo -> mynah), golden dump
@@ -73,6 +72,9 @@ jobs:
 
       - name: Test (parita' vs oracolo + e2e; i modelli grandi skippano)
         run: make test
+
+      - name: Qualita' su audio reale (samples/ FLEURS, CER col 110m)
+        run: make test-samples
 
   sanitizers:
     runs-on: ubuntu-latest

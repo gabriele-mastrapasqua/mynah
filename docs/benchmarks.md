@@ -33,10 +33,13 @@ sotto, sull'audio lungo.
 | parakeet-rnnt-1.1b¹ | 0.068 | 0.041 | — |
 | parakeet-ctc-1.1b¹ | 0.062 | 0.033 | — |
 | canary-1b-flash¹ | 0.143 | 0.081 | 0.133² |
+| canary-1b-v2 | da misurare³ | — | — |
 
 ¹ misurati prima dello spostamento su NAS (stessa giornata, stesso protocollo).
 ² fixture 4 s (long non rimisurato); il rapporto int8/f32 dell'AED (~2×) vale
 anche qui.
+³ encoder = 1b-flash (32L) + decoder 8L (2× dei flash): atteso ~1.3-1.5× il
+1b-flash. Misurare con pesi su disco locale (i numeri dal NAS non valgono).
 
 Letture chiave:
 - **Metal** vince sull'encoder di tutti i modelli (−25…45%); il guadagno cala
