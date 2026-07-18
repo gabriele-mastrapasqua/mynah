@@ -365,12 +365,21 @@ def build_parakeet_ctc_from_yaml(model_dir: Path, y: dict) -> dict:
     }
 
 
+# canary-1b-v2 (tokenizer unificato): lingue dalla model card, validate contro
+# il vocab alla conversione (il token <|xx|> deve esistere)
+CANARY_V2_LANGS = ["bg", "cs", "da", "de", "el", "en", "es", "et", "fi", "fr",
+                   "hr", "hu", "it", "lt", "lv", "mt", "nl", "pl", "pt", "ro",
+                   "ru", "sk", "sl", "sv", "uk"]
+
+
 def build_canary_from_yaml(model_dir: Path, y: dict) -> dict:
-    """Canary Flash (EncDecMultiTaskModel): AED con decoder Transformer.
+    """Canary Flash/v2 (EncDecMultiTaskModel): AED con decoder Transformer.
     docs/canary-arch.md. I token del prompt restano STRINGHE nel mynah.json:
     il runtime li risolve in id via tokens.json (niente doppia contabilità)."""
     dcfg = y["transf_decoder"]["config_dict"]
-    langs = [l for l in y["tokenizer"]["langs"] if l != "spl_tokens"]
+    # aggregato (flash): lingue = chiavi dei sub-tokenizer; unificato (v2): model card
+    langs = ([l for l in y["tokenizer"]["langs"] if l != "spl_tokens"]
+             if y["tokenizer"].get("type") == "agg" else CANARY_V2_LANGS)
     slots = y["prompt_defaults"][0]["slots"]
     assert y["prompt_format"] == "canary2", f"prompt_format non supportato: {y['prompt_format']}"
     assert dcfg["pre_ln"] and dcfg["hidden_act"] == "relu"
@@ -408,18 +417,26 @@ def build_canary_from_yaml(model_dir: Path, y: dict) -> dict:
 
 
 def canary_pieces(tar, names, y: dict) -> tuple[list[str], int]:
-    """Tokenizer aggregato: pezzi in ordine di id GLOBALE (sub-tokenizer nell'ordine
-    dello yaml, offset cumulativi). Ritorna (pieces, spl_size)."""
+    """Tokenizer Canary: aggregato (flash — pezzi in ordine di id GLOBALE,
+    sub-tokenizer nell'ordine dello yaml, offset cumulativi) o unificato (v2 —
+    un solo modello SPE). Ritorna (pieces, spl_size; 0 = unificato)."""
     import sentencepiece as spm
+
+    def load(member: str) -> "spm.SentencePieceProcessor":
+        hits = [n for n in names if n.endswith(member.replace("nemo:", ""))]
+        assert len(hits) == 1, f"{member}: {hits}"
+        sp = spm.SentencePieceProcessor()
+        sp.load_from_serialized_proto(tar.extractfile(hits[0]).read())
+        return sp
+
+    if y["tokenizer"].get("type") != "agg":
+        sp = load(y["tokenizer"]["model_path"])
+        return [sp.id_to_piece(i) for i in range(sp.get_piece_size())], 0
 
     pieces: list[str] = []
     spl_size = 0
     for lang, sub in y["tokenizer"]["langs"].items():
-        member = sub["model_path"].replace("nemo:", "")
-        hits = [n for n in names if n.endswith(member)]
-        assert len(hits) == 1, f"{member}: {hits}"
-        sp = spm.SentencePieceProcessor()
-        sp.load_from_serialized_proto(tar.extractfile(hits[0]).read())
+        sp = load(sub["model_path"])
         n = sp.get_piece_size()
         pieces += [sp.id_to_piece(i) for i in range(n)]
         if lang == "spl_tokens":
@@ -439,6 +456,10 @@ def convert_from_nemo(model_dir: Path, nemo_file: Path) -> None:
 
     def member(suffix: str) -> str:
         hits = [n for n in names if n.endswith(suffix)]
+        if len(hits) > 1:   # es. v2: model_config.yaml + timestamps_asr_model_config.yaml
+            exact = [n for n in hits if n.rsplit("/", 1)[-1] == suffix]
+            if exact:
+                hits = exact
         assert len(hits) == 1, f"{suffix}: {hits}"
         return hits[0]
 
@@ -446,6 +467,10 @@ def convert_from_nemo(model_dir: Path, nemo_file: Path) -> None:
     aed = ycfg.get("target", "").endswith("EncDecMultiTaskModel")
     if aed:
         mynah = build_canary_from_yaml(model_dir, ycfg)
+        # v2 bundla un ALLINEATORE separato per i timestamp: il token
+        # <|timestamp|> generativo non funziona (il modello emette EOS subito)
+        if any(n.endswith("timestamps_asr_model_config.yaml") for n in names):
+            mynah["decoder"]["timestamp_tokens"] = False
     elif "ConvASRDecoder" in ycfg["decoder"]["_target_"]:
         mynah = build_parakeet_ctc_from_yaml(model_dir, ycfg)
     else:
@@ -471,9 +496,16 @@ def convert_from_nemo(model_dir: Path, nemo_file: Path) -> None:
               model_dir / "mel_filters.safetensors")
 
     if aed:
-        # tokenizer aggregato dai sub-modelli SPE nel tar
+        # tokenizer (aggregato o unificato) dai modelli SPE nel tar
         pieces, spl_size = canary_pieces(tar, names, ycfg)
         mynah["tokenizer"]["spl_size"] = spl_size
+        # i token che il runtime risolverà per nome DEVONO esistere nel vocab
+        pset = set(pieces)
+        need = [mynah["decoder"]["eos_token"]]
+        need += [f"<|{l}|>" for l in mynah["prompt"]["languages"]]
+        need += [v for v in mynah["prompt"]["defaults"].values() if v]
+        missing = [t for t in need if t not in pset]
+        assert not missing, f"token assenti dal vocab: {missing}"
     else:
         # pieces dallo yaml (in ordine di id) + blank in coda
         vocab = ycfg.get("joint", {}).get("vocabulary") or ycfg["decoder"]["vocabulary"]

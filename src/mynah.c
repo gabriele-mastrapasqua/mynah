@@ -29,7 +29,7 @@ struct mynah_model {
     mynah_ctc ctc;                  /* head CTC (hybrid o CTC puro); w NULL se assente */
     int use_ctc, ctc_only;
     mynah_aed aed;                  /* decoder AED (Canary); layers NULL se assente */
-    int is_aed, aed_eos;
+    int is_aed, aed_eos, aed_ts;    /* aed_ts: supporta i token <|timestamp|> */
     char aed_target[8];             /* lingua di uscita ("" = come la sorgente) */
     mynah_tokenizer tok;
     mynah_feat_cfg feat;
@@ -242,6 +242,10 @@ mynah_model *mynah_load_quant(const char *model_dir, int quant) {
         const cJSON *jeos = cJSON_GetObjectItem(jdec, "eos_token");
         m->aed_eos = jeos ? mynah_tok_find(&m->tok, jeos->valuestring) : -1;
         if (m->aed_eos < 0) { fprintf(stderr, "mynah: EOS AED non trovato\n"); goto fail; }
+        /* timestamp generativi <|N|>: non tutti gli AED li supportano (v2 usa
+         * un allineatore esterno) — capability dal mynah.json, default sì */
+        const cJSON *jts = cJSON_GetObjectItem(jdec, "timestamp_tokens");
+        m->aed_ts = !(jts && cJSON_IsFalse(jts));
     }
     return m;
 
@@ -720,7 +724,8 @@ static char *transcribe_segment(mynah_model *m, const float *samples, size_t n_s
     int *tokens = NULL, *frames = NULL;
     if (m->is_aed) {
         int pids[MYNAH_AED_PROMPT_MAX];
-        const int n_p = aed_build_prompt(m, lang, pids, words != NULL);
+        const int want_ts = words != NULL && m->aed_ts;
+        const int n_p = aed_build_prompt(m, lang, pids, want_ts);
         if (n_p <= 0) { free(feats); return NULL; }
         float *enc = mynah_encoder_forward(&m->enc, feats, valid, m->feat.n_mels, -1,
                                            m->left_ctx, right, &T_enc);
@@ -734,7 +739,7 @@ static char *transcribe_segment(mynah_model *m, const float *samples, size_t n_s
                                      tokens, cap);
         free(enc);
         if (n_tok < 0) { free(tokens); return NULL; }
-        if (words)
+        if (want_ts)
             aed_words_from_tokens(&m->tok, tokens, n_tok, m->frame_sec,
                                   words, n_words);
     } else if (m->use_ctc) {

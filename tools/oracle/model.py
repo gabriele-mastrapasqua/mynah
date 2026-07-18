@@ -449,7 +449,10 @@ class Oracle:
         col prompt canary2; stop a <|endoftext|> o alla guardia di lunghezza."""
         w = self.w
         dec = self.cfg["decoder"]
-        enc = enc_out @ w["enc_dec_proj.weight"].T.astype(np.float64) + w["enc_dec_proj.bias"]
+        if "enc_dec_proj.weight" in w:
+            enc = enc_out @ w["enc_dec_proj.weight"].T.astype(np.float64) + w["enc_dec_proj.bias"]
+        else:
+            enc = enc_out.astype(np.float64)   # enc hidden == dec hidden: identity
         prompt = self.aed_prompt_ids(source_lang, target_lang or source_lang)
         eos = self.pieces.index(dec["eos_token"])
         max_len = min(dec["max_seq"],

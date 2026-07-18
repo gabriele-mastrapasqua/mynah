@@ -3,6 +3,8 @@ CC      ?= cc
 CFLAGS  ?= -std=c11 -O3 -march=native -ffast-math -Wall -Wextra -Isrc
 LDFLAGS ?=
 
+CFLAGS += -fPIC
+
 UNAME_S := $(shell uname -s)
 ifeq ($(UNAME_S),Darwin)
   LDFLAGS += -framework Accelerate -framework Metal -framework MetalPerformanceShaders -framework Foundation
@@ -91,6 +93,16 @@ golden-dump:
 lib: libmynah.a
 libmynah.a: $(OBJ)
 	ar rcs $@ $^
+
+# libreria condivisa (per i bindings: Python ctypes, Node, ...)
+ifeq ($(UNAME_S),Darwin)
+  SOEXT := .dylib
+else
+  SOEXT := .so
+endif
+shared: libmynah$(SOEXT)
+libmynah$(SOEXT): $(OBJ)
+	$(CC) $(CFLAGS) -shared -o $@ $^ $(LDFLAGS)
 
 # esempio API (compilato in `make test`: guardia sulla superficie pubblica)
 example: examples/minimal

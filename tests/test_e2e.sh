@@ -48,24 +48,40 @@ elif [ "$ENGINE" = "parakeet-tdt" ]; then
     check tests/audio/test_fr.wav auto "la réunion commence à 9h dans la grande salle"
     check tests/audio/test_es.wav auto "la reunión empieza a las 9 en la sala grande"
 elif [ "$ENGINE" = "canary-aed" ]; then
-    # Canary Flash: ASR nelle 4 lingue + matrice di traduzione src>tgt
+    # Canary: ASR + matrice di traduzione src>tgt. v2 (25 lingue EU) applica
+    # l'ITN di default (numeri in CIFRE) -> attesi diversi dai flash
     Q_WAV=tests/audio/test_en.wav
     Q_SUB="speech recognition test"
     SEG_TAIL="today"
-    check tests/audio/test_en.wav en "Hello, this is a speech recognition test. The weather is nice today."
-    check tests/audio/test_de.wav de "Die Besprechung beginnt um neun Uhr"
-    check tests/audio/test_fr.wav fr "la réunion commence à neuf heures"
-    check tests/audio/test_es.wav es "la reunión empieza a las nueve"
-    # coppie input > output atteso (substring; raccolte dagli output reali —
-    # greedy deterministico). fr>en: il 180m emette EOS subito (limite del
-    # modello, verificato anche con l'oracolo) -> solo sui modelli più grandi
-    TRX="en:de:Spracherkennungstest
+    if [ "$NAME" = "canary-1b-v2" ]; then
+        check tests/audio/test_en.wav en "Hello, this is a speech recognition test, the weather is nice today."
+        check tests/audio/test_de.wav de "die Besprechung beginnt um 9 Uhr"
+        check tests/audio/test_fr.wav fr "la réunion commence à 9h"
+        check tests/audio/test_es.wav es "la reunión empieza a las 9"
+        check tests/audio/test_it.wav it "Il gatto dorme sul divano"
+        TRX="en:de:Spracherkennungstest
+en:fr:reconnaissance
+en:es:reconocimiento
+de:en:begins at 9
+es:en:starts at 9
+fr:en:at 9
+it:en:cat"
+    else
+        check tests/audio/test_en.wav en "Hello, this is a speech recognition test. The weather is nice today."
+        check tests/audio/test_de.wav de "Die Besprechung beginnt um neun Uhr"
+        check tests/audio/test_fr.wav fr "la réunion commence à neuf heures"
+        check tests/audio/test_es.wav es "la reunión empieza a las nueve"
+        # coppie input > output atteso (substring; raccolte dagli output reali —
+        # greedy deterministico). fr>en: il 180m emette EOS subito (limite del
+        # modello, verificato anche con l'oracolo) -> solo sui modelli più grandi
+        TRX="en:de:Spracherkennungstest
 en:fr:reconnaissance
 en:es:reconocimiento de voz
 de:en:at nine o'clock
 es:en:nine o'clock"
-    [ "$NAME" = "canary-180m-flash" ] || TRX="$TRX
+        [ "$NAME" = "canary-180m-flash" ] || TRX="$TRX
 fr:en:nine o'clock"
+    fi
     rm -f /tmp/mynah_trx_fail
     printf '%s\n' "$TRX" | while IFS=: read -r src tgt want; do
         [ -n "$src" ] || continue
@@ -100,7 +116,11 @@ checkq() { # quant, expected substring
 
 # timestamp per parola: righe "t0 t1 parola", t0 monotono non-decrescente,
 # t1 entro la durata dell'audio (fixture <= 5.2s + margine di un frame).
-# AED (Canary): prompt <|timestamp|> -> il modello bracketa le parole con <|N|>
+# AED (Canary flash): prompt <|timestamp|> -> parole bracketate con <|N|>.
+# Skip se il modello non li supporta (v2: allineatore esterno, non implementato)
+if grep -q '"timestamp_tokens": false' "$MODEL_DIR/mynah.json"; then
+    echo "e2e timestamps SKIP: il modello non ha i token <|timestamp|> generativi"
+else
 ts=$(./mynah transcribe -m "$MODEL_DIR" -i "$Q_WAV" --timestamps 2>/dev/null)
 ts_ok=$(printf '%s\n' "$ts" | awk 'NF<3 {bad=1} $1+0>$2+0 {bad=1} $1+0<prev {bad=1}
     {prev=$1+0; n++} END {print (bad || n<5 || prev>5.3) ? "FAIL" : "OK"}')
@@ -108,6 +128,7 @@ if [ "$ts_ok" = "OK" ]; then
     echo "e2e timestamps OK: $(printf '%s\n' "$ts" | wc -l | tr -d ' ') parole"
 else
     echo "e2e timestamps FAIL:"; printf '%s\n' "$ts"; fail=1
+fi
 fi
 
 # segmentazione file lunghi: limite forzato a 4 s sul fixture -> 2 segmenti
