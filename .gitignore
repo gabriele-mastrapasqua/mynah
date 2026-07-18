@@ -14,6 +14,10 @@ models
 __pycache__/
 *.pyc
 
+# Local planning notes (Italian, not part of the public repo)
+PLAN.md
+TODO.md
+
 # OS
 .DS_Store
 tools/.venv/

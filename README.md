@@ -89,7 +89,6 @@ RAM: 110m 0.44 GB · 180m 0.71 · 0.6B ~2.4 · 1b-flash 3.3 · 1.1b 4.0 GB
 
 Every numeric stage is validated against a numpy reference oracle
 (`make test`: bit-exact mel, f32-tolerance encoder, streaming ≡ offline).
-Full roadmap: [PLAN.md](PLAN.md) · [TODO.md](TODO.md).
 
 ## Quickstart
 
