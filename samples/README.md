@@ -1,31 +1,31 @@
-# samples/ — audio reale per i test di qualità
+# samples/ — real audio for quality tests
 
-Clip da **[FLEURS](https://huggingface.co/datasets/google/fleurs)** (Google,
-[Conneau et al. 2022](https://arxiv.org/abs/2205.12446)), licenza
-**CC-BY 4.0** — ridistribuiti qui con attribuzione, invariati (16 kHz mono PCM16).
+Clips from **[FLEURS](https://huggingface.co/datasets/google/fleurs)** (Google,
+[Conneau et al. 2022](https://arxiv.org/abs/2205.12446)), license
+**CC-BY 4.0** — redistributed here with attribution, unmodified (16 kHz mono PCM16).
 
-La proprietà che li rende preziosi: le frasi sono **parallele tra le lingue**
-(stesso `fleurs_id` = stessa frase, letta da madrelingua): la versione inglese
-fa da riferimento per valutare la **speech translation** di Canary, non solo
-l'ASR. Trascrizioni e riferimenti in [`manifest.json`](manifest.json).
+The property that makes them valuable: the sentences are **parallel across languages**
+(same `fleurs_id` = same sentence, read by native speakers): the English version
+serves as the reference for evaluating Canary's **speech translation**, not just
+the ASR. Transcriptions and references in [`manifest.json`](manifest.json).
 
-| clip | contenuto | lingue |
+| clip | content | languages |
 |---|---|---|
-| fleurs_1521 | il satellite che ritrasmette il segnale | it, en, de, es, fr, pt, nl, pl, ru, uk, ja |
-| fleurs_1534 | Timbuctù come metafora di terra lontana | it, en, de, es, fr, pt, nl, pl, ru, uk, ja |
-| fleurs_long | ~95 s di frasi EN concatenate con pause | en |
+| fleurs_1521 | the satellite relaying the signal | it, en, de, es, fr, pt, nl, pl, ru, uk, ja |
+| fleurs_1534 | Timbuktu as a metaphor for a faraway land | it, en, de, es, fr, pt, nl, pl, ru, uk, ja |
+| fleurs_long | ~95 s of concatenated EN sentences with pauses | en |
 | long/en_long.wav | ~5 min (long transcribe: CER + RTF) | en |
-| long/de_long.wav | ~2 min di frasi parallele (long translate de→en) | de |
+| long/de_long.wav | ~2 min of parallel sentences (long translate de→en) | de |
 
-Tutto è WAV PCM16 16 kHz: i test non hanno dipendenze di decodifica. Il runtime
-legge SOLO WAV: per mp3/m4a/ecc. si converte con ffmpeg
+Everything is WAV PCM16 16 kHz: the tests have no decoding dependencies. The runtime
+reads ONLY WAV: for mp3/m4a/etc. convert with ffmpeg
 (`ffmpeg -i file.mp3 -ar 16000 -ac 1 out.wav`).
 
-Le 11 lingue esercitano i 40 locale di Nemotron e le 25 lingue EU di v3
-(alfabeti: latino, cirillico, giapponese). Il clip lungo ha riferimento esatto:
-serve ai check di **segmentazione su silenzio**, **timestamp** su ~100 parole e
-**streaming cache-aware** (audio vero in stdin).
+The 11 languages exercise Nemotron's 40 locales and v3's 25 EU languages
+(scripts: Latin, Cyrillic, Japanese). The long clip has an exact reference:
+it serves the checks for **silence-based segmentation**, **timestamps** over ~100 words and
+**cache-aware streaming** (real audio on stdin).
 
-Uso: `make test-samples` (CER ASR + word-overlap traduzione, backend cpu+metal,
-`--backend cuda` pronto per Linux; vedi `tools/eval/test_samples.py`).
-Rigenerazione: `cd tools && uv run python fetch_fleurs_samples.py`.
+Usage: `make test-samples` (ASR CER + translation word-overlap, cpu+metal backends,
+`--backend cuda` ready for Linux; see `tools/eval/test_samples.py`).
+Regeneration: `cd tools && uv run python fetch_fleurs_samples.py`.

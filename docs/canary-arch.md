@@ -1,35 +1,35 @@
-# Canary Flash — architettura verificata (AED)
+# Canary Flash — verified architecture (AED)
 
-Fonte: `model_config.yaml` + `model_weights.ckpt` dei `.nemo` ufficiali (2026-07-18)
-e sorgenti NeMo (`canary2.py`, `transformer_modules.py`, `transformer_decoders.py`,
-`aed_multitask_models.py`). Target M6: `nvidia/canary-180m-flash` (de-risking) e
-`nvidia/canary-1b-flash`. Modello NeMo: `EncDecMultiTaskModel` (AED multitask:
+Source: `model_config.yaml` + `model_weights.ckpt` from the official `.nemo` files (2026-07-18)
+and NeMo sources (`canary2.py`, `transformer_modules.py`, `transformer_decoders.py`,
+`aed_multitask_models.py`). M6 targets: `nvidia/canary-180m-flash` (de-risking) and
+`nvidia/canary-1b-flash`. NeMo class: `EncDecMultiTaskModel` (multitask AED:
 ASR + speech translation en↔de/es/fr).
 
-NOTA: l'export HF-native di canary-1b-flash (config.json + model.safetensors) è
-SOLO-encoder (1292 tensori `encoder.*`, `nemo_decoder_type: none`): per Canary si
-passa SEMPRE dal `.nemo` (estrattore già in convert_nemo.py, esteso per l'AED).
+NOTE: the HF-native export of canary-1b-flash (config.json + model.safetensors) is
+ENCODER-ONLY (1292 `encoder.*` tensors, `nemo_decoder_type: none`): for Canary we
+ALWAYS go through the `.nemo` (extractor already in convert_nemo.py, extended for the AED).
 
-## 180m-flash in numeri
+## 180m-flash by the numbers
 
-| blocco | valore |
+| block | value |
 |---|---|
-| mel | 128 bin, per_feature, n_fft 512, win 400, hop 160, dither 0 (inference) |
-| encoder | FastConformer **17L·512·8h**, ff 4×, k9 **batch_norm**, dw_striding 8× **non-causale**, att **full [-1,-1]**, rel_pos, xscaling false, use_bias true (default) |
-| proiezione | `encoder_decoder_proj`: Linear 512→1024 (+bias). Identity se enc==dec hidden |
-| transf_encoder | 0 layer (assente nel ckpt: non usato) |
+| mel | 128 bins, per_feature, n_fft 512, win 400, hop 160, dither 0 (inference) |
+| encoder | FastConformer **17L·512·8h**, ff 4×, k9 **batch_norm**, dw_striding 8× **non-causal**, att **full [-1,-1]**, rel_pos, xscaling false, use_bias true (default) |
+| projection | `encoder_decoder_proj`: Linear 512→1024 (+bias). Identity if enc==dec hidden |
+| transf_encoder | 0 layers (absent from the ckpt: not used) |
 | transf_decoder | Transformer **4L·1024·8h**, inner 4096, **ReLU**, **pre-LN** + final_layer_norm, max_seq 1024 |
-| head | `log_softmax.mlp.layer0`: Linear 1024→5248 (softmax non serve per greedy) |
-| vocab | 5248 = spl_tokens 1152 + en/de/es/fr 1024 ciascuno (aggregate, offset cumulativi) |
+| head | `log_softmax.mlp.layer0`: Linear 1024→5248 (softmax not needed for greedy) |
+| vocab | 5248 = spl_tokens 1152 + en/de/es/fr 1024 each (aggregate, cumulative offsets) |
 
-1b-flash: encoder 32L·1024 (proj = Identity, quindi assente dal ckpt), decoder
-4L·1024, vocab 16384? (verificare dallo yaml alla conversione). Stessa struttura.
+1b-flash: encoder 32L·1024 (proj = Identity, hence absent from the ckpt), decoder
+4L·1024, vocab 16384? (verify from the yaml at conversion time). Same structure.
 
-L'encoder è ESATTAMENTE la variante Parakeet non-causale già implementata
-(BN foldata, attention full, bias, subsampling simmetrico) — riuso totale,
-Metal incluso. Il lavoro nuovo è solo proj + decoder + tokenizer + prompt.
+The encoder is EXACTLY the non-causal Parakeet variant already implemented
+(folded BN, full attention, bias, symmetric subsampling) — full reuse,
+Metal included. The new work is only proj + decoder + tokenizer + prompt.
 
-## Decoder Transformer (nomi ckpt → canonici)
+## Transformer decoder (ckpt names → canonical)
 
 ```
 encoder_decoder_proj.{weight,bias}                    → enc_dec_proj.*   [1024,512]
@@ -46,28 +46,28 @@ transf_decoder._decoder.final_layer_norm.*            → aed.final_norm.*
 log_softmax.mlp.layer0.{weight,bias}                  → aed.head.*
 ```
 
-Semantiche verificate dai sorgenti NeMo:
+Semantics verified against the NeMo sources:
 
-- **Embedding**: `emb = LayerNorm(token_emb[id] + pos_enc[pos])` poi dropout (0 in
-  inference). NIENTE scala sqrt(d) sul token embedding; la scala è già DENTRO
-  `pos_enc` (buffer nel ckpt: sin/cos **divisi per sqrt(hidden)** — prenderlo
-  dal ckpt, bit-esatto, come le mel filterbank). Posizioni da 0 (start_pos per
-  la generazione incrementale).
-- **Blocco pre-LN** (`forward_preln`): `x += SelfAttn(LN1(x))` (mask causale) →
-  `x += CrossAttn(LN2(x), enc)` → `x += FFN(LN3(x))`; dopo l'ultimo layer
+- **Embedding**: `emb = LayerNorm(token_emb[id] + pos_enc[pos])` then dropout (0 in
+  inference). NO sqrt(d) scaling on the token embedding; the scale is already INSIDE
+  `pos_enc` (buffer in the ckpt: sin/cos **divided by sqrt(hidden)** — take it
+  from the ckpt, bit-exact, like the mel filterbanks). Positions start at 0 (start_pos for
+  incremental generation).
+- **Pre-LN block** (`forward_preln`): `x += SelfAttn(LN1(x))` (causal mask) →
+  `x += CrossAttn(LN2(x), enc)` → `x += FFN(LN3(x))`; after the last layer,
   `final_layer_norm`.
-- **Attention** (self e cross): q e k divisi CIASCUNO per `dk^(1/4)`
-  (equivale allo scaling 1/sqrt(dk) standard); softmax pieno sulle posizioni
-  valide (self: causale; cross: tutti i frame encoder). Proiezioni con bias.
-- **FFN**: `linear2(ReLU(linear1(x)))`, bias presenti.
-- **Flusso**: `enc_out [T,512] → enc_dec_proj → [T,1024] → cross-K/V per tutti
-  i layer → greedy loop` (beam_size 1 di default nello yaml). La head produce
-  logits 5248; argmax; stop a `<|endoftext|>` (id 3) o max_generation_delta
-  (50) + len prompt... usare max_seq 1024 come guardia.
+- **Attention** (self and cross): q and k are EACH divided by `dk^(1/4)`
+  (equivalent to the standard 1/sqrt(dk) scaling); full softmax over the valid
+  positions (self: causal; cross: all encoder frames). Projections with bias.
+- **FFN**: `linear2(ReLU(linear1(x)))`, biases present.
+- **Flow**: `enc_out [T,512] → enc_dec_proj → [T,1024] → cross-K/V for all
+  layers → greedy loop` (beam_size 1 by default in the yaml). The head produces
+  5248 logits; argmax; stop at `<|endoftext|>` (id 3) or max_generation_delta
+  (50) + prompt length... use max_seq 1024 as a guard.
 
-## Tokenizer aggregato (CanaryTokenizer, type "agg")
+## Aggregate tokenizer (CanaryTokenizer, type "agg")
 
-Ordine (= ordine `langs` nello yaml) e offset GLOBALI dei sub-tokenizer SPE BPE:
+Order (= `langs` order in the yaml) and GLOBAL offsets of the SPE BPE sub-tokenizers:
 
 | sub | size | offset |
 |---|---|---|
@@ -77,36 +77,36 @@ Ordine (= ordine `langs` nello yaml) e offset GLOBALI dei sub-tokenizer SPE BPE:
 | es | 1024 | 3200 |
 | fr | 1024 | 4224 |
 
-Conversione: tokens.json = lista piatta dei 5248 pezzi in ordine di id globale.
-Detok identica agli altri modelli (▁ → spazio); gli id < 1152 (speciali) NON si
-stampano. Speciali chiave (id globali): `<unk>` 0, `<|nospeech|>` 1, `<pad>` 2,
+Conversion: tokens.json = flat list of the 5248 pieces in global-id order.
+Detokenization identical to the other models (▁ → space); ids < 1152 (specials) are NOT
+printed. Key specials (global ids): `<unk>` 0, `<|nospeech|>` 1, `<pad>` 2,
 `<|endoftext|>` 3 (EOS), `<|startoftranscript|>` 4, `<|pnc|>` 5 / `<|nopnc|>` 6,
 `<|startofcontext|>` 7, `<|itn|>` 8 / `<|noitn|>` 9, `<|timestamp|>` 10 /
 `<|notimestamp|>` 11, `<|diarize|>` 12 / `<|nodiarize|>` 13,
-`<|emo:undefined|>` 16, lingue: `<|en|>` 62, `<|fr|>` 69, `<|de|>` 76, `<|es|>` 169.
+`<|emo:undefined|>` 16, languages: `<|en|>` 62, `<|fr|>` 69, `<|de|>` 76, `<|es|>` 169.
 
-## Prompt format `canary2`
+## `canary2` prompt format
 
-Template user (da `Canary2PromptFormatter`, slot in quest'ordine):
+User template (from `Canary2PromptFormatter`, slots in this order):
 
 ```
 <|startofcontext|> [decodercontext] <|startoftranscript|> |emotion| |source_lang| |target_lang| |pnc| |itn| |timestamp| |diarize|
 ```
 
-Default dallo yaml: decodercontext vuoto (0 token), emotion `<|emo:undefined|>`,
+Defaults from the yaml: decodercontext empty (0 tokens), emotion `<|emo:undefined|>`,
 pnc `<|pnc|>`, itn `<|noitn|>`, timestamp `<|notimestamp|>`, diarize `<|nodiarize|>`.
-Prompt ASR EN (9 token): `[7, 4, 16, 62, 62, 5, 9, 11, 13]`.
-**Traduzione** = target_lang ≠ source_lang (es. en→de: `[7, 4, 16, 62, 76, 5, 9, 11, 13]`).
-La risposta del modello segue il prompt e termina con `<|endoftext|>`.
+EN ASR prompt (9 tokens): `[7, 4, 16, 62, 62, 5, 9, 11, 13]`.
+**Translation** = target_lang ≠ source_lang (e.g. en→de: `[7, 4, 16, 62, 76, 5, 9, 11, 13]`).
+The model's response follows the prompt and ends with `<|endoftext|>`.
 
-Con `<|timestamp|>` il modello emette token `<|N|>` (frame 80 ms) attorno alle
-parole — supporto rimandato (v1 engine: notimestamp).
+With `<|timestamp|>` the model emits `<|N|>` tokens (80 ms frames) around the
+words — support deferred (v1 engine: notimestamp).
 
-## Piano di validazione
+## Validation plan
 
-1. Oracolo numpy: riuso encoder parakeet + `aed_decode()` nuovo; confronto
-   trascrizioni sui WAV fixture (en + it non supportato → en/de/es/fr) e
-   traduzione en→de/es/fr a vista.
-2. C: parità per-stadio vs oracolo (enc_proj, emb, layer 0/N, logits primo step)
-   poi e2e testo identico.
-3. Golden in `make test` col 180m (scaricabile in CI? 735 MB — valutare).
+1. Numpy oracle: reuse the parakeet encoder + new `aed_decode()`; compare
+   transcriptions on the fixture WAVs (en + unsupported it → en/de/es/fr) and
+   en→de/es/fr translation by inspection.
+2. C: per-stage parity vs the oracle (enc_proj, emb, layer 0/N, first-step logits)
+   then identical e2e text.
+3. Goldens in `make test` with the 180m (downloadable in CI? 735 MB — evaluate).

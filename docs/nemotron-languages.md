@@ -1,82 +1,82 @@
-# Nemotron 3.5 ASR Streaming — lingue supportate
+# Nemotron 3.5 ASR Streaming — supported languages
 
-> Fonte: model card HF (tier) + `processor_config.json` reale (`prompt_dictionary`,
-> in `reference/nemotron-3.5-asr-streaming-0.6b/`). Aggiornato 2026-07-16.
+> Source: HF model card (tiers) + the actual `processor_config.json` (`prompt_dictionary`,
+> in `reference/nemotron-3.5-asr-streaming-0.6b/`). Updated 2026-07-16.
 
-Il modello supporta **40 locale ufficiali** divisi in 3 tier di qualità, più language
-detection automatica (`target_lang=auto`, prompt id 101). Il `prompt_dictionary` contiene
-in realtà **105 slot** (id 0–104): gli slot oltre i 40 ufficiali servono per fine-tuning
-su nuove lingue (vedi blog NVIDIA sul fine-tuning).
+The model supports **40 official locales** split into 3 quality tiers, plus automatic
+language detection (`target_lang=auto`, prompt id 101). The `prompt_dictionary` actually
+contains **105 slots** (ids 0–104): the slots beyond the 40 official ones are meant for
+fine-tuning on new languages (see the NVIDIA fine-tuning blog).
 
-## Tier 1 — Transcription-ready (19 locale)
+## Tier 1 — Transcription-ready (19 locales)
 
-Qualità pronta per produzione. WER FLEURS @1.12s tra parentesi dove pubblicato.
+Production-ready quality. FLEURS WER @1.12s in parentheses where published.
 
-| Locale | Lingua | Prompt id | Note |
+| Locale | Language | Prompt id | Notes |
 |---|---|---|---|
-| en-US | Inglese (USA) | 0 | WER 7.91% |
-| en-GB | Inglese (UK) | 1 | |
-| es-ES | Spagnolo (Spagna) | 2 | |
-| es-US | Spagnolo (USA) | 3 | WER 4.11% |
-| fr-FR | Francese | 8 | |
-| fr-CA | Francese (Canada) | 100 | |
-| **it-IT** | **Italiano** | **15** | **WER 4.25%** |
-| pt-BR | Portoghese (Brasile) | 12 | WER 5.48% |
-| pt-PT | Portoghese (Portogallo) | 13 | |
-| nl-NL | Olandese | 16 | |
-| de-DE | Tedesco | 9 | |
-| tr-TR | Turco | 18 | |
-| ru-RU | Russo | 11 | |
-| ar-AR | Arabo | 7 | |
+| en-US | English (US) | 0 | WER 7.91% |
+| en-GB | English (UK) | 1 | |
+| es-ES | Spanish (Spain) | 2 | |
+| es-US | Spanish (US) | 3 | WER 4.11% |
+| fr-FR | French | 8 | |
+| fr-CA | French (Canada) | 100 | |
+| **it-IT** | **Italian** | **15** | **WER 4.25%** |
+| pt-BR | Portuguese (Brazil) | 12 | WER 5.48% |
+| pt-PT | Portuguese (Portugal) | 13 | |
+| nl-NL | Dutch | 16 | |
+| de-DE | German | 9 | |
+| tr-TR | Turkish | 18 | |
+| ru-RU | Russian | 11 | |
+| ar-AR | Arabic | 7 | |
 | hi-IN | Hindi | 6 | |
-| ja-JP | Giapponese | 10 | |
-| ko-KR | Coreano | 14 | |
-| vi-VN | Vietnamita | 33 | |
-| uk-UA | Ucraino | 19 | |
+| ja-JP | Japanese | 10 | |
+| ko-KR | Korean | 14 | |
+| vi-VN | Vietnamese | 33 | |
+| uk-UA | Ukrainian | 19 | |
 
-## Tier 2 — Broad-coverage (13 locale)
+## Tier 2 — Broad-coverage (13 locales)
 
-Copertura ampia, qualità inferiore (media tier: WER FLEURS 22.13%).
+Broad coverage, lower quality (tier average: FLEURS WER 22.13%).
 
 pl-PL (17) · sv-SE (24) · cs-CZ (22) · nb-NO (103) · da-DK (25) · bg-BG (30) · fi-FI (26) ·
 hr-HR (29) · zh-CN (4) · hu-HU (23) · ro-RO (20) · sk-SK (28) · et-EE (60)
 
-## Tier 3 — Adaptation-ready (8 locale)
+## Tier 3 — Adaptation-ready (8 locales)
 
-Supportati ma pensati per fine-tuning prima dell'uso in produzione.
+Supported but intended for fine-tuning before production use.
 
 el-GR (21) · lt-LT (31) · lv-LV (61) · mt-MT (102) · sl-SI (62) · he-IL (64) · th-TH (32) ·
 nn-NO (104)
 
-> Verifica empirica (`make test-nemo-langs`, 2026-07-16): el/lt/lv/sl/he funzionano
-> comunque bene sui nostri sample (CER 0.10–0.24); **th-TH invece produce output
-> quasi vuoto anche su audio pulito** — serve davvero il fine-tuning che la card
-> raccomanda. mt-MT e nn-NO non testati (nessun sample audio libero reperito).
+> Empirical check (`make test-nemo-langs`, 2026-07-16): el/lt/lv/sl/he still work
+> well on our samples (CER 0.10–0.24); **th-TH, however, produces near-empty output
+> even on clean audio** — it really does need the fine-tuning the card recommends.
+> mt-MT and nn-NO untested (no free audio samples found).
 
-## Coverage della suite (`make test-nemo-langs`)
+## Suite coverage (`make test-nemo-langs`)
 
-**38/40 locale esercitati, 37 OK** (2026-07-16): 33 lingue base + le 4 varianti
-regionali (en-GB, es-US, fr-CA, pt-PT — prompt id propri, testate sugli stessi
-sample della lingua base) tutte OK; th-TH WEAK (atteso); mt-MT e nn-NO senza audio.
-102 sample reali: Tatoeba (CC, 21 lingue) + FLEURS validation (CC-BY-4.0, 13 lingue).
+**38/40 locales exercised, 37 OK** (2026-07-16): 33 base languages + the 4 regional
+variants (en-GB, es-US, fr-CA, pt-PT — own prompt ids, tested on the same samples as
+the base language) all OK; th-TH WEAK (expected); mt-MT and nn-NO with no audio.
+102 real samples: Tatoeba (CC, 21 languages) + FLEURS validation (CC-BY-4.0, 13 languages).
 
-## Language detection e tag in output
+## Language detection and output tag
 
-- Con `auto` (id 101) il modello rileva la lingua e **emette il tag locale** (es. `<it-IT>`)
-  come token nell'output, dopo la punteggiatura terminale — il runtime lo strippa dal testo
-  e lo espone come `mynah_result.lang`.
-- I 39 tag lingua sono token speciali del vocabolario (es. `<it-IT>` = id 1279); l'elenco
-  completo è negli `added_tokens` di `tokenizer.json`.
-- Alias accettati nel dizionario: forme corte (`it`, `de`, `fr`, …) mappano sullo stesso id
-  del locale principale.
+- With `auto` (id 101) the model detects the language and **emits the locale tag** (e.g. `<it-IT>`)
+  as a token in the output, after the terminal punctuation — the runtime strips it from the text
+  and exposes it as `mynah_result.lang`.
+- The 39 language tags are special vocabulary tokens (e.g. `<it-IT>` = id 1279); the
+  complete list is in the `added_tokens` of `tokenizer.json`.
+- Aliases accepted in the dictionary: short forms (`it`, `de`, `fr`, …) map to the same id
+  as the main locale.
 
-## Extra (slot presenti nel dizionario ma NON tra i 40 ufficiali)
+## Extras (slots present in the dictionary but NOT among the 40 official ones)
 
-Il `prompt_dictionary` include anche id per: zh-TW, id-ID, ms-MY, fa-IR, ur-PK, bn-IN,
+The `prompt_dictionary` also includes ids for: zh-TW, id-ID, ms-MY, fa-IR, ur-PK, bn-IN,
 ta-IN, te-IN, kn-IN, ml-IN, gu-IN, mr-IN, ne-NP, si-LK, km-KH, sw-KE, am-ET, ha-NG, yo-NG,
-ig-NG, zu-ZA, af-ZA, e altri (~65 slot totali oltre i 40). Sono slot di training/fine-tuning:
-qualità non dichiarata, da non esporre come "supportati" senza test.
+ig-NG, zu-ZA, af-ZA, and others (~65 slots total beyond the 40). These are training/fine-tuning
+slots: undeclared quality, not to be exposed as "supported" without testing.
 
-## Punteggiatura e maiuscole
+## Punctuation and capitalization
 
-Native nell'output per tutte le lingue (niente post-processing).
+Native in the output for all languages (no post-processing).

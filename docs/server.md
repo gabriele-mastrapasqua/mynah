@@ -1,14 +1,14 @@
-# mynah-server — API HTTP + WebSocket
+# mynah-server — HTTP + WebSocket API
 
 ```sh
 make && ./mynah-server -m models/nemotron-3.5-asr-streaming-0.6b -p 8090 --threads 4
 ```
 
-## Endpoint
+## Endpoints
 
 ### POST /v1/audio/transcriptions — OpenAI-compatible
 
-Multipart form-data (come l'API OpenAI/Whisper) o body raw `audio/wav`:
+Multipart form-data (like the OpenAI/Whisper API) or raw `audio/wav` body:
 
 ```sh
 curl -F file=@audio.wav -F language=auto http://localhost:8090/v1/audio/transcriptions
@@ -20,21 +20,21 @@ curl -F file=@audio.wav -F language=it-IT -F response_format=verbose_json ...
 curl -X POST --data-binary @audio.wav -H 'Content-Type: audio/wav' ...
 ```
 
-Campi: `file` (WAV PCM16, qualsiasi sample rate — resampling automatico),
-`language` (tag locale o `auto`, default auto), `response_format`
-(`json` | `text` | `verbose_json`), `lookahead` (0|1|3|6|13, default del modello),
-`target_language` (solo modelli AED: lingua di uscita ≠ sorgente = traduzione).
-Con `verbose_json` (senza batch) la risposta include `words` con i timestamp.
+Fields: `file` (WAV PCM16, any sample rate — automatic resampling),
+`language` (locale tag or `auto`, default auto), `response_format`
+(`json` | `text` | `verbose_json`), `lookahead` (0|1|3|6|13, model default),
+`target_language` (AED models only: output language ≠ source = translation).
+With `verbose_json` (without batching) the response includes `words` with timestamps.
 
-### POST /v1/audio/translations — speech translation (solo modelli AED/Canary)
+### POST /v1/audio/translations — speech translation (AED/Canary models only)
 
-Stessi campi di `/transcriptions`; `target_language` default **en** (stile
-OpenAI/Whisper). Sui modelli non-AED risponde 400.
+Same fields as `/transcriptions`; `target_language` defaults to **en**
+(OpenAI/Whisper style). On non-AED models it responds 400.
 
 ```sh
-# de parlato -> testo inglese
+# spoken de -> English text
 curl -F file=@audio_de.wav -F language=de http://localhost:8090/v1/audio/translations
-# en parlato -> testo tedesco, con metadati
+# spoken en -> German text, with metadata
 curl -F file=@audio_en.wav -F language=en -F target_language=de \
      -F response_format=verbose_json .../v1/audio/translations
 # {"text": "Hallo, ...", "task": "translate", "language": "en", "duration": 4.34}
@@ -42,43 +42,43 @@ curl -F file=@audio_en.wav -F language=en -F target_language=de \
 
 ### GET /v1/audio/stream — WebSocket streaming
 
-Query: `?lang=auto&lookahead=3`. Protocollo:
-- client → server: frame **binari** con PCM s16le 16 kHz mono (qualsiasi taglia);
-- server → client: frame testo JSON `{"text": "<delta definitivo>", "language": ...,
-  "audio_seconds": ...}` man mano che il testo si consolida;
-- alla close del client il server processa la coda, invia `{"done": true,
-  "language": "..."}` e chiude.
+Query: `?lang=auto&lookahead=3`. Protocol:
+- client → server: **binary** frames with PCM s16le 16 kHz mono (any size);
+- server → client: JSON text frames `{"text": "<final delta>", "language": ...,
+  "audio_seconds": ...}` as the text is finalized;
+- on client close the server processes the tail, sends `{"done": true,
+  "language": "..."}` and closes.
 
-Client di riferimento (stdlib Python): `tools/eval/ws_client.py`.
+Reference client (Python stdlib): `tools/eval/ws_client.py`.
 
 ### GET /v1/models · GET /v1/health · OPTIONS (CORS)
 
-## Concorrenza
+## Concurrency
 
-Il modello è **read-only** (pesi mmap) e condiviso fra i worker: ogni richiesta ha solo
-il proprio stato di decode (~12 MB per stream). `--threads N` = richieste servite in
-parallelo; le eccedenze si accodano (503 oltre 128 in coda). Nessun clone del modello,
-nessun lock sul percorso caldo.
+The model is **read-only** (mmap'd weights) and shared across workers: each request
+only holds its own decode state (~12 MB per stream). `--threads N` = requests served
+in parallel; excess requests queue up (503 beyond 128 queued). No model cloning,
+no locks on the hot path.
 
-**Batching cross-richiesta** (`--batch N`, default 8): le trascrizioni REST pendenti
-vengono aggregate (finestra 25 ms) e processate **weight-stationary**: packing senza
-padding dei frame di tutte le richieste, GEMM per-frame (FFN/proiezioni, >95% dei FLOP)
-su `[ΣT, d]` con i pesi letti una volta per layer; attention/conv restano per-sequenza.
-Output identico al percorso B=1 (verificato).
+**Cross-request batching** (`--batch N`, default 8): pending REST transcriptions
+are aggregated (25 ms window) and processed **weight-stationary**: padding-free
+packing of the frames of all requests, per-frame GEMM (FFN/projections, >95% of FLOPs)
+on `[ΣT, d]` with weights read once per layer; attention/conv stay per-sequence.
+Output identical to the B=1 path (verified).
 
-Numeri onesti su Apple Silicon (Accelerate multithreaded): batch ≈ pool di thread per
-il throughput (la GEMM singola satura già i core) — il batch vale ~1.4× sul sequenziale
-a cache calda e riduce contesa/footprint. Il guadagno grosso è atteso su x86/OpenBLAS
-molti-core e sui futuri backend GPU (M5), dove i pesi letti una volta contano davvero.
-`--batch 1` disabilita (torna al per-richiesta nei worker).
+Honest numbers on Apple Silicon (multithreaded Accelerate): batching ≈ thread pool for
+throughput (a single GEMM already saturates the cores) — batching is worth ~1.4× over
+sequential with a warm cache and reduces contention/footprint. The big gain is expected
+on many-core x86/OpenBLAS and on future GPU backends (M5), where reading weights once
+really matters. `--batch 1` disables it (back to per-request in the workers).
 
-## Test
+## Tests
 
-`make test-server` — REST (multipart, raw, verbose, errori), 4 richieste concorrenti,
-WebSocket streaming end-to-end. Skip automatico se il modello non è scaricato.
+`make test-server` — REST (multipart, raw, verbose, errors), 4 concurrent requests,
+end-to-end WebSocket streaming. Automatically skipped if the model is not downloaded.
 
-## Note operative
+## Operational notes
 
-- Un solo modello per processo (`/v1/models` ne elenca uno).
-- Timeout/limiti: body ≤ 200 MB, header ≤ 64 KB, coda ≤ 128 connessioni.
-- TLS/auth fuori scope: mettere dietro un reverse proxy (nginx/caddy) in produzione.
+- One model per process (`/v1/models` lists one).
+- Timeouts/limits: body ≤ 200 MB, headers ≤ 64 KB, queue ≤ 128 connections.
+- TLS/auth out of scope: put behind a reverse proxy (nginx/caddy) in production.

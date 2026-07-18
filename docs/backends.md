@@ -1,69 +1,69 @@
-# Mynah — Backend di calcolo (CPU / Metal / CUDA)
+# Mynah — Compute backends (CPU / Metal / CUDA)
 
-Selezione a runtime: `--backend cpu|metal|cuda` (CLI e server). Pattern qwen-tts:
-richiesta → `resolve()` → nota su stderr → **fallback graceful a CPU** se il backend
-non è disponibile o non compilato. Le GEMM sotto 24 righe restano sempre su CPU
-(il round-trip GPU non paga sui chunk streaming).
+Runtime selection: `--backend cpu|metal|cuda` (CLI and server). qwen-tts pattern:
+request → `resolve()` → note on stderr → **graceful fallback to CPU** if the backend
+is unavailable or not compiled in. GEMMs under 24 rows always stay on CPU
+(the GPU round-trip does not pay off on streaming chunks).
 
 ## CPU (default)
 
-BLAS: Accelerate (macOS) / OpenBLAS (Linux) per le GEMM; kernel propri SDOT/VNNI/AVX2
-per i dot quantizzati (vedi [quantization.md](quantization.md)). Su Apple Silicon è
-il backend più veloce oggi (AMX): offline RTF 0.10 (int8).
+BLAS: Accelerate (macOS) / OpenBLAS (Linux) for GEMMs; own SDOT/VNNI/AVX2 kernels
+for quantized dot products (see [quantization.md](quantization.md)). On Apple Silicon
+it is the fastest backend today (AMX): offline RTF 0.10 (int8).
 
-**Dispatch ISA a runtime (x86)**: i kernel VNNI e AVX2 sono compilati sempre con
-target-attribute (nessun `-march` richiesto: un solo binario release multi-target)
-e selezionati via cpuid+xgetbv alla prima chiamata. Override con `--caps
-auto|scalar|avx2|vnni` (CLI e server) o env `MYNAH_CAPS` — pattern `--caps` di
-qwen-tts; un livello superiore a quello della CPU viene declassato con nota.
-Su ARM NEON/SDOT restano compile-time (Apple Silicon ha sempre dotprod).
-⚠️ Come per CUDA: i percorsi AVX2/VNNI sono validati da `tests/test_qmat` in CI
-Linux x86, non su questo Mac (Rosetta qui non espone AVX2 → livello scalar, testato).
+**Runtime ISA dispatch (x86)**: the VNNI and AVX2 kernels are always compiled with
+target-attribute (no `-march` required: a single multi-target release binary)
+and selected via cpuid+xgetbv on first call. Override with `--caps
+auto|scalar|avx2|vnni` (CLI and server) or the `MYNAH_CAPS` env var — the `--caps`
+pattern from qwen-tts; a level above what the CPU supports is downgraded with a note.
+On ARM, NEON/SDOT remain compile-time (Apple Silicon always has dotprod).
+⚠️ As with CUDA: the AVX2/VNNI paths are validated by `tests/test_qmat` in Linux x86
+CI, not on this Mac (Rosetta here does not expose AVX2 → scalar level, tested).
 
-## Metal (macOS, compilato di default)
+## Metal (macOS, compiled in by default)
 
-`src/metal_mps.m`: MPSMatrixMultiplication con **pesi residenti** (MTLBuffer cacheato
-per pointer — pattern weight-cache di qwen-tts) e buffer I/O riusabili.
+`src/metal_mps.m`: MPSMatrixMultiplication with **resident weights** (MTLBuffer cached
+per pointer — qwen-tts weight-cache pattern) and reusable I/O buffers.
 
-**v2 (fp16 + fusioni)**: pesi residenti fp16; FFN fusa (GEMM→SiLU shader→GEMM,
-un sync) e q/k/v insieme → −15% vs CPU.
+**v2 (fp16 + fusions)**: resident fp16 weights; fused FFN (GEMM→SiLU shader→GEMM,
+one sync) and q/k/v together → −15% vs CPU.
 
-**v3 (blocchi interi su GPU)**: attention completa in UN command buffer — qkv,
-bias_u/v (shader), relk, GEMM per-head su **viste MPS strided** (zero permute),
-softmax+rel_shift+finestra chunked in shader (accumulo float), ctx, o_proj — e conv
-module intero (pw1→GLU→dwconv9→LayerNorm→SiLU→pw2, tutti shader propri).
-4 sync per layer (erano ~10 in v1).
+**v3 (whole blocks on GPU)**: full attention in ONE command buffer — qkv,
+bias_u/v (shader), relk, per-head GEMM on **strided MPS views** (zero permute),
+softmax+rel_shift+chunked window in a shader (float accumulation), ctx, o_proj — and
+the entire conv module (pw1→GLU→dwconv9→LayerNorm→SiLU→pw2, all own shaders).
+4 syncs per layer (were ~10 in v1).
 
-**v4 (encoder intero su GPU, un sync per forward)**: anche lo stream residuo resta
-su GPU — **f32 per fedeltà numerica** (LN tra i blocchi e residual add accumulano
-in f32 come la CPU; i blocchi restano f16 come in v3). Conversioni f32↔f16 negli
-shader; la CPU fa solo due memcpy per forward. Un command buffer per layer,
-commit senza wait (la GPU esegue il layer i mentre la CPU encoda i+1), **wait solo
-sull'ultimo**. Le layernorm sono threadgroup-per-riga con riduzione `simd_sum`
-(letture coalescenti: un thread per riga con stride d costava ~15 ms/layer ed
-era il collo di bottiglia della prima v4). Conversione pesi al load via vImage.
-Il **batch server** passa da Metal: ogni segmento fa l'encoder intero su GPU
-(pesi residenti = weight-stationary comunque), parity 4/4 vs B=1.
+**v4 (entire encoder on GPU, one sync per forward)**: the residual stream also stays
+on GPU — **f32 for numerical fidelity** (LN between blocks and residual add accumulate
+in f32 like the CPU; the blocks stay f16 as in v3). f32↔f16 conversions in the
+shaders; the CPU only does two memcpys per forward. One command buffer per layer,
+commit without wait (the GPU executes layer i while the CPU encodes i+1), **wait only
+on the last one**. The layernorms are threadgroup-per-row with `simd_sum` reduction
+(coalesced reads: one thread per row with stride d cost ~15 ms/layer and
+was the bottleneck of the first v4). Weight conversion at load via vImage.
+The **server batch** goes through Metal: each segment runs the entire encoder on GPU
+(resident weights = weight-stationary anyway), parity 4/4 vs B=1.
 
-Misurato **in-process warm** (scenario server, 63 s, best-of-N nello stesso
-minuto — la misura per-processo è dominata da page-in e conversione pesi):
-encoder 0.70 s vs 2.1 s della v3; totale **RTF 0.051 vs 0.068 CPU (−25%)**
-(v3: 0.072). Testo identico IT/EN/DE/FR/ES, 0 leak. Sotto 24 righe (chunk
-streaming) si resta su CPU. `MYNAH_METAL_PROF=1` stampa encode/wait/GPU time.
+Measured **in-process warm** (server scenario, 63 s, best-of-N within the same
+minute — the per-process measurement is dominated by page-in and weight conversion):
+encoder 0.70 s vs 2.1 s for v3; total **RTF 0.051 vs 0.068 CPU (−25%)**
+(v3: 0.072). Identical text IT/EN/DE/FR/ES, 0 leaks. Under 24 rows (streaming
+chunks) it stays on CPU. `MYNAH_METAL_PROF=1` prints encode/wait/GPU time.
 
-Con la pipeline CPU ottimizzata (greedy a blocchi, subsampling im2col, mel
-sparso — vedi TODO M5 2026-07-17), i totali warm sul 63 s scendono a
-**Metal RTF 0.042, CPU 0.060**. Nota: il decode resta SEMPRE su BLAS CPU
-anche col backend Metal (determinismo tra backend: stessi logits, stesso testo).
+With the optimized CPU pipeline (blocked greedy, im2col subsampling, sparse
+mel — see TODO M5 2026-07-17), warm totals on the 63 s drop to
+**Metal RTF 0.042, CPU 0.060**. Note: the decode ALWAYS stays on CPU BLAS
+even with the Metal backend (determinism across backends: same logits, same text).
 
 ## CUDA (Linux, `make cuda`)
 
-`src/cuda_gemm.cu`: cuBLAS sgemm con weight-cache residente per-pointer, buffer device
-riusabili, stream+handle propri (pattern qwen_tts_cuda.c).
+`src/cuda_gemm.cu`: cuBLAS sgemm with per-pointer resident weight-cache, reusable
+device buffers, own stream+handle (qwen_tts_cuda.c pattern).
 
-> ⚠️ **Cross-compiled, NON ancora validato su hardware** (stesso approccio usato in
-> qwen-tts per il VNNI): su una macchina Linux+CUDA eseguire `make cuda && make test`
-> prima di fidarsi. Fallback CPU automatico su ogni errore CUDA.
+> ⚠️ **Cross-compiled, NOT yet validated on hardware** (same approach used in
+> qwen-tts for VNNI): on a Linux+CUDA machine run `make cuda && make test`
+> before trusting it. Automatic CPU fallback on any CUDA error.
 
-Evoluzioni previste (TODO, pattern qwen-tts): pesi bf16 residenti + `cublasGemmEx`,
-decode fuso residente, CUDA Graphs sul loop streaming.
+Planned evolutions (TODO, qwen-tts pattern): resident bf16 weights + `cublasGemmEx`,
+fused resident decode, CUDA Graphs on the streaming loop.
