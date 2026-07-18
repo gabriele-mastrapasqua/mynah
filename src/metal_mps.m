@@ -314,13 +314,31 @@ static MPSMatrix *mat16_off(id<MTLBuffer> buf, size_t byte_off, int rows, int co
     return [[MPSMatrix alloc] initWithBuffer:buf offset:byte_off descriptor:d];
 }
 
-static void encode_gemm(id<MTLCommandBuffer> cb, MPSMatrix *a, MPSMatrix *b,
-                        MPSMatrix *c, int T, int n, int k) {
+/* cache dei kernel MPSMatrixMultiplication per shape (T,n,k,transB): gli shape
+ * ricorrono identici per ogni layer e ogni forward della stessa lunghezza —
+ * senza cache si allocava un oggetto MPS per OGNI GEMM encodata (centinaia per
+ * forward). Protetta da g_mu (già tenuto durante l'encoding). */
+typedef struct { int T, n, k, tb; void *mm; } mm_ent;
+static mm_ent g_mmc[512];
+static int g_mmc_n;
+
+static MPSMatrixMultiplication *mm_cached(int T, int n, int k, int transB) {
+    for (int i = 0; i < g_mmc_n; i++)
+        if (g_mmc[i].T == T && g_mmc[i].n == n && g_mmc[i].k == k && g_mmc[i].tb == transB)
+            return (__bridge MPSMatrixMultiplication *)g_mmc[i].mm;
     MPSMatrixMultiplication *mm = [[MPSMatrixMultiplication alloc]
-        initWithDevice:g_dev transposeLeft:NO transposeRight:YES
+        initWithDevice:g_dev transposeLeft:NO transposeRight:(transB ? YES : NO)
             resultRows:(NSUInteger)T resultColumns:(NSUInteger)n
        interiorColumns:(NSUInteger)k alpha:1.0 beta:0.0];
-    [mm encodeToCommandBuffer:cb leftMatrix:a rightMatrix:b resultMatrix:c];
+    if (g_mmc_n < (int)(sizeof(g_mmc) / sizeof(g_mmc[0])))
+        g_mmc[g_mmc_n++] = (mm_ent){T, n, k, transB, (void *)CFBridgingRetain(mm)};
+    return mm;
+}
+
+static void encode_gemm(id<MTLCommandBuffer> cb, MPSMatrix *a, MPSMatrix *b,
+                        MPSMatrix *c, int T, int n, int k) {
+    [mm_cached(T, n, k, 1) encodeToCommandBuffer:cb leftMatrix:a rightMatrix:b
+                                    resultMatrix:c];
 }
 
 static void encode_silu(id<MTLCommandBuffer> cb, id<MTLBuffer> buf, size_t n) {
@@ -588,11 +606,8 @@ static void encode_att16(id<MTLCommandBuffer> cb, id<MTLBuffer> xn, id<MTLBuffer
         MPSMatrix *ph = mat16_off(sb, sc_off + (size_t)h * (size_t)T * (size_t)K * sizeof(f16), T, K, K);
         MPSMatrix *vh = mat16_off(sb, 2 * td + ho, T, dk, d);
         MPSMatrix *ch = mat16_off(sb, ctx_off + ho, T, dk, d);
-        MPSMatrixMultiplication *mm = [[MPSMatrixMultiplication alloc]
-            initWithDevice:g_dev transposeLeft:NO transposeRight:NO
-                resultRows:(NSUInteger)T resultColumns:(NSUInteger)dk
-           interiorColumns:(NSUInteger)K alpha:1.0 beta:0.0];
-        [mm encodeToCommandBuffer:cb leftMatrix:ph rightMatrix:vh resultMatrix:ch];
+        [mm_cached(T, dk, K, 0) encodeToCommandBuffer:cb leftMatrix:ph rightMatrix:vh
+                                         resultMatrix:ch];
     }
 
     /* out = ctx @ wo^T (+ o_b) */

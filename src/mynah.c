@@ -11,6 +11,7 @@
 #include "decoder_ctc.h"
 #include "encoder.h"
 #include "features.h"
+#include "threads.h"
 #include "tokenizer.h"
 #include "weights.h"
 #include "../vendor/cJSON.h"
@@ -307,6 +308,64 @@ int mynah_lookaheads(const mynah_model *m, int out[8]) {
     return m->n_lookaheads;
 }
 
+/* worker per-item del batch (features e decode sono indipendenti tra item:
+ * regioni disgiunte, modello read-only -> parallel_for è sicura) */
+typedef struct {
+    mynah_model *m;
+    const float *const *samples;
+    const size_t *n_samples;
+    const char *const *langs;
+    float **feats, **encs;
+    int *valids, *t_encs;
+    char **texts;
+    char (*langs_out)[16];
+} batch_ctx;
+
+static void batch_feat_worker(void *ctx, int b) {
+    batch_ctx *c = ctx;
+    int T_mel;
+    c->feats[b] = mynah_log_mel(&c->m->feat, c->samples[b], c->n_samples[b],
+                                &T_mel, &c->valids[b]);
+}
+
+static void batch_decode_worker(void *ctx, int b) {
+    batch_ctx *c = ctx;
+    mynah_model *m = c->m;
+    if (!c->encs[b]) return;
+    int n_tok = 0;
+    int *tokens = NULL;
+    if (m->is_aed) {
+        int pids[MYNAH_AED_PROMPT_MAX];
+        const int n_p = aed_build_prompt(m, c->langs ? c->langs[b] : NULL, pids, 0);
+        if (n_p <= 0) return;
+        const int cap = c->t_encs[b] + m->aed.max_gen_delta;
+        tokens = malloc((size_t)cap * sizeof(int));
+        if (tokens)
+            n_tok = mynah_aed_decode(&m->aed, c->encs[b], c->t_encs[b], pids, n_p,
+                                     m->aed_eos, tokens, cap);
+        if (n_tok < 0) { free(tokens); return; }
+    } else if (m->use_ctc && m->ctc.d_in == m->enc.d_out) {
+        /* CTC puro: encoder_post senza projector = encoder out */
+        tokens = malloc((size_t)c->t_encs[b] * sizeof(int));
+        if (tokens)
+            n_tok = mynah_ctc_decode(&m->ctc, c->encs[b], c->t_encs[b], tokens, NULL,
+                                     c->t_encs[b]);
+    } else {
+        mynah_dec_state *s = malloc(sizeof(*s));
+        if (!s) return;
+        mynah_dec_state_reset(&m->dec, s);
+        const int cap = c->t_encs[b] * m->dec.max_symbols;
+        tokens = malloc((size_t)cap * sizeof(int));
+        if (tokens)
+            n_tok = mynah_greedy_decode(&m->dec, s, c->encs[b], c->t_encs[b],
+                                        tokens, NULL, cap);
+        free(s);
+    }
+    c->texts[b] = mynah_detokenize(&m->tok, tokens, n_tok,
+                                   c->langs_out ? c->langs_out[b] : NULL);
+    free(tokens);
+}
+
 int mynah_transcribe_batch(mynah_model *m, const float *const *samples,
                            const size_t *n_samples, int batch, const char *const *langs,
                            int lookahead, char **texts, char (*langs_out)[16]) {
@@ -320,55 +379,25 @@ int mynah_transcribe_batch(mynah_model *m, const float *const *samples,
     int *t_encs = calloc((size_t)batch, sizeof(int));
     if (!feats || !encs || !valids || !prompts || !t_encs) goto done;
 
+    batch_ctx c = {.m = m, .samples = samples, .n_samples = n_samples, .langs = langs,
+                   .feats = feats, .encs = encs, .valids = valids, .t_encs = t_encs,
+                   .texts = texts, .langs_out = langs_out};
+
     for (int b = 0; b < batch; b++) {
         texts[b] = NULL;
         prompts[b] = resolve_prompt(m, langs ? langs[b] : NULL);
         if (prompts[b] == -2) goto done;
-        int T_mel;
-        feats[b] = mynah_log_mel(&m->feat, samples[b], n_samples[b], &T_mel, &valids[b]);
-        if (!feats[b]) goto done;
     }
+    mynah_parallel_for(batch, batch_feat_worker, &c);
+    for (int b = 0; b < batch; b++)
+        if (!feats[b]) goto done;
 
     if (mynah_encoder_forward_batch(&m->enc, (const float *const *)feats, valids, batch,
                                     m->feat.n_mels, prompts, m->left_ctx, right,
                                     encs, t_encs) != 0)
         goto done;
 
-    for (int b = 0; b < batch; b++) {
-        if (!encs[b]) continue;
-        int n_tok = 0;
-        int *tokens;
-        if (m->is_aed) {
-            int pids[MYNAH_AED_PROMPT_MAX];
-            const int n_p = aed_build_prompt(m, langs ? langs[b] : NULL, pids, 0);
-            if (n_p <= 0) continue;
-            const int cap = t_encs[b] + m->aed.max_gen_delta;
-            tokens = malloc((size_t)cap * sizeof(int));
-            if (tokens)
-                n_tok = mynah_aed_decode(&m->aed, encs[b], t_encs[b], pids, n_p,
-                                         m->aed_eos, tokens, cap);
-            if (n_tok < 0) { free(tokens); continue; }
-        } else if (m->use_ctc && m->ctc.d_in == m->enc.d_out) {
-            /* CTC puro: encoder_post senza projector = encoder out */
-            tokens = malloc((size_t)t_encs[b] * sizeof(int));
-            if (tokens)
-                n_tok = mynah_ctc_decode(&m->ctc, encs[b], t_encs[b], tokens, NULL,
-                                         t_encs[b]);
-        } else {
-            mynah_dec_state *s = malloc(sizeof(*s));
-            if (!s) continue;
-            mynah_dec_state_reset(&m->dec, s);
-            const int cap = t_encs[b] * m->dec.max_symbols;
-            tokens = malloc((size_t)cap * sizeof(int));
-            if (tokens)
-                n_tok = mynah_greedy_decode(&m->dec, s, encs[b], t_encs[b],
-                                            tokens, NULL, cap);
-            free(s);
-        }
-        texts[b] = mynah_detokenize(&m->tok, tokens, n_tok,
-                                    langs_out ? langs_out[b] : NULL);
-        free(tokens);
-    }
+    mynah_parallel_for(batch, batch_decode_worker, &c);
     rc = 0;
 
 done:

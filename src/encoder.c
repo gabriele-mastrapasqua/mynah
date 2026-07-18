@@ -707,8 +707,13 @@ int mynah_enc_stream_step(mynah_enc_stream *es, const float *mel, int n_mel,
     const size_t nd = (size_t)Q * (size_t)d;
     float *tmp = es->stmp, *tmp2 = es->stmp2, *xn = es->sxn, *kn = es->skn;
 
-    /* pos emb del passo: dipende solo da K = valid + Q, uguale per tutti i layer */
-    mynah_pos_emb(enc, es->cache_valid + Q, es->sa_pe);
+    /* pos emb del passo: dipende solo da K = valid + Q (uguale per tutti i
+     * layer) e a regime K è COSTANTE (cache satura): ricalcolo solo se cambia */
+    const int pe_K = es->cache_valid + Q;
+    if (pe_K != es->sa_pe_K) {
+        mynah_pos_emb(enc, pe_K, es->sa_pe);
+        es->sa_pe_K = pe_K;
+    }
 
     for (int li = 0; li < enc->n_layers; li++) {
         const mynah_enc_layer *L = &enc->layers[li];

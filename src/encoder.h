@@ -99,6 +99,7 @@ typedef struct {
      * puntatori ritagliati da scr. Dimensionati su Qmax = q+2, Kmax = left+Qmax. */
     float *scr;
     float *sx, *stmp, *stmp2, *sxn, *skn;                    /* step */
+    int sa_pe_K;                /* K dell'ultima pos-emb calcolata (0 = mai) */
     float *sa_pe, *sa_q, *sa_keys, *sa_rk, *sa_sc, *sa_bd,   /* attention */
           *sa_qb, *sa_ctx;
     float *sc_h2, *sc_gp, *sc_c, *sc_t;                      /* conv module */
