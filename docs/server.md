@@ -22,7 +22,23 @@ curl -X POST --data-binary @audio.wav -H 'Content-Type: audio/wav' ...
 
 Campi: `file` (WAV PCM16, qualsiasi sample rate — resampling automatico),
 `language` (tag locale o `auto`, default auto), `response_format`
-(`json` | `text` | `verbose_json`), `lookahead` (0|1|3|6|13, default del modello).
+(`json` | `text` | `verbose_json`), `lookahead` (0|1|3|6|13, default del modello),
+`target_language` (solo modelli AED: lingua di uscita ≠ sorgente = traduzione).
+Con `verbose_json` (senza batch) la risposta include `words` con i timestamp.
+
+### POST /v1/audio/translations — speech translation (solo modelli AED/Canary)
+
+Stessi campi di `/transcriptions`; `target_language` default **en** (stile
+OpenAI/Whisper). Sui modelli non-AED risponde 400.
+
+```sh
+# de parlato -> testo inglese
+curl -F file=@audio_de.wav -F language=de http://localhost:8090/v1/audio/translations
+# en parlato -> testo tedesco, con metadati
+curl -F file=@audio_en.wav -F language=en -F target_language=de \
+     -F response_format=verbose_json .../v1/audio/translations
+# {"text": "Hallo, ...", "task": "translate", "language": "en", "duration": 4.34}
+```
 
 ### GET /v1/audio/stream — WebSocket streaming
 

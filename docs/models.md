@@ -3,6 +3,20 @@
 > Riferimenti verificati su HuggingFace il **2026-07-16** (fetch delle model card, dei
 > `config.json` e dei file tree reali). Tenere aggiornato quando NVIDIA rilascia varianti.
 
+## ✅ Supportati dal runtime (2026-07-18)
+
+| Modello | Engine | Note |
+|---|---|---|
+| nemotron-3.5-asr-streaming-0.6b | nemotron-streaming | streaming cache-aware + offline, 40 lingue, LID |
+| parakeet-tdt-0.6b-v3 | parakeet-tdt | 25 lingue EU, ITN, timestamp accurati |
+| parakeet-tdt_ctc-110m | parakeet-tdt (+ctc) | EN; modello CI; `--decoder ctc` |
+| parakeet-rnnt-0.6b / ctc-0.6b | parakeet-rnnt/ctc | EN, lowercase |
+| parakeet-rnnt-1.1b / ctc-1.1b | parakeet-rnnt/ctc | EN, 42L — convertiti senza modifiche |
+| canary-180m-flash / 1b-flash | canary-aed | ASR en/de/es/fr + **traduzione** + word-ts |
+
+Tutti con: int8/int4 (`mynah quantize`), Metal, batch, segmentazione file lunghi,
+server REST/WS. RTF misurati in [benchmarks.md](benchmarks.md).
+
 Tratti comuni a quasi tutta la famiglia (dai `config.json` verificati):
 - **Encoder FastConformer**: subsampling conv depthwise-separable **8×**, d_model **1024**,
   **8 attention heads**, conv module kernel **9**. 24 layer = varianti "XL" 0.6B,
@@ -106,7 +120,7 @@ parakeet-rnnt-110m-da-dk (DA).
 
 ---
 
-## Famiglia Canary (ASR + Speech Translation, AED) — v0.8+
+## Famiglia Canary (ASR + Speech Translation, AED) — flash ✅ supportati
 
 Tutti offline (no streaming nativo; audio lunghi via `speech_to_text_aed_chunked_infer.py`).
 Task conditioning via token di prompt del decoder.

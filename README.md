@@ -43,21 +43,21 @@ decoder intercambiabili, streaming come cittadino di prima classe.
 | [nvidia/parakeet-rnnt-0.6b](https://huggingface.co/nvidia/parakeet-rnnt-0.6b) / [ctc-0.6b](https://huggingface.co/nvidia/parakeet-ctc-0.6b) — offline EN | ✅ funzionanti |
 | famiglia Canary (ASR + traduzione) | pianificato (v0.8+) |
 
-`make bench` su M-series (CPU, warm — audio fixture 4–5 s):
+RTF su M-series, audio ~65 s warm (matrice completa e metodologia in
+[docs/benchmarks.md](docs/benchmarks.md)):
 
-| modello | RTF | RAM |
-|---|---|---|
-| parakeet-tdt_ctc-110m | **0.021** | 0.44 GB |
-| parakeet-tdt-0.6b-v3 | 0.089 | 2.4 GB |
-| parakeet-rnnt/ctc-0.6b | 0.09 | 2.3 GB |
-| nemotron-3.5 (offline-chunked) | 0.108 | 2.4 GB |
-| parakeet-rnnt/ctc-1.1b | 0.19 | 4.0 GB |
-| canary-180m-flash (AED, +traduzione) | 0.14 | 0.71 GB |
-| canary-1b-flash (AED, +traduzione) | 0.37 | 3.3 GB |
+| modello | f32 CPU | Metal | int8 |
+|---|---|---|---|
+| parakeet-tdt_ctc-110m | 0.015 | **0.010** | 0.015 |
+| canary-180m-flash (AED, +traduzione) | 0.060 | 0.054 | **0.030** |
+| parakeet-tdt-0.6b-v3 | 0.047 | **0.030** | 0.046 |
+| nemotron-3.5-asr-streaming-0.6b | 0.055 | **0.040** | 0.054 |
+| parakeet-rnnt/ctc-0.6b | 0.05/0.04 | 0.028/0.022 | ≈f32 |
+| parakeet-rnnt/ctc-1.1b | 0.07/0.06 | 0.041/0.033 | ≈f32 |
+| canary-1b-flash (AED, +traduzione) | 0.143 | **0.081** | ~0.07 |
 
-Con `--backend metal` (encoder su GPU, audio ~67 s warm): 110m 0.018→0.011,
-tdt-0.6b-v3 0.053→**0.033**, rnnt-0.6b 0.050→0.028, ctc-0.6b 0.042→0.022
-(−35…50%, testo identico alla CPU).
+RAM: 110m 0.44 GB · 180m 0.71 · 0.6B ~2.4 · 1b-flash 3.3 · 1.1b 4.0 GB
+(int8: ~⅓). Streaming Nemotron: ~26 ms/chunk da 80 ms (9 ms int4).
 
 Ogni stadio numerico è validato contro un oracolo numpy di riferimento
 (`make test`: mel bit-esatto, encoder a tolleranza f32, streaming ≡ offline).

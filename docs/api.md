@@ -8,11 +8,16 @@ ogni `mynah_stream` va usato da un solo thread alla volta.
 
 ```c
 mynah_model *mynah_load(const char *model_dir);
+mynah_model *mynah_load_quant(const char *model_dir, int quant);  /* MYNAH_QUANT_{F32,INT8,INT4} */
 void mynah_free(mynah_model *m);
 ```
 `model_dir` è la directory prodotta dal convertitore (`mynah.json`, `model.safetensors`,
 `tokens.json`, `mel_filters.safetensors`). I pesi sono mmap read-only: il load è
 istantaneo, il costo si paga al primo accesso (page-in).
+`mynah_load_quant` con `INT8`/`INT4` usa il checkpoint pre-quantizzato
+(`model.int8.safetensors`, generato con `mynah quantize`) se presente — zero-copy,
+~3-4× meno RAM — altrimenti quantizza al load. Qualità: int8 ≈ trasparente,
+int4 costa sul multilingua (dettagli in [quantization.md](quantization.md)).
 
 ```c
 int mynah_lang_id(const mynah_model *m, const char *lang);   /* -1 se ignota   */
@@ -46,7 +51,23 @@ void mynah_words_free(mynah_word *words, int n_words);
 ```
 Come `mynah_transcribe`, in più riempie `words` (array `malloc`ato). Risoluzione:
 1 frame encoder (80 ms). Sui modelli TDT i tempi vengono dalle duration predette
-(accurati); su Nemotron includono la latenza algoritmica del chunking.
+(accurati); su Nemotron includono la latenza algoritmica del chunking. Sui modelli
+AED (Canary) la richiesta di `words` attiva i token `<|timestamp|>` nel prompt:
+tempi accurati per parola, ma la punteggiatura del modello può differire
+leggermente dal decode senza timestamp (comportamento del modello).
+
+## Speech translation (modelli AED — Canary)
+
+```c
+int mynah_can_translate(const mynah_model *m);            /* 1 = engine AED */
+int mynah_set_target_lang(mynah_model *m, const char *lang);  /* "de", "" = ASR */
+```
+Lingua di USCITA diversa dalla sorgente = traduzione (`--lang en --target-lang de`
+sulla CLI). `mynah_set_target_lang` muta il modello: chiamarla PRIMA delle
+trascrizioni, non in concorrenza. Per server/batch usare la forma PER-CHIAMATA
+thread-safe: `lang = "src>tgt"` (es. `"en>de"`) in `mynah_transcribe*` — vince
+su `set_target_lang`. Lingue supportate: campo `prompt.languages` del mynah.json
+(canary-flash: en/de/es/fr, tutte le coppie).
 
 ## Selezione decoder e segmentazione
 
