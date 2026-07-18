@@ -255,7 +255,14 @@ static int cmd_quantize(int argc, char **argv) {
 }
 
 int main(int argc, char **argv) {
-    if (argc >= 2 && strcmp(argv[1], "--version") == 0) { printf("%s\n", mynah_version()); return 0; }
+    if (argc >= 2 && strcmp(argv[1], "--version") == 0) {
+#ifdef MYNAH_BUILD
+        printf("%s (%s)\n", mynah_version(), MYNAH_BUILD);
+#else
+        printf("%s\n", mynah_version());
+#endif
+        return 0;
+    }
     if (argc >= 2 && strcmp(argv[1], "transcribe") == 0) return cmd_transcribe(argc - 2, argv + 2);
     if (argc >= 2 && strcmp(argv[1], "stream") == 0) return cmd_stream(argc - 2, argv + 2);
     if (argc >= 2 && strcmp(argv[1], "quantize") == 0) return cmd_quantize(argc - 2, argv + 2);

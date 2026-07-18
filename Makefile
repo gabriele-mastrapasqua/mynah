@@ -8,7 +8,7 @@ ifeq ($(UNAME_S),Darwin)
   LDFLAGS += -framework Accelerate -framework Metal -framework MetalPerformanceShaders -framework Foundation
   BLAS_DEF := MYNAH_BLAS_ACCELERATE
   CFLAGS  += -DMYNAH_BLAS_ACCELERATE -DACCELERATE_NEW_LAPACK -DMYNAH_METAL
-  OBJ_EXTRA := src/metal_mps.o
+  OBJ_EXTRA := build/src/metal_mps.o
 else
   LDFLAGS += -lopenblas -lm -lpthread
   BLAS_DEF := MYNAH_BLAS_OPENBLAS
@@ -16,8 +16,12 @@ else
 endif
 
 SRC := $(wildcard src/*.c) vendor/cJSON.c
-OBJ := $(SRC:.c=.o) $(OBJ_EXTRA)
+OBJ := $(SRC:%.c=build/%.o) $(OBJ_EXTRA)
 HDR := $(wildcard src/*.h)
+
+# versione iniettata da git (stringa informativa in `mynah --version`)
+MYNAH_BUILD := $(shell git describe --always --dirty 2>/dev/null || echo dev)
+CFLAGS += -DMYNAH_BUILD='"$(MYNAH_BUILD)"'
 
 MODEL_DIR ?= models/nemotron-3.5-asr-streaming-0.6b
 PARAKEET_DIR ?= models/parakeet-tdt-0.6b-v3
@@ -25,21 +29,25 @@ PARAKEET110_DIR ?= models/parakeet-tdt_ctc-110m
 
 all: mynah mynah-server
 
-mynah: $(OBJ) cli/main.o
+mynah: $(OBJ) build/cli/main.o
 	$(CC) $(CFLAGS) -o $@ $^ $(LDFLAGS)
 
-mynah-server: $(OBJ) server/main.o server/http_util.o
+mynah-server: $(OBJ) build/server/main.o build/server/http_util.o
 	$(CC) $(CFLAGS) -o $@ $^ $(LDFLAGS) -lpthread
 
-%.o: %.c $(HDR)
+# oggetti in build/ (mai accanto ai sorgenti: le build varianti — ubsan, cuda —
+# non inquinano più quella normale)
+build/%.o: %.c $(HDR)
+	@mkdir -p $(@D)
 	$(CC) $(CFLAGS) -c $< -o $@
 
-src/metal_mps.o: src/metal_mps.m
+build/src/metal_mps.o: src/metal_mps.m $(HDR)
+	@mkdir -p $(@D)
 	$(CC) $(CFLAGS) -fobjc-arc -c $< -o $@
 
 TESTS := tests/test_qmat tests/test_features tests/test_subsampling tests/test_encoder tests/test_streaming tests/test_batch
 
-tests/%: tests/%.o tests/npy.o tests/testcfg.o $(OBJ)
+tests/%: build/tests/%.o build/tests/npy.o build/tests/testcfg.o $(OBJ)
 	$(CC) $(CFLAGS) -o $@ $^ $(LDFLAGS)
 
 # Parità C vs oracolo (Nemotron streaming + Parakeet TDT offline).
@@ -94,10 +102,11 @@ examples/minimal: examples/minimal.c libmynah.a
 NVCC ?= nvcc
 cuda:
 	$(MAKE) clean && $(MAKE) CFLAGS="$(CFLAGS) -DMYNAH_CUDA" \
-	  OBJ_EXTRA="src/cuda_gemm.o" \
+	  OBJ_EXTRA="build/src/cuda_gemm.o" \
 	  LDFLAGS="$(LDFLAGS) -lcublas -lcudart -L/usr/local/cuda/lib64"
 
-src/cuda_gemm.o: src/cuda_gemm.cu
+build/src/cuda_gemm.o: src/cuda_gemm.cu
+	@mkdir -p $(@D)
 	$(NVCC) -O3 -DMYNAH_CUDA -c $< -o $@
 
 # build alternative.
@@ -151,7 +160,14 @@ leaks: mynah tests/test_streaming
 	  tests/golden/test_it 2>&1 | tail -3
 
 clean:
-	rm -f mynah mynah-server libmynah.a $(OBJ) cli/main.o server/*.o tests/*.o $(TESTS) \
-	  examples/minimal
+	rm -rf build mynah mynah-server libmynah.a $(TESTS) examples/minimal
 
-.PHONY: all clean test golden-dump lib debug ubsan asan bench leaks test-nemo-langs fetch-lang-samples test-server cuda
+# installazione: CLI + server + libreria statica + header
+PREFIX ?= /usr/local
+install: mynah mynah-server libmynah.a
+	install -d $(DESTDIR)$(PREFIX)/bin $(DESTDIR)$(PREFIX)/lib $(DESTDIR)$(PREFIX)/include
+	install -m 755 mynah mynah-server $(DESTDIR)$(PREFIX)/bin/
+	install -m 644 libmynah.a $(DESTDIR)$(PREFIX)/lib/
+	install -m 644 src/mynah.h $(DESTDIR)$(PREFIX)/include/
+
+.PHONY: all clean install test golden-dump lib debug ubsan asan bench leaks test-nemo-langs fetch-lang-samples test-server test-samples cuda
