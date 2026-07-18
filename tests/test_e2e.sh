@@ -81,8 +81,7 @@ checkq() { # quant, expected substring
 
 # timestamp per parola: righe "t0 t1 parola", t0 monotono non-decrescente,
 # t1 entro la durata dell'audio (fixture <= 5.2s + margine di un frame).
-# AED (Canary): niente allineamento ai frame -> check saltato
-if [ "$ENGINE" != "canary-aed" ]; then
+# AED (Canary): prompt <|timestamp|> -> il modello bracketa le parole con <|N|>
 ts=$(./mynah transcribe -m "$MODEL_DIR" -i "$Q_WAV" --timestamps 2>/dev/null)
 ts_ok=$(printf '%s\n' "$ts" | awk 'NF<3 {bad=1} $1+0>$2+0 {bad=1} $1+0<prev {bad=1}
     {prev=$1+0; n++} END {print (bad || n<5 || prev>5.3) ? "FAIL" : "OK"}')
@@ -90,7 +89,6 @@ if [ "$ts_ok" = "OK" ]; then
     echo "e2e timestamps OK: $(printf '%s\n' "$ts" | wc -l | tr -d ' ') parole"
 else
     echo "e2e timestamps FAIL:"; printf '%s\n' "$ts"; fail=1
-fi
 fi
 
 # segmentazione file lunghi: limite forzato a 4 s sul fixture -> 2 segmenti

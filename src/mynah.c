@@ -248,7 +248,7 @@ static int resolve_prompt(const mynah_model *m, const char *lang) {
     return id < 0 ? -2 : id;
 }
 
-static int aed_build_prompt(const mynah_model *m, const char *lang, int *ids);
+static int aed_build_prompt(const mynah_model *m, const char *lang, int *ids, int want_ts);
 
 int mynah_lookaheads(const mynah_model *m, int out[8]) {
     memcpy(out, m->lookaheads, sizeof(m->lookaheads));
@@ -288,7 +288,7 @@ int mynah_transcribe_batch(mynah_model *m, const float *const *samples,
         int *tokens;
         if (m->is_aed) {
             int pids[MYNAH_AED_PROMPT_MAX];
-            const int n_p = aed_build_prompt(m, langs ? langs[b] : NULL, pids);
+            const int n_p = aed_build_prompt(m, langs ? langs[b] : NULL, pids, 0);
             if (n_p < 0) continue;
             const int cap = t_encs[b] + m->aed.max_gen_delta;
             tokens = malloc((size_t)cap * sizeof(int));
@@ -471,8 +471,9 @@ int mynah_stream_finish(mynah_stream *s, mynah_result_cb cb, void *ud) {
  * slot vuoti = 0 token). lang sorgente ("auto"/NULL -> "en"); la forma
  * "src>tgt" (es. "en>de") chiede la traduzione PER-CHIAMATA (thread-safe, usata
  * dal server); altrimenti target da mynah_set_target_lang ("" = sorgente).
+ * want_ts: slot timestamp attivo (il modello bracketa ogni parola con <|N|>).
  * Ritorna n token, -1 = lingua ignota. */
-static int aed_build_prompt(const mynah_model *m, const char *lang, int *ids) {
+static int aed_build_prompt(const mynah_model *m, const char *lang, int *ids, int want_ts) {
     char src[8] = "en", tgt_buf[8] = "";
     if (lang && *lang && strncmp(lang, "auto", 4) != 0) {
         int i = 0;
@@ -511,6 +512,8 @@ static int aed_build_prompt(const mynah_model *m, const char *lang, int *ids) {
             snprintf(slot, sizeof(slot), "%.*s", (int)strlen(item) - 2, item + 1);
             if (strcmp(slot, "source_lang") == 0) snprintf(tok, sizeof(tok), "<|%s|>", src);
             else if (strcmp(slot, "target_lang") == 0) snprintf(tok, sizeof(tok), "<|%s|>", tgt);
+            else if (want_ts && strcmp(slot, "timestamp") == 0)
+                snprintf(tok, sizeof(tok), "<|timestamp|>");
             else {
                 const cJSON *dv = cJSON_GetObjectItem(jd, slot);
                 if (!dv || !cJSON_IsString(dv) || !dv->valuestring[0]) continue;
@@ -544,6 +547,78 @@ int mynah_set_target_lang(mynah_model *m, const char *lang) {
     return -1;
 }
 
+/* Piece "<|N|>" (solo cifre) -> N, altrimenti -1. */
+static int aed_ts_frame(const char *piece) {
+    if (strncmp(piece, "<|", 2) != 0) return -1;
+    const char *p = piece + 2;
+    if (*p < '0' || *p > '9') return -1;
+    int v = 0;
+    for (; *p >= '0' && *p <= '9'; p++) v = v * 10 + (*p - '0');
+    return strcmp(p, "|>") == 0 ? v : -1;
+}
+
+/* Parole con timestamp dai token AED col formato canary: <|t0|> pezzi <|t1|>
+ * per parola (i <|N|> consecutivi chiudono la parola precedente e aprono la
+ * successiva). 0 = ok. */
+static int aed_words_from_tokens(const mynah_tokenizer *tk, const int *toks, int n,
+                                 double frame_sec, mynah_word **out, int *n_out) {
+    *out = NULL;
+    *n_out = 0;
+    mynah_word *ws = malloc((size_t)(n + 1) * sizeof(*ws));
+    char buf[256];
+    size_t blen = 0;
+    int nw = 0, open_ts = -1, word_open = 0;
+    if (!ws) return -1;
+
+    for (int i = 0; i < n; i++) {
+        const char *piece = tk->pieces[toks[i]];
+        const int ts = aed_ts_frame(piece);
+        if (ts >= 0) {
+            if (word_open && blen > 0) {          /* chiude la parola corrente */
+                buf[blen] = '\0';
+                ws[nw].word = strdup(buf[0] == ' ' ? buf + 1 : buf);
+                ws[nw].t0 = (open_ts >= 0 ? open_ts : 0) * frame_sec;
+                ws[nw].t1 = ts * frame_sec;
+                if (ws[nw].word) nw++;
+                blen = 0;
+                word_open = 0;
+            } else {
+                open_ts = ts;                     /* apre la prossima */
+            }
+            continue;
+        }
+        if (piece[0] == '<') continue;            /* altri speciali */
+        if (strncmp(piece, "\xe2\x96\x81", 3) == 0) {   /* ▁: nuova parola */
+            if (word_open && blen > 0) {          /* senza ts di chiusura: chiudi */
+                buf[blen] = '\0';
+                ws[nw].word = strdup(buf[0] == ' ' ? buf + 1 : buf);
+                ws[nw].t0 = (open_ts >= 0 ? open_ts : 0) * frame_sec;
+                ws[nw].t1 = ws[nw].t0;
+                if (ws[nw].word) nw++;
+                blen = 0;
+            }
+            word_open = 1;
+            if (blen < sizeof(buf) - 2) { buf[blen++] = ' '; }
+            piece += 3;
+        } else if (!word_open) {
+            word_open = 1;                        /* continuazione senza ▁ */
+        }
+        const size_t pl = strlen(piece);
+        if (blen + pl < sizeof(buf) - 1) { memcpy(buf + blen, piece, pl); blen += pl; }
+    }
+    if (word_open && blen > 0) {
+        buf[blen] = '\0';
+        ws[nw].word = strdup(buf[0] == ' ' ? buf + 1 : buf);
+        ws[nw].t0 = (open_ts >= 0 ? open_ts : 0) * frame_sec;
+        ws[nw].t1 = ws[nw].t0;
+        if (ws[nw].word) nw++;
+    }
+    if (nw == 0) { free(ws); return 0; }
+    *out = ws;
+    *n_out = nw;
+    return 0;
+}
+
 /* Trascrizione di UN segmento (audio intero o fetta tra due silenzi). */
 static char *transcribe_segment(mynah_model *m, const float *samples, size_t n_samples,
                                 int prompt, int right, const char *lang, char *lang_out,
@@ -557,19 +632,23 @@ static char *transcribe_segment(mynah_model *m, const float *samples, size_t n_s
     int *tokens = NULL, *frames = NULL;
     if (m->is_aed) {
         int pids[MYNAH_AED_PROMPT_MAX];
-        const int n_p = aed_build_prompt(m, lang, pids);
+        const int n_p = aed_build_prompt(m, lang, pids, words != NULL);
         if (n_p < 0) { free(feats); return NULL; }
         float *enc = mynah_encoder_forward(&m->enc, feats, valid, m->feat.n_mels, -1,
                                            m->left_ctx, right, &T_enc);
         free(feats);
         if (!enc) return NULL;
-        const int cap = T_enc + m->aed.max_gen_delta;
+        /* coi timestamp ogni parola costa 2 token <|N|> in più */
+        const int cap = (words ? 3 * T_enc : T_enc) + m->aed.max_gen_delta;
         tokens = malloc((size_t)cap * sizeof(int));
         if (tokens)
             n_tok = mynah_aed_decode(&m->aed, enc, T_enc, pids, n_p, m->aed_eos,
                                      tokens, cap);
         free(enc);
         if (n_tok < 0) { free(tokens); return NULL; }
+        if (words)
+            aed_words_from_tokens(&m->tok, tokens, n_tok, m->frame_sec,
+                                  words, n_words);
     } else if (m->use_ctc) {
         float *enc = mynah_encoder_forward_raw(&m->enc, feats, valid, m->feat.n_mels,
                                                m->left_ctx, right, &T_enc);
