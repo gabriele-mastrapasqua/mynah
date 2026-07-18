@@ -13,6 +13,7 @@
 | parakeet-rnnt-0.6b / ctc-0.6b | parakeet-rnnt/ctc | EN, lowercase |
 | parakeet-rnnt-1.1b / ctc-1.1b | parakeet-rnnt/ctc | EN, 42L — convertiti senza modifiche |
 | canary-180m-flash / 1b-flash | canary-aed | ASR en/de/es/fr + **traduzione** + word-ts |
+| canary-1b-v2 | canary-aed | ASR **25 lingue EU** (it!) + traduzione en↔24, ITN; word-ts no (allineatore esterno, TODO) |
 
 Tutti con: int8/int4 (`mynah quantize`), Metal, batch, segmentazione file lunghi,
 server REST/WS. RTF misurati in [benchmarks.md](benchmarks.md).

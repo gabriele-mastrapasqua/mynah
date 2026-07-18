@@ -10,6 +10,7 @@
 #include "decoder_aed.h"
 #include "decoder_ctc.h"
 #include "encoder.h"
+#include "engine.h"
 #include "features.h"
 #include "threads.h"
 #include "tokenizer.h"
@@ -27,7 +28,8 @@ struct mynah_model {
     mynah_encoder enc;
     mynah_decoder dec;
     mynah_ctc ctc;                  /* head CTC (hybrid o CTC puro); w NULL se assente */
-    int use_ctc, ctc_only;
+    const mynah_engine *engine;     /* decoder attivo (vtable, vedi engine.h)  */
+    const mynah_engine *engine_dflt;/* engine di default del modello           */
     mynah_aed aed;                  /* decoder AED (Canary); layers NULL se assente */
     int is_aed, aed_eos, aed_ts;    /* aed_ts: supporta i token <|timestamp|> */
     char aed_target[8];             /* lingua di uscita ("" = come la sorgente) */
@@ -94,6 +96,54 @@ static const char *jstr(const cJSON *o, const char *k, int *bad) {
     return j && cJSON_IsString(j) ? j->valuestring : "";
 }
 
+static int aed_build_prompt(const mynah_model *m, const char *lang, int *ids, int want_ts);
+
+/* --------------------------------------------------------- engine concreti
+ * Decodificano l'output encoder di un segmento in token (vedi engine.h).
+ * Vivono qui perché consumano gli internals del modello; quando arriverà un
+ * engine con stato proprio (Whisper-style) migrerà in un suo modulo. */
+
+static int eng_decode_rnnt(struct mynah_model *m, const float *enc, int T,
+                           const char *lang, int want_ts, int **tokens, int **frames) {
+    (void)lang;
+    mynah_dec_state *s = malloc(sizeof(*s));
+    if (!s) return -1;
+    mynah_dec_state_reset(&m->dec, s);
+    const int cap = T * m->dec.max_symbols;
+    *tokens = malloc((size_t)cap * sizeof(int));
+    *frames = want_ts && *tokens ? malloc((size_t)cap * sizeof(int)) : NULL;
+    const int n = *tokens ? mynah_greedy_decode(&m->dec, s, enc, T, *tokens,
+                                                *frames, cap) : -1;
+    free(s);
+    return n;
+}
+
+static int eng_decode_ctc(struct mynah_model *m, const float *enc, int T,
+                          const char *lang, int want_ts, int **tokens, int **frames) {
+    (void)lang;
+    *tokens = malloc((size_t)T * sizeof(int));       /* CTC: <= 1 token/frame */
+    *frames = want_ts && *tokens ? malloc((size_t)T * sizeof(int)) : NULL;
+    return *tokens ? mynah_ctc_decode(&m->ctc, enc, T, *tokens, *frames, T) : -1;
+}
+
+static int eng_decode_aed(struct mynah_model *m, const float *enc, int T,
+                          const char *lang, int want_ts, int **tokens, int **frames) {
+    int pids[MYNAH_AED_PROMPT_MAX];
+    const int ts = want_ts && m->aed_ts;             /* v2: niente <|timestamp|> */
+    const int n_p = aed_build_prompt(m, lang, pids, ts);
+    if (n_p <= 0) return -1;
+    /* coi timestamp ogni parola costa 2 token <|N|> in più */
+    const int cap = (ts ? 3 * T : T) + m->aed.max_gen_delta;
+    *frames = NULL;                                  /* tempi nei token <|N|> */
+    *tokens = malloc((size_t)cap * sizeof(int));
+    return *tokens ? mynah_aed_decode(&m->aed, enc, T, pids, n_p, m->aed_eos,
+                                      *tokens, cap) : -1;
+}
+
+static const mynah_engine ENG_RNNT = {"rnnt-tdt", 0, eng_decode_rnnt};
+static const mynah_engine ENG_CTC = {"ctc", 1, eng_decode_ctc};
+static const mynah_engine ENG_AED = {"aed", 0, eng_decode_aed};
+
 mynah_model *mynah_load(const char *model_dir) { return mynah_load_quant(model_dir, MYNAH_QUANT_F32); }
 
 mynah_model *mynah_load_quant(const char *model_dir, int quant) {
@@ -155,14 +205,14 @@ mynah_model *mynah_load_quant(const char *model_dir, int quant) {
             goto fail;
         }
         m->is_aed = 1;
+        m->engine_dflt = &ENG_AED;
     } else if (strcmp(dec_type, "ctc") == 0) {
         /* CTC puro: niente prednet/joint, la head È il decoder */
         if (mynah_ctc_init(&m->ctc, m->weights) != 0) {
             fprintf(stderr, "mynah: head CTC mancante\n");
             goto fail;
         }
-        m->use_ctc = 1;
-        m->ctc_only = 1;
+        m->engine_dflt = &ENG_CTC;
     } else {
         int durations[MYNAH_MAX_DURATIONS];
         int n_durations = 0;
@@ -178,7 +228,9 @@ mynah_model *mynah_load_quant(const char *model_dir, int quant) {
             goto fail;
         }
         mynah_ctc_init(&m->ctc, m->weights);   /* head ausiliaria hybrid, opzionale */
+        m->engine_dflt = &ENG_RNNT;
     }
+    m->engine = m->engine_dflt;
 
     snprintf(path, sizeof(path), "%s/tokens.json", model_dir);
     if (mynah_tokenizer_load(&m->tok, path) != 0) goto fail;
@@ -289,10 +341,10 @@ int mynah_set_decoder(mynah_model *m, const char *name) {
             fprintf(stderr, "mynah: il modello non ha una head CTC\n");
             return -1;
         }
-        m->use_ctc = 1;
+        m->engine = &ENG_CTC;
         return 0;
     }
-    m->use_ctc = m->ctc_only;   /* CTC puro: il default È la head CTC */
+    m->engine = m->engine_dflt;   /* CTC puro: il default È già la head CTC */
     return strcmp(name, "default") == 0 ? 0 : -1;
 }
 
@@ -306,6 +358,7 @@ static int resolve_prompt(const mynah_model *m, const char *lang) {
 }
 
 static int aed_build_prompt(const mynah_model *m, const char *lang, int *ids, int want_ts);
+
 
 int mynah_lookaheads(const mynah_model *m, int out[8]) {
     memcpy(out, m->lookaheads, sizeof(m->lookaheads));
@@ -336,38 +389,20 @@ static void batch_decode_worker(void *ctx, int b) {
     batch_ctx *c = ctx;
     mynah_model *m = c->m;
     if (!c->encs[b]) return;
-    int n_tok = 0;
-    int *tokens = NULL;
-    if (m->is_aed) {
-        int pids[MYNAH_AED_PROMPT_MAX];
-        const int n_p = aed_build_prompt(m, c->langs ? c->langs[b] : NULL, pids, 0);
-        if (n_p <= 0) return;
-        const int cap = c->t_encs[b] + m->aed.max_gen_delta;
-        tokens = malloc((size_t)cap * sizeof(int));
-        if (tokens)
-            n_tok = mynah_aed_decode(&m->aed, c->encs[b], c->t_encs[b], pids, n_p,
-                                     m->aed_eos, tokens, cap);
-        if (n_tok < 0) { free(tokens); return; }
-    } else if (m->use_ctc && m->ctc.d_in == m->enc.d_out) {
-        /* CTC puro: encoder_post senza projector = encoder out */
-        tokens = malloc((size_t)c->t_encs[b] * sizeof(int));
-        if (tokens)
-            n_tok = mynah_ctc_decode(&m->ctc, c->encs[b], c->t_encs[b], tokens, NULL,
-                                     c->t_encs[b]);
-    } else {
-        mynah_dec_state *s = malloc(sizeof(*s));
-        if (!s) return;
-        mynah_dec_state_reset(&m->dec, s);
-        const int cap = c->t_encs[b] * m->dec.max_symbols;
-        tokens = malloc((size_t)cap * sizeof(int));
-        if (tokens)
-            n_tok = mynah_greedy_decode(&m->dec, s, c->encs[b], c->t_encs[b],
-                                        tokens, NULL, cap);
-        free(s);
-    }
-    c->texts[b] = mynah_detokenize(&m->tok, tokens, n_tok,
-                                   c->langs_out ? c->langs_out[b] : NULL);
+    /* il batch encoder produce l'output POST projector: l'engine CTC (che vuole
+     * il raw) è valido solo quando post == raw (CTC puro, niente projector) */
+    const mynah_engine *eng = m->engine;
+    if (eng->raw_encoder && m->ctc.d_in != m->enc.d_out)
+        eng = m->engine_dflt;
+    int *tokens = NULL, *frames = NULL;
+    const int n_tok = eng->decode(m, c->encs[b], c->t_encs[b],
+                                  c->langs ? c->langs[b] : NULL, 0,
+                                  &tokens, &frames);
+    if (n_tok >= 0)
+        c->texts[b] = mynah_detokenize(&m->tok, tokens, n_tok,
+                                       c->langs_out ? c->langs_out[b] : NULL);
     free(tokens);
+    free(frames);
 }
 
 int mynah_transcribe_batch(mynah_model *m, const float *const *samples,
@@ -720,60 +755,31 @@ static char *transcribe_segment(mynah_model *m, const float *samples, size_t n_s
     float *feats = mynah_log_mel(&m->feat, samples, n_samples, &T_mel, &valid);
     if (!feats) return NULL;
 
-    int T_enc, n_tok = 0;
-    int *tokens = NULL, *frames = NULL;
-    if (m->is_aed) {
-        int pids[MYNAH_AED_PROMPT_MAX];
-        const int want_ts = words != NULL && m->aed_ts;
-        const int n_p = aed_build_prompt(m, lang, pids, want_ts);
-        if (n_p <= 0) { free(feats); return NULL; }
-        float *enc = mynah_encoder_forward(&m->enc, feats, valid, m->feat.n_mels, -1,
-                                           m->left_ctx, right, &T_enc);
-        free(feats);
-        if (!enc) return NULL;
-        /* coi timestamp ogni parola costa 2 token <|N|> in più */
-        const int cap = (words ? 3 * T_enc : T_enc) + m->aed.max_gen_delta;
-        tokens = malloc((size_t)cap * sizeof(int));
-        if (tokens)
-            n_tok = mynah_aed_decode(&m->aed, enc, T_enc, pids, n_p, m->aed_eos,
-                                     tokens, cap);
-        free(enc);
-        if (n_tok < 0) { free(tokens); return NULL; }
-        if (want_ts)
-            aed_words_from_tokens(&m->tok, tokens, n_tok, m->frame_sec,
-                                  words, n_words);
-    } else if (m->use_ctc) {
-        float *enc = mynah_encoder_forward_raw(&m->enc, feats, valid, m->feat.n_mels,
-                                               m->left_ctx, right, &T_enc);
-        free(feats);
-        if (!enc) return NULL;
-        tokens = malloc((size_t)T_enc * sizeof(int));       /* CTC: <= 1 token/frame */
-        frames = words && tokens ? malloc((size_t)T_enc * sizeof(int)) : NULL;
-        if (tokens)
-            n_tok = mynah_ctc_decode(&m->ctc, enc, T_enc, tokens, frames, T_enc);
-        free(enc);
-    } else {
-        float *enc = mynah_encoder_forward(&m->enc, feats, valid, m->feat.n_mels, prompt,
-                                           m->left_ctx, right, &T_enc);
-        free(feats);
-        if (!enc) return NULL;
+    const mynah_engine *eng = m->engine;
+    int T_enc;
+    float *enc = eng->raw_encoder
+        ? mynah_encoder_forward_raw(&m->enc, feats, valid, m->feat.n_mels,
+                                    m->left_ctx, right, &T_enc)
+        : mynah_encoder_forward(&m->enc, feats, valid, m->feat.n_mels, prompt,
+                                m->left_ctx, right, &T_enc);
+    free(feats);
+    if (!enc) return NULL;
 
-        mynah_dec_state *s = malloc(sizeof(*s));
-        if (!s) { free(enc); return NULL; }
-        mynah_dec_state_reset(&m->dec, s);
-        const int cap = T_enc * m->dec.max_symbols;
-        tokens = malloc((size_t)cap * sizeof(int));
-        frames = words && tokens ? malloc((size_t)cap * sizeof(int)) : NULL;
-        if (tokens)
-            n_tok = mynah_greedy_decode(&m->dec, s, enc, T_enc, tokens, frames, cap);
-        free(enc);
-        free(s);
-    }
+    int *tokens = NULL, *frames = NULL;
+    const int n_tok = eng->decode(m, enc, T_enc, lang, words != NULL,
+                                  &tokens, &frames);
+    free(enc);
+    if (n_tok < 0) { free(tokens); free(frames); return NULL; }
 
     char *text = mynah_detokenize(&m->tok, tokens, n_tok, lang_out);
-    if (text && words && frames)
-        mynah_detokenize_words(&m->tok, tokens, frames, n_tok, m->frame_sec,
-                               words, n_words);
+    if (text && words) {
+        if (frames)
+            mynah_detokenize_words(&m->tok, tokens, frames, n_tok, m->frame_sec,
+                                   words, n_words);
+        else if (m->is_aed && m->aed_ts)   /* AED: tempi nei token <|N|> */
+            aed_words_from_tokens(&m->tok, tokens, n_tok, m->frame_sec,
+                                  words, n_words);
+    }
     free(tokens);
     free(frames);
     return text;

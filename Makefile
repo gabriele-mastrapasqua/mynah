@@ -73,7 +73,7 @@ test: $(TESTS) mynah examples/minimal
 	@for m in $(MODEL_DIR) $(PARAKEET_DIR) $(PARAKEET110_DIR) \
 	          models/parakeet-rnnt-0.6b models/parakeet-ctc-0.6b \
 	          models/parakeet-rnnt-1.1b models/parakeet-ctc-1.1b \
-	          models/canary-180m-flash models/canary-1b-flash; do \
+	          models/canary-180m-flash models/canary-1b-flash models/canary-1b-v2; do \
 	  sh tests/test_e2e.sh $$m; rc=$$?; \
 	  if [ $$rc -eq 77 ]; then echo "SKIP e2e $$m: non scaricato (HF-native: scripts/download_model.sh + convert_nemo.py; .nemo: curl dal repo HF + convert_nemo.py — vedi docs/models.md)"; \
 	  elif [ $$rc -ne 0 ]; then exit $$rc; fi; \

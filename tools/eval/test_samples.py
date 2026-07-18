@@ -39,6 +39,8 @@ MODELS = {
         "tag": "auto"},
     "parakeet-tdt_ctc-110m": {"langs": ["en"], "tag": "auto"},
     "canary-180m-flash": {"langs": ["en", "de", "es", "fr"], "tag": "short"},
+    "canary-1b-v2": {"langs": ["it", "en", "de", "es", "fr", "pt", "nl", "pl", "ru", "uk"],
+                     "tag": "short"},
 }
 LOCALE = {"it": "it-IT", "en": "en-US", "de": "de-DE", "es": "es-ES", "fr": "fr-FR",
           "pt": "pt-BR", "nl": "nl-NL", "pl": "pl-PL", "ru": "ru-RU", "uk": "uk-UA",
