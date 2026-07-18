@@ -4,6 +4,11 @@
 
 # Mynah ASR
 
+[![CI](https://github.com/gabriele-mastrapasqua/mynah/actions/workflows/ci.yml/badge.svg)](https://github.com/gabriele-mastrapasqua/mynah/actions/workflows/ci.yml)
+[![Code Quality](https://github.com/gabriele-mastrapasqua/mynah/actions/workflows/codeql.yml/badge.svg)](https://github.com/gabriele-mastrapasqua/mynah/actions/workflows/codeql.yml)
+[![Memory Safety](https://github.com/gabriele-mastrapasqua/mynah/actions/workflows/safety.yml/badge.svg)](https://github.com/gabriele-mastrapasqua/mynah/actions/workflows/safety.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+
 **A fast native C inference engine for speech recognition & translation** —
 llama.cpp-style: streaming and offline, CPU/Metal/CUDA, no Python at runtime.
 
