@@ -31,7 +31,7 @@ typedef _Float16 f16;
 static id<MTLDevice> g_dev;
 static id<MTLCommandQueue> g_queue;
 static id<MTLComputePipelineState> g_silu, g_glu, g_dwconv, g_lnorm, g_addbias, g_smax,
-                                   g_cvt, g_resadd, g_ln32h, g_ln32f;
+                                   g_cvt, g_resadd, g_ln32h, g_ln32f, g_caffine;
 static pthread_mutex_t g_mu = PTHREAD_MUTEX_INITIALIZER;
 
 typedef struct {
@@ -63,17 +63,27 @@ static const char *SHADER_SRC =
     "    float b = float(x[t * 2 * d + d + c]);\n"
     "    g[i] = half(a / (1.0f + exp(-b)));\n"
     "}\n"
-    /* depthwise conv causale k=9: c[t,i] = sum_j w[i,j] * g[t-8+j, i] */
+    /* depthwise conv k=9: c[t,i] = b[i] + sum_j w[i,j] * g[t-pad+j, i]
+       (pad 8 = causale, 4 = 'same'; has_b 0 -> bias non letto) */
     "kernel void dwconv9(device const half *g [[buffer(0)]], device const half *w [[buffer(1)]],\n"
     "                    device half *c [[buffer(2)]], constant uint &d [[buffer(3)]],\n"
-    "                    constant uint &T [[buffer(4)]], uint i [[thread_position_in_grid]]) {\n"
+    "                    constant uint &T [[buffer(4)]], constant uint &pad [[buffer(5)]],\n"
+    "                    device const half *b [[buffer(6)]], constant uint &has_b [[buffer(7)]],\n"
+    "                    uint i [[thread_position_in_grid]]) {\n"
     "    uint t = i / d, ch = i % d;\n"
-    "    float acc = 0.0f;\n"
+    "    float acc = has_b ? float(b[ch]) : 0.0f;\n"
     "    for (uint j = 0; j < 9; j++) {\n"
-    "        int src = (int)t - 8 + (int)j;\n"
-    "        if (src >= 0) acc += float(w[ch * 9 + j]) * float(g[(uint)src * d + ch]);\n"
+    "        int src = (int)t - (int)pad + (int)j;\n"
+    "        if (src >= 0 && src < (int)T) acc += float(w[ch * 9 + j]) * float(g[(uint)src * d + ch]);\n"
     "    }\n"
     "    c[i] = half(acc);\n"
+    "}\n"
+    /* affine per-canale (BatchNorm foldata): x = x * s[ch] + b[ch] */
+    "kernel void caffine(device half *x [[buffer(0)]], device const half *s [[buffer(1)]],\n"
+    "                    device const half *b [[buffer(2)]], constant uint &d [[buffer(3)]],\n"
+    "                    uint i [[thread_position_in_grid]]) {\n"
+    "    uint ch = i % d;\n"
+    "    x[i] = half(float(x[i]) * float(s[ch]) + float(b[ch]));\n"
     "}\n"
     /* Riduzione per-riga condivisa dalle layernorm: un THREADGROUP per riga
        (letture coalescenti + simd_sum), non un thread per riga (stride d,
@@ -111,7 +121,8 @@ static const char *SHADER_SRC =
     "                    uint i [[thread_position_in_grid]]) {\n"
     "    o[i] = half(float(q[i]) + float(b[i % d]));\n"
     "}\n"
-    /* softmax con rel_shift in forma chiusa e finestra chunked_limited.\n"
+    /* softmax con rel_shift in forma chiusa e finestra chunked_limited
+       (chunk == 0 -> attention full, modelli offline).
        scores [H,T,K] (ac), bd [H,T,P]; P = 2L-1, gq = cached + t (qui cached=0). */
     "kernel void smax_shift(device half *sc [[buffer(0)]], device const half *bd [[buffer(1)]],\n"
     "                       constant uint &T [[buffer(2)]], constant uint &K [[buffer(3)]],\n"
@@ -121,9 +132,12 @@ static const char *SHADER_SRC =
     "    uint h = idx / T, t = idx % T;\n"
     "    device half *srow = sc + (h * T + t) * K;\n"
     "    device const half *brow = bd + (h * T + t) * P;\n"
-    "    uint tc = t / chunk;\n"
-    "    uint j0 = (tc >= lc) ? (tc - lc) * chunk : 0;\n"
-    "    uint j1 = min((tc + 1) * chunk, K);\n"
+    "    uint j0 = 0, j1 = K;\n"
+    "    if (chunk > 0) {\n"
+    "        uint tc = t / chunk;\n"
+    "        j0 = (tc >= lc) ? (tc - lc) * chunk : 0;\n"
+    "        j1 = min((tc + 1) * chunk, K);\n"
+    "    }\n"
     "    int base = (int)K - 1 - (int)t;\n"          /* p = K-1 + j - t */
     "    float mx = -3.0e38f;\n"
     "    for (uint j = j0; j < j1; j++) {\n"
@@ -198,10 +212,11 @@ int mynah_metal_available(void) {
             id<MTLComputePipelineState> __strong *ps[] = {&g_silu, &g_glu, &g_dwconv,
                                                           &g_lnorm, &g_addbias, &g_smax,
                                                           &g_cvt, &g_resadd, &g_ln32h,
-                                                          &g_ln32f};
+                                                          &g_ln32f, &g_caffine};
             const char *names[] = {"silu", "glu", "dwconv9", "lnorm", "addbias",
-                                   "smax_shift", "cvt32to16", "resadd", "ln32h", "ln32f"};
-            for (int i = 0; i < 10 && lib; i++) {
+                                   "smax_shift", "cvt32to16", "resadd", "ln32h", "ln32f",
+                                   "caffine"};
+            for (int i = 0; i < 11 && lib; i++) {
                 id<MTLFunction> fn = [lib newFunctionWithName:
                     [NSString stringWithUTF8String:names[i]]];
                 if (fn) *ps[i] = [g_dev newComputePipelineStateWithFunction:fn error:&err];
@@ -212,7 +227,8 @@ int mynah_metal_available(void) {
     pthread_mutex_unlock(&g_mu);
     return g_dev != nil && g_queue != nil && g_silu != nil && g_glu != nil &&
            g_dwconv != nil && g_lnorm != nil && g_addbias != nil && g_smax != nil &&
-           g_cvt != nil && g_resadd != nil && g_ln32h != nil && g_ln32f != nil;
+           g_cvt != nil && g_resadd != nil && g_ln32h != nil && g_ln32f != nil &&
+           g_caffine != nil;
 }
 
 /* conversioni f32<->f16 bulk via vImage (NEON, ~20 GB/s vs loop scalare) */
@@ -439,12 +455,32 @@ static void encode_resadd(id<MTLCommandBuffer> cb, id<MTLBuffer> x32, id<MTLBuff
     [enc endEncoding];
 }
 
-/* FFN fp16: out16 = SiLU(xn @ W1^T) @ W2^T (intermedio in g_mid) */
+/* bias broadcast per riga, in place: buf[t*d+i] += bias[i] (no-op se bias NULL) */
+static void encode_addbias(id<MTLCommandBuffer> cb, id<MTLBuffer> buf, size_t byte_off,
+                           const float *bias, int T, int d) {
+    if (!bias) return;
+    id<MTLBuffer> bb = weight_buffer_f16(bias, (size_t)d);
+    id<MTLComputeCommandEncoder> enc = [cb computeCommandEncoder];
+    const uint32_t du = (uint32_t)d;
+    [enc setComputePipelineState:g_addbias];
+    [enc setBuffer:buf offset:byte_off atIndex:0];
+    [enc setBuffer:bb offset:0 atIndex:1];
+    [enc setBuffer:buf offset:byte_off atIndex:2];
+    [enc setBytes:&du length:4 atIndex:3];
+    [enc dispatchThreads:MTLSizeMake((size_t)T * (size_t)d, 1, 1)
+        threadsPerThreadgroup:MTLSizeMake(256, 1, 1)];
+    [enc endEncoding];
+}
+
+/* FFN fp16: out16 = SiLU(xn @ W1^T + b1) @ W2^T + b2 (intermedio in g_mid) */
 static void encode_ffn16(id<MTLCommandBuffer> cb, id<MTLBuffer> xn, id<MTLBuffer> out16,
-                         id<MTLBuffer> w1, id<MTLBuffer> w2, int T, int k, int ffn) {
+                         id<MTLBuffer> w1, id<MTLBuffer> w2, const float *b1,
+                         const float *b2, int T, int k, int ffn) {
     encode_gemm(cb, mat16(xn, T, k), mat16(w1, ffn, k), mat16(g_mid, T, ffn), T, ffn, k);
+    encode_addbias(cb, g_mid, 0, b1, T, ffn);
     encode_silu(cb, g_mid, (size_t)T * (size_t)ffn);
     encode_gemm(cb, mat16(g_mid, T, ffn), mat16(w2, k, ffn), mat16(out16, T, k), T, k, ffn);
+    encode_addbias(cb, out16, 0, b2, T, k);
 }
 
 /* Attention fp16 come v3: qkv -> +bias_u/v -> rk = pe@relk^T -> per-head ac/bd
@@ -473,6 +509,9 @@ static void encode_att16(id<MTLCommandBuffer> cb, id<MTLBuffer> xn, id<MTLBuffer
     encode_gemm(cb, mx, mat16(bwq, d, d), mat16_off(sb, 0 * td, T, d, d), T, d, d);
     encode_gemm(cb, mx, mat16(bwk, d, d), mat16_off(sb, 1 * td, T, d, d), T, d, d);
     encode_gemm(cb, mx, mat16(bwv, d, d), mat16_off(sb, 2 * td, T, d, d), T, d, d);
+    encode_addbias(cb, sb, 0 * td, L->q_b, T, d);
+    encode_addbias(cb, sb, 1 * td, L->k_b, T, d);
+    encode_addbias(cb, sb, 2 * td, L->v_b, T, d);
     encode_gemm(cb, mat16(g_pe16, P, d), mat16(brel, d, d),
                 mat16_off(sb, rk_off, P, d, d), P, d, d);
 
@@ -509,7 +548,9 @@ static void encode_att16(id<MTLCommandBuffer> cb, id<MTLBuffer> xn, id<MTLBuffer
     {   /* softmax + rel_shift + finestra */
         id<MTLComputeCommandEncoder> enc = [cb computeCommandEncoder];
         const uint32_t Tu = (uint32_t)T, Ku = (uint32_t)K, Pu = (uint32_t)P;
-        const uint32_t chunk = (uint32_t)(right + 1), lc = (uint32_t)(left / (right + 1));
+        /* left < 0: attention full -> chunk 0 (finestra intera nello shader) */
+        const uint32_t chunk = left >= 0 ? (uint32_t)(right + 1) : 0u;
+        const uint32_t lc = left >= 0 ? (uint32_t)(left / (right + 1)) : 0u;
         const float scale = 1.0f / sqrtf((float)dk);
         [enc setComputePipelineState:g_smax];
         [enc setBuffer:sb offset:sc_off atIndex:0];
@@ -538,25 +579,33 @@ static void encode_att16(id<MTLCommandBuffer> cb, id<MTLBuffer> xn, id<MTLBuffer
         [mm encodeToCommandBuffer:cb leftMatrix:ph rightMatrix:vh resultMatrix:ch];
     }
 
-    /* out = ctx @ wo^T */
+    /* out = ctx @ wo^T (+ o_b) */
     encode_gemm(cb, mat16_off(sb, ctx_off, T, d, d), mat16(bwo, d, d),
                 mat16(out16, T, d), T, d, d);
+    encode_addbias(cb, out16, 0, L->o_b, T, d);
 }
 
-/* Conv module fp16 come v3: pw1 -> GLU -> dwconv9 -> LN -> SiLU -> pw2.
+/* Conv module fp16 come v3: pw1(+b) -> GLU -> dwconv9(+b, pad causale o 'same')
+ * -> LN | BN-affine -> SiLU -> pw2(+b).
  * Scratch in g_mid: h2 [T,2d] @0, g [T,d] @2td, c [T,d] @3td. */
 static void encode_conv16(id<MTLCommandBuffer> cb, id<MTLBuffer> xn, id<MTLBuffer> out16,
-                          const mynah_metal_layer_w *L, int T, int d) {
+                          const mynah_metal_layer_w *L, int T, int d, int conv_pad) {
     const size_t td = (size_t)T * (size_t)d * sizeof(f16);
     id<MTLBuffer> b1 = weight_buffer_f16(L->pw1, (size_t)2 * (size_t)d * (size_t)d);
     id<MTLBuffer> bw = weight_buffer_f16(L->dw9, (size_t)d * 9u);
-    id<MTLBuffer> bg = weight_buffer_f16(L->cnorm_w, (size_t)d);
-    id<MTLBuffer> bb = weight_buffer_f16(L->cnorm_b, (size_t)d);
+    id<MTLBuffer> bg = L->cnorm_scale ? weight_buffer_f16(L->cnorm_scale, (size_t)d)
+                                      : weight_buffer_f16(L->cnorm_w, (size_t)d);
+    id<MTLBuffer> bb = L->cnorm_scale ? weight_buffer_f16(L->cnorm_shift, (size_t)d)
+                                      : weight_buffer_f16(L->cnorm_b, (size_t)d);
     id<MTLBuffer> b2 = weight_buffer_f16(L->pw2, (size_t)d * (size_t)d);
+    /* bias dwconv opzionale: se assente si binda bw (mai letto, has_b=0) */
+    id<MTLBuffer> bdw = L->dw_b ? weight_buffer_f16(L->dw_b, (size_t)d) : bw;
     id<MTLBuffer> mb = g_mid;
 
     const uint32_t du = (uint32_t)d, Tu = (uint32_t)T;
+    const uint32_t pad = (uint32_t)conv_pad, has_dwb = L->dw_b ? 1u : 0u;
     encode_gemm(cb, mat16(xn, T, d), mat16(b1, 2 * d, d), mat16(mb, T, 2 * d), T, 2 * d, d);
+    encode_addbias(cb, mb, 0, L->pw1_b, T, 2 * d);
     id<MTLComputeCommandEncoder> enc = [cb computeCommandEncoder];
     /* GLU: mb[0..2td) -> mb[2td..3td) */
     [enc setComputePipelineState:g_glu];
@@ -572,22 +621,37 @@ static void encode_conv16(id<MTLCommandBuffer> cb, id<MTLBuffer> xn, id<MTLBuffe
     [enc setBuffer:mb offset:3 * td atIndex:2];
     [enc setBytes:&du length:4 atIndex:3];
     [enc setBytes:&Tu length:4 atIndex:4];
+    [enc setBytes:&pad length:4 atIndex:5];
+    [enc setBuffer:bdw offset:0 atIndex:6];
+    [enc setBytes:&has_dwb length:4 atIndex:7];
     [enc dispatchThreads:MTLSizeMake((size_t)T * (size_t)d, 1, 1)
         threadsPerThreadgroup:MTLSizeMake(256, 1, 1)];
-    /* LN + SiLU in place su c (LN: un threadgroup per riga) */
-    [enc setComputePipelineState:g_lnorm];
-    [enc setBuffer:mb offset:3 * td atIndex:0];
-    [enc setBuffer:bg offset:0 atIndex:1];
-    [enc setBuffer:bb offset:0 atIndex:2];
-    [enc setBytes:&du length:4 atIndex:3];
-    [enc dispatchThreadgroups:MTLSizeMake((size_t)T, 1, 1)
-        threadsPerThreadgroup:MTLSizeMake(256, 1, 1)];
+    if (L->cnorm_scale) {
+        /* BatchNorm foldata: affine per-canale in place su c */
+        [enc setComputePipelineState:g_caffine];
+        [enc setBuffer:mb offset:3 * td atIndex:0];
+        [enc setBuffer:bg offset:0 atIndex:1];
+        [enc setBuffer:bb offset:0 atIndex:2];
+        [enc setBytes:&du length:4 atIndex:3];
+        [enc dispatchThreads:MTLSizeMake((size_t)T * (size_t)d, 1, 1)
+            threadsPerThreadgroup:MTLSizeMake(256, 1, 1)];
+    } else {
+        /* LN in place su c (un threadgroup per riga) */
+        [enc setComputePipelineState:g_lnorm];
+        [enc setBuffer:mb offset:3 * td atIndex:0];
+        [enc setBuffer:bg offset:0 atIndex:1];
+        [enc setBuffer:bb offset:0 atIndex:2];
+        [enc setBytes:&du length:4 atIndex:3];
+        [enc dispatchThreadgroups:MTLSizeMake((size_t)T, 1, 1)
+            threadsPerThreadgroup:MTLSizeMake(256, 1, 1)];
+    }
     [enc setComputePipelineState:g_silu];
     [enc setBuffer:mb offset:3 * td atIndex:0];
     [enc dispatchThreads:MTLSizeMake((size_t)T * (size_t)d, 1, 1)
         threadsPerThreadgroup:MTLSizeMake(256, 1, 1)];
     [enc endEncoding];
     encode_gemm(cb, mat16_off(mb, 3 * td, T, d, d), mat16(b2, d, d), mat16(out16, T, d), T, d, d);
+    encode_addbias(cb, out16, 0, L->pw2_b, T, d);
 }
 
 /* Encoder intero su GPU: x [T,d] f32 aggiornato in place, un solo wait finale.
@@ -595,7 +659,7 @@ static void encode_conv16(id<MTLCommandBuffer> cb, id<MTLBuffer> xn, id<MTLBuffe
  * -> LN out. Residuo f32 (come CPU), blocchi f16 (come v3). */
 int mynah_metal_encoder_layers(const mynah_metal_layer_w *Ls, int n_layers,
                                float *x, const float *pe, int T, int d, int H,
-                               int ffn, int left, int right) {
+                               int ffn, int left, int right, int conv_pad) {
     if (T < MYNAH_METAL_MIN_T || n_layers <= 0 || !mynah_metal_available()) return -1;
     const int P = 2 * T - 1;
     const double tf0 = CFAbsoluteTimeGetCurrent();
@@ -633,11 +697,22 @@ int mynah_metal_encoder_layers(const mynah_metal_layer_w *Ls, int n_layers,
                                    (size_t)d * (size_t)d};
             for (int i = 0; i < 11 && ok; i++) ok = weight_buffer_f16(big[i], bign[i]) != nil;
             const float *small[] = {L->ln_ff1_w, L->ln_ff1_b, L->ln_att_w, L->ln_att_b,
-                                    L->ln_conv_w, L->ln_conv_b, L->cnorm_w, L->cnorm_b,
+                                    L->ln_conv_w, L->ln_conv_b,
+                                    L->cnorm_scale ? L->cnorm_scale : L->cnorm_w,
+                                    L->cnorm_scale ? L->cnorm_shift : L->cnorm_b,
                                     L->ln_ff2_w, L->ln_ff2_b, L->ln_out_w, L->ln_out_b,
                                     L->bias_u, L->bias_v};
             for (int i = 0; i < 14 && ok; i++) ok = weight_buffer_f16(small[i], (size_t)d) != nil;
             ok = ok && weight_buffer_f16(L->dw9, (size_t)d * 9u) != nil;
+            /* bias opzionali (use_bias true) */
+            const float *ob[] = {L->q_b, L->k_b, L->v_b, L->o_b, L->dw_b, L->pw2_b};
+            for (int i = 0; i < 6 && ok; i++)
+                if (ob[i]) ok = weight_buffer_f16(ob[i], (size_t)d) != nil;
+            if (ok && L->pw1_b) ok = weight_buffer_f16(L->pw1_b, 2u * (size_t)d) != nil;
+            if (ok && L->ff1_b1) ok = weight_buffer_f16(L->ff1_b1, (size_t)ffn) != nil;
+            if (ok && L->ff1_b2) ok = weight_buffer_f16(L->ff1_b2, (size_t)d) != nil;
+            if (ok && L->ff2_b1) ok = weight_buffer_f16(L->ff2_b1, (size_t)ffn) != nil;
+            if (ok && L->ff2_b2) ok = weight_buffer_f16(L->ff2_b2, (size_t)d) != nil;
         }
 
         if (ok) {
@@ -660,7 +735,8 @@ int mynah_metal_encoder_layers(const mynah_metal_layer_w *Ls, int n_layers,
                 /* ½ FFN1 */
                 encode_ln32(cb, x32, xn, LNW(ln_ff1_w), LNW(ln_ff1_b), T, d);
                 encode_ffn16(cb, xn, blk, weight_buffer_f16(L->ff1_w1, (size_t)ffn * (size_t)d),
-                             weight_buffer_f16(L->ff1_w2, (size_t)d * (size_t)ffn), T, d, ffn);
+                             weight_buffer_f16(L->ff1_w2, (size_t)d * (size_t)ffn),
+                             L->ff1_b1, L->ff1_b2, T, d, ffn);
                 encode_resadd(cb, x32, blk, 0.5f, nd);
                 /* MHSA */
                 encode_ln32(cb, x32, xn, LNW(ln_att_w), LNW(ln_att_b), T, d);
@@ -668,12 +744,13 @@ int mynah_metal_encoder_layers(const mynah_metal_layer_w *Ls, int n_layers,
                 encode_resadd(cb, x32, blk, 1.0f, nd);
                 /* Conv */
                 encode_ln32(cb, x32, xn, LNW(ln_conv_w), LNW(ln_conv_b), T, d);
-                encode_conv16(cb, xn, blk, L, T, d);
+                encode_conv16(cb, xn, blk, L, T, d, conv_pad);
                 encode_resadd(cb, x32, blk, 1.0f, nd);
                 /* ½ FFN2 + LN out (in place f32) */
                 encode_ln32(cb, x32, xn, LNW(ln_ff2_w), LNW(ln_ff2_b), T, d);
                 encode_ffn16(cb, xn, blk, weight_buffer_f16(L->ff2_w1, (size_t)ffn * (size_t)d),
-                             weight_buffer_f16(L->ff2_w2, (size_t)d * (size_t)ffn), T, d, ffn);
+                             weight_buffer_f16(L->ff2_w2, (size_t)d * (size_t)ffn),
+                             L->ff2_b1, L->ff2_b2, T, d, ffn);
                 encode_resadd(cb, x32, blk, 0.5f, nd);
                 encode_ln32(cb, x32, nil, LNW(ln_out_w), LNW(ln_out_b), T, d);
                 #undef LNW

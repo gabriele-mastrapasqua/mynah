@@ -52,6 +52,10 @@ decoder intercambiabili, streaming come cittadino di prima classe.
 | parakeet-rnnt/ctc-0.6b | 0.09 | 2.3 GB |
 | nemotron-3.5 (offline-chunked) | 0.108 | 2.4 GB |
 
+Con `--backend metal` (encoder su GPU, audio ~67 s warm): 110m 0.018→0.011,
+tdt-0.6b-v3 0.053→**0.033**, rnnt-0.6b 0.050→0.028, ctc-0.6b 0.042→0.022
+(−35…50%, testo identico alla CPU).
+
 Ogni stadio numerico è validato contro un oracolo numpy di riferimento
 (`make test`: mel bit-esatto, encoder a tolleranza f32, streaming ≡ offline).
 Roadmap completa: [PLAN.md](PLAN.md) · [TODO.md](TODO.md).

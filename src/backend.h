@@ -35,11 +35,19 @@ typedef struct {
     const float *ln_conv_w, *ln_conv_b, *pw1, *dw9, *cnorm_w, *cnorm_b, *pw2;
     const float *ln_ff2_w, *ln_ff2_b, *ff2_w1, *ff2_w2;
     const float *ln_out_w, *ln_out_b;
+    /* opzionali (NULL se assenti): bias dei linear (use_bias true: 110m, rnnt/ctc)
+     * e BatchNorm foldata del conv module (Parakeet: sostituisce cnorm_w/b) */
+    const float *ff1_b1, *ff1_b2, *ff2_b1, *ff2_b2;
+    const float *q_b, *k_b, *v_b, *o_b;
+    const float *pw1_b, *dw_b, *pw2_b;
+    const float *cnorm_scale, *cnorm_shift;
 } mynah_metal_layer_w;
 
+/* conv_pad: padding sinistro della depthwise (k-1 causale, (k-1)/2 'same').
+ * left < 0 = attention full (modelli offline). */
 int mynah_metal_encoder_layers(const mynah_metal_layer_w *Ls, int n_layers,
                                float *x, const float *pe, int T, int d, int H,
-                               int ffn, int left, int right);
+                               int ffn, int left, int right, int conv_pad);
 #endif
 
 #endif

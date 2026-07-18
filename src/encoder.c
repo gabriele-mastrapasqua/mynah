@@ -412,12 +412,11 @@ int mynah_encoder_layer(const mynah_encoder *enc, int li, float *x, int T,
 static int run_layers(const mynah_encoder *enc, float *x, int T, const float *pe,
                       int left_ctx, int right_ctx) {
 #ifdef MYNAH_METAL
-    /* Il kernel Metal implementa la semantica Nemotron (conv causale, LN sul conv
-     * module, finestra chunked): i modelli non-causali/BN/full-att restano su CPU. */
+    /* Il kernel Metal copre entrambe le semantiche: Nemotron (conv causale, LN,
+     * finestra chunked) e Parakeet (conv 'same', BN foldata, attention full,
+     * bias opzionali). Restano su CPU solo i pesi quantizzati e k != 9. */
     if (mynah_backend() == MYNAH_BACKEND_METAL && enc->conv_k == 9 &&
-        enc->layers[0].q_w.qtype == MYNAH_Q_F32 &&
-        enc->causal && !enc->layers[0].cnorm_scale && !enc->layers[0].q_b &&
-        left_ctx >= 0) {
+        enc->layers[0].q_w.qtype == MYNAH_Q_F32) {
         mynah_metal_layer_w *ws = malloc((size_t)enc->n_layers * sizeof(*ws));
         if (ws) {
             for (int li = 0; li < enc->n_layers; li++) {
@@ -436,11 +435,18 @@ static int run_layers(const mynah_encoder *enc, float *x, int T, const float *pe
                     .ln_ff2_w = L->ln_ff2_w, .ln_ff2_b = L->ln_ff2_b,
                     .ff2_w1 = L->ff2_w1.f32, .ff2_w2 = L->ff2_w2.f32,
                     .ln_out_w = L->ln_out_w, .ln_out_b = L->ln_out_b,
+                    .ff1_b1 = L->ff1_b1, .ff1_b2 = L->ff1_b2,
+                    .ff2_b1 = L->ff2_b1, .ff2_b2 = L->ff2_b2,
+                    .q_b = L->q_b, .k_b = L->k_b, .v_b = L->v_b, .o_b = L->o_b,
+                    .pw1_b = L->pw1_b, .dw_b = L->dw_b, .pw2_b = L->pw2_b,
+                    .cnorm_scale = L->cnorm_scale, .cnorm_shift = L->cnorm_shift,
                 };
             }
+            const int conv_pad = enc->causal ? enc->conv_k - 1 : (enc->conv_k - 1) / 2;
             const int rc = mynah_metal_encoder_layers(ws, enc->n_layers, x, pe, T,
                                                       enc->d_model, enc->n_heads,
-                                                      enc->ffn_dim, left_ctx, right_ctx);
+                                                      enc->ffn_dim, left_ctx, right_ctx,
+                                                      conv_pad);
             free(ws);
             if (rc == 0) return 0;
         }
@@ -855,11 +861,9 @@ int mynah_encoder_forward_batch(const mynah_encoder *enc, const float *const *fe
 #ifdef MYNAH_METAL
     /* Su Metal ogni segmento fa l'encoder intero su GPU (pesi residenti =
      * weight-stationary comunque); il packing paga solo sulle GEMM CPU.
-     * Stesso gate di run_layers: semantica Nemotron soltanto. */
-    if (mynah_backend() == MYNAH_BACKEND_METAL &&
-        enc->layers[0].q_w.qtype == MYNAH_Q_F32 &&
-        enc->causal && !enc->layers[0].cnorm_scale && !enc->layers[0].q_b &&
-        left_ctx >= 0) {
+     * Stesso gate di run_layers. */
+    if (mynah_backend() == MYNAH_BACKEND_METAL && enc->conv_k == 9 &&
+        enc->layers[0].q_w.qtype == MYNAH_Q_F32) {
         for (int b = 0, off = 0; b < batch; off += t_outs[b], b++)
             if (run_layers(enc, x + (size_t)off * (size_t)d, t_outs[b], pes[b],
                            left_ctx, right_ctx) != 0) {
