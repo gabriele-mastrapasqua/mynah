@@ -8,6 +8,7 @@ MODEL_DIR="${1:-models/nemotron-3.5-asr-streaming-0.6b}"
 ENGINE=$(sed -n 's/.*"engine": "\([^"]*\)".*/\1/p' "$MODEL_DIR/mynah.json")
 NAME=$(sed -n 's/.*"name": "\([^"]*\)".*/\1/p' "$MODEL_DIR/mynah.json")
 
+echo "--- e2e $NAME [$ENGINE]"
 fail=0
 check() { # wav, lang, expected substring
     out=$(./mynah transcribe -m "$MODEL_DIR" -i "$1" --lang "$2" 2>/dev/null)
@@ -47,18 +48,36 @@ elif [ "$ENGINE" = "parakeet-tdt" ]; then
     check tests/audio/test_fr.wav auto "la réunion commence à 9h dans la grande salle"
     check tests/audio/test_es.wav auto "la reunión empieza a las 9 en la sala grande"
 elif [ "$ENGINE" = "canary-aed" ]; then
-    # Canary Flash: ASR en/de/fr + speech translation (target-lang)
+    # Canary Flash: ASR nelle 4 lingue + matrice di traduzione src>tgt
     Q_WAV=tests/audio/test_en.wav
     Q_SUB="speech recognition test"
     SEG_TAIL="today"
     check tests/audio/test_en.wav en "Hello, this is a speech recognition test. The weather is nice today."
     check tests/audio/test_de.wav de "Die Besprechung beginnt um neun Uhr"
     check tests/audio/test_fr.wav fr "la réunion commence à neuf heures"
-    out=$(./mynah transcribe -m "$MODEL_DIR" -i tests/audio/test_en.wav --lang en --target-lang de 2>/dev/null)
-    case "$out" in
-        *"Spracherkennungstest"*) echo "e2e translate-de OK: $out" ;;
-        *) echo "e2e translate-de FAIL: $out"; fail=1 ;;
-    esac
+    check tests/audio/test_es.wav es "la reunión empieza a las nueve"
+    # coppie input > output atteso (substring; raccolte dagli output reali —
+    # greedy deterministico). fr>en: il 180m emette EOS subito (limite del
+    # modello, verificato anche con l'oracolo) -> solo sui modelli più grandi
+    TRX="en:de:Spracherkennungstest
+en:fr:reconnaissance
+en:es:reconocimiento de voz
+de:en:at nine o'clock
+es:en:nine o'clock"
+    [ "$NAME" = "canary-180m-flash" ] || TRX="$TRX
+fr:en:nine o'clock"
+    rm -f /tmp/mynah_trx_fail
+    printf '%s\n' "$TRX" | while IFS=: read -r src tgt want; do
+        [ -n "$src" ] || continue
+        out=$(./mynah transcribe -m "$MODEL_DIR" -i "tests/audio/test_$src.wav" \
+              --lang "$src" --target-lang "$tgt" 2>/dev/null)
+        case "$out" in
+            *"$want"*) printf 'e2e translate %s>%s OK: %s\n' "$src" "$tgt" "$out" ;;
+            *) printf 'e2e translate %s>%s FAIL:\n  atteso ~ %s\n  ottenuto: %s\n' \
+                   "$src" "$tgt" "$want" "$out"; echo FAIL > /tmp/mynah_trx_fail ;;
+        esac
+    done
+    [ -f /tmp/mynah_trx_fail ] && { rm -f /tmp/mynah_trx_fail; fail=1; }
 else
     check tests/audio/test_it.wav auto  "Ciao, questo è un test di riconoscimento vocale in italiano."
     check tests/audio/test_it.wav it-IT "Il gatto dorme sul divano."
