@@ -141,8 +141,53 @@ def main() -> None:
                         fails += 1
     # clip lungo: segmentazione su silenzio, timestamp monotoni, streaming reale
     # (solo cpu: percorsi già provati su metal sopra; qui contano le feature)
+    import shutil
+    import tempfile
+    have_ffmpeg = shutil.which("ffmpeg") is not None
+
+    def rtf_of(stderr: str) -> str:
+        m = re.search(r"RTF ([0-9.]+)", stderr)
+        return m.group(1) if m else "?"
+
     for s in long_samples:
         wav = str(ROOT / "samples" / s["file"])
+        if s.get("format") == "mp3":
+            # long transcribe / long translate: decodifica via ffmpeg CLI
+            # (dipendenza opzionale dei test — il runtime resta WAV-only)
+            if not have_ffmpeg:
+                print(f"SKIP {s['file']}: ffmpeg assente")
+                continue
+            tmp = tempfile.NamedTemporaryFile(suffix=".wav", delete=False)
+            tmp.close()
+            subprocess.run(["ffmpeg", "-y", "-loglevel", "error", "-i", wav,
+                            "-ar", "16000", "-ac", "1", tmp.name], check=True)
+            if s["lang"] == "en" and "parakeet-tdt-0.6b-v3" in models:
+                p = subprocess.run([args.mynah, "transcribe", "-m",
+                                    str(ROOT / "models/parakeet-tdt-0.6b-v3"),
+                                    "-i", tmp.name], capture_output=True, text=True,
+                                   timeout=1200)
+                c = cer(s["text"], p.stdout.strip())
+                ok = c <= args.cer_max
+                print(f"{'OK ' if ok else 'FAIL'} long parakeet-tdt-0.6b-v3 "
+                      f"{s['file']} ({s['duration_sec']}s) CER {c:.3f} "
+                      f"RTF {rtf_of(p.stderr)}")
+                fails += 0 if ok else 1
+            if s.get("en_ref") and "canary-180m-flash" in models:
+                p = subprocess.run([args.mynah, "transcribe", "-m",
+                                    str(ROOT / "models/canary-180m-flash"),
+                                    "-i", tmp.name, "--lang", s["lang"],
+                                    "--target-lang", "en"], capture_output=True,
+                                   text=True, timeout=1200)
+                ov = word_overlap(s["en_ref"], p.stdout.strip())
+                ok = ov >= args.overlap_min
+                print(f"{'OK ' if ok else 'FAIL'} long canary-180m-flash "
+                      f"{s['file']} ({s['duration_sec']}s) {s['lang']}>en "
+                      f"overlap {ov:.2f} RTF {rtf_of(p.stderr)}")
+                if not ok:
+                    print(f"     hyp: {p.stdout.strip()[:200]}")
+                fails += 0 if ok else 1
+            Path(tmp.name).unlink()
+            continue
         if "parakeet-tdt-0.6b-v3" in models:
             p = subprocess.run([args.mynah, "transcribe", "-m",
                                 str(ROOT / "models/parakeet-tdt-0.6b-v3"), "-i", wav,

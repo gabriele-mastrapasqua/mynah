@@ -64,9 +64,10 @@ int mynah_can_translate(const mynah_model *m);
 
 /* Limite di durata per segmento nella trascrizione offline: gli audio più lunghi
  * vengono divisi sul minimo di energia (silenzio) vicino al confine e trascritti
- * a segmenti indipendenti (testo e timestamp concatenati). Default 300 s —
- * necessario per i modelli offline full-attention (pos_emb regge ~400 s) e per
- * tenere lineare la memoria. sec >= 5; 0 = ripristina il default. */
+ * a segmenti indipendenti (testo e timestamp concatenati). Default MODEL-AWARE:
+ * 30 s per i modelli full-attention/AED (Parakeet, Canary — addestrati su
+ * utterance corte: segmenti lunghi degradano la qualità), 300 s per i modelli
+ * ad attention finestrata (Nemotron). sec >= 5; 0 = ripristina il default. */
 void mynah_set_segment_limit(mynah_model *m, double sec);
 
 /* Lookahead (right context) validi per il modello, es. {3,0,6,13}. */

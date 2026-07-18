@@ -39,7 +39,13 @@ struct mynah_model {
     double seg_sec;                 /* limite per segmento offline (default 300 s) */
 };
 
+/* Limite default per segmento offline. I modelli full-attention/AED (Parakeet,
+ * Canary) sono addestrati su utterance CORTE: oltre ~30 s la qualità crolla
+ * (misurato su FLEURS 305 s: CER 0.68 a segmento unico, 0.29 a 60 s, 0.05 a
+ * 30 s; Canary de>en overlap 0.16 -> 0.76). Nemotron ha l'attention finestrata
+ * (chunked): non degrada, per lui il limite serve solo per la memoria. */
 #define MYNAH_SEG_DEFAULT 300.0
+#define MYNAH_SEG_OFFLINE 30.0
 
 static cJSON *load_json(const char *dir, const char *file) {
     char path[1024];
@@ -200,7 +206,7 @@ mynah_model *mynah_load_quant(const char *model_dir, int quant) {
     const cJSON *jsf = jenc ? cJSON_GetObjectItem(jenc, "subsampling_factor") : NULL;
     m->frame_sec = (double)m->feat.hop_length * (jsf ? jsf->valueint : 8)
                    / (double)m->feat.sample_rate;
-    m->seg_sec = MYNAH_SEG_DEFAULT;
+    m->seg_sec = 0.0;   /* risolto DOPO il parse della sezione streaming */
 
     /* streaming presets [[left, right], ...] — sezione assente per i modelli
      * offline (Parakeet): attention full [-1,-1], niente stream API */
@@ -223,6 +229,8 @@ mynah_model *mynah_load_quant(const char *model_dir, int quant) {
         }
         m->n_lookaheads = i;
     }
+    /* default segmentazione model-aware (vedi commento su MYNAH_SEG_OFFLINE) */
+    m->seg_sec = m->n_lookaheads > 0 ? MYNAH_SEG_DEFAULT : MYNAH_SEG_OFFLINE;
 
     /* prompt (Nemotron): assente nei modelli con LID implicita (Parakeet);
      * per l'AED (Canary) la sezione prompt è quella del DECODER (niente default_id) */
@@ -266,7 +274,8 @@ int mynah_lang_id(const mynah_model *m, const char *lang) {
 }
 
 void mynah_set_segment_limit(mynah_model *m, double sec) {
-    m->seg_sec = sec <= 0.0 ? MYNAH_SEG_DEFAULT : (sec < 5.0 ? 5.0 : sec);
+    const double def = m->n_lookaheads > 0 ? MYNAH_SEG_DEFAULT : MYNAH_SEG_OFFLINE;
+    m->seg_sec = sec <= 0.0 ? def : (sec < 5.0 ? 5.0 : sec);
 }
 
 int mynah_set_decoder(mynah_model *m, const char *name) {
