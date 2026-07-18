@@ -5,7 +5,7 @@ mynah
 mynah-server
 
 # Models & audio di lavoro
-models/
+models
 *.wav
 *.npy
 
