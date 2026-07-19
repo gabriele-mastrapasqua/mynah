@@ -128,5 +128,6 @@ if [[ "$MODE" == nemo ]]; then
 fi
 echo "  # 2. optional: pre-quantized int8/int4 checkpoint (~1/3 RAM, instant load)"
 echo "  ./mynah quantize -m $DEST --quant int8"
+echo "  #    or a GGUF container (docs/gguf.md): cd tools && uv run python export_gguf.py ../$DEST --dtype q8_0"
 echo "  # 3. transcribe"
 echo "  ./mynah transcribe -m $DEST -i file.wav --lang auto"
