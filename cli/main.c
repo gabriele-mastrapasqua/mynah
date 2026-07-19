@@ -3,6 +3,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
+#include <sys/resource.h>   /* getrusage: picco RAM in `bench` */
 
 #include "mynah.h"
 #include "audio.h"
@@ -23,6 +24,8 @@ static void usage(void) {
     printf("             streaming live da stdin (raw s16le 16 kHz mono)\n");
     printf("  quantize   -m <model_dir> --quant int8|int4\n");
     printf("             salva il checkpoint pre-quantizzato (load istantaneo)\n");
+    printf("  bench      -m <model_dir> [-i file.wav] [--runs N] [--warmup W] [--quant int8]\n");
+    printf("             RTF warm (min/mediana su N run) + picco RAM, un modello alla volta\n");
     printf("  --version                                 stampa la versione\n\n");
     printf("Opzioni comuni (transcribe/stream):\n");
     printf("  --backend cpu|metal|cuda    backend GEMM (fallback CPU se assente)\n");
@@ -261,6 +264,98 @@ static int cmd_quantize(int argc, char **argv) {
     return 0;
 }
 
+/* Picco RSS del processo in GB (getrusage: byte su macOS, KB su Linux). */
+static double peak_ram_gb(void) {
+    struct rusage ru;
+    if (getrusage(RUSAGE_SELF, &ru) != 0) return 0.0;
+#ifdef __APPLE__
+    return (double)ru.ru_maxrss / 1073741824.0;   /* byte */
+#else
+    return (double)ru.ru_maxrss / 1048576.0;       /* KB   */
+#endif
+}
+
+static int cmp_double(const void *a, const void *b) {
+    const double x = *(const double *)a, y = *(const double *)b;
+    return (x > y) - (x < y);
+}
+
+/* bench: RTF warm (min/mediana su N run cronometrati, dopo W warm-up) + picco RAM.
+ * Stessa metrica di `make bench` (tests/bench.sh) ma in-process, un modello alla
+ * volta e con parametri A/B espliciti (regola repo 6). */
+static int cmd_bench(int argc, char **argv) {
+    const char *model_dir = NULL, *wav = "tests/audio/test_it.wav", *lang = "auto";
+    int lookahead = -1, quant = MYNAH_QUANT_F32, runs = 5, warmup = 2;
+    for (int i = 0; i < argc; i++) {
+        if (strcmp(argv[i], "-m") == 0 && i + 1 < argc) model_dir = argv[++i];
+        else if (strcmp(argv[i], "-i") == 0 && i + 1 < argc) wav = argv[++i];
+        else if (strcmp(argv[i], "--lang") == 0 && i + 1 < argc) lang = argv[++i];
+        else if (strcmp(argv[i], "--lookahead") == 0 && i + 1 < argc) lookahead = atoi(argv[++i]);
+        else if (strcmp(argv[i], "--runs") == 0 && i + 1 < argc) runs = atoi(argv[++i]);
+        else if (strcmp(argv[i], "--warmup") == 0 && i + 1 < argc) warmup = atoi(argv[++i]);
+        else if (strcmp(argv[i], "--quant") == 0 && i + 1 < argc) {
+            i++;
+            quant = strcmp(argv[i], "int8") == 0 ? MYNAH_QUANT_INT8
+                  : strcmp(argv[i], "int4") == 0 ? MYNAH_QUANT_INT4 : MYNAH_QUANT_F32;
+        }
+        else if (strcmp(argv[i], "--backend") == 0 && i + 1 < argc) mynah_set_backend(argv[++i]);
+        else if (strcmp(argv[i], "--caps") == 0 && i + 1 < argc) mynah_set_caps(argv[++i]);
+        else { fprintf(stderr, "opzione ignota: %s\n", argv[i]); return 2; }
+    }
+    if (!model_dir) { usage(); return 2; }
+    if (runs < 1) runs = 1;
+    if (warmup < 0) warmup = 0;
+
+    double t0 = now_sec();
+    mynah_model *m = mynah_load_quant(model_dir, quant);
+    if (!m) return 1;
+    const double t_load = now_sec() - t0;
+
+    size_t n_samples;
+    int sr;
+    float *samples = mynah_wav_load(wav, &n_samples, &sr);
+    if (!samples) { mynah_free(m); return 1; }
+    if (sr != 16000) {
+        size_t n_rs;
+        float *rs = mynah_resample(samples, n_samples, sr, 16000, &n_rs);
+        free(samples);
+        if (!rs) { mynah_free(m); return 1; }
+        samples = rs; n_samples = n_rs;
+    }
+    const double dur = (double)n_samples / 16000.0;
+
+    fprintf(stderr, "[bench] model=%s quant=%s lookahead=%d | audio %.1fs | load %.2fs | warmup %d runs %d\n",
+            model_dir, quant == MYNAH_QUANT_INT8 ? "int8" : quant == MYNAH_QUANT_INT4 ? "int4" : "f32",
+            lookahead, dur, t_load, warmup, runs);
+
+    char lang_out[16] = {0};
+    for (int w = 0; w < warmup; w++) {
+        char *t = mynah_transcribe(m, samples, n_samples, lang, lookahead, lang_out);
+        if (!t) { free(samples); mynah_free(m); return 1; }
+        free(t);
+    }
+
+    double *rtf = malloc((size_t)runs * sizeof *rtf);
+    if (!rtf) { free(samples); mynah_free(m); return 1; }
+    for (int r = 0; r < runs; r++) {
+        t0 = now_sec();
+        char *t = mynah_transcribe(m, samples, n_samples, lang, lookahead, lang_out);
+        const double dt = now_sec() - t0;
+        if (!t) { free(rtf); free(samples); mynah_free(m); return 1; }
+        free(t);
+        rtf[r] = dt / dur;
+        fprintf(stderr, "  run %2d  %.3fs  RTF %.3f\n", r + 1, dt, rtf[r]);
+    }
+
+    qsort(rtf, (size_t)runs, sizeof *rtf, cmp_double);
+    const double median = runs & 1 ? rtf[runs / 2] : (rtf[runs / 2 - 1] + rtf[runs / 2]) / 2.0;
+    printf("[bench] RTF warm: min %.3f  median %.3f  | peak RAM %.2f GB | lang=%s\n",
+           rtf[0], median, peak_ram_gb(), lang_out[0] ? lang_out : lang);
+
+    free(rtf); free(samples); mynah_free(m);
+    return 0;
+}
+
 int main(int argc, char **argv) {
     if (argc >= 2 && strcmp(argv[1], "--version") == 0) {
 #ifdef MYNAH_BUILD
@@ -273,6 +368,7 @@ int main(int argc, char **argv) {
     if (argc >= 2 && strcmp(argv[1], "transcribe") == 0) return cmd_transcribe(argc - 2, argv + 2);
     if (argc >= 2 && strcmp(argv[1], "stream") == 0) return cmd_stream(argc - 2, argv + 2);
     if (argc >= 2 && strcmp(argv[1], "quantize") == 0) return cmd_quantize(argc - 2, argv + 2);
+    if (argc >= 2 && strcmp(argv[1], "bench") == 0) return cmd_bench(argc - 2, argv + 2);
     usage();
     return argc < 2 ? 0 : 1;
 }
