@@ -3,6 +3,7 @@
 *.d
 mynah
 mynah-server
+dist/
 
 # Models & audio di lavoro
 models

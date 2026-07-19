@@ -178,7 +178,7 @@ leaks: mynah tests/test_streaming
 	  tests/golden/test_it 2>&1 | tail -3
 
 clean:
-	rm -rf build mynah mynah-server libmynah.a $(TESTS) examples/minimal
+	rm -rf build mynah mynah-server libmynah.a $(TESTS) examples/minimal dist
 
 # installazione: CLI + server + libreria statica + header
 PREFIX ?= /usr/local
@@ -188,4 +188,25 @@ install: mynah mynah-server libmynah.a
 	install -m 644 libmynah.a $(DESTDIR)$(PREFIX)/lib/
 	install -m 644 src/mynah.h $(DESTDIR)$(PREFIX)/include/
 
-.PHONY: all clean install test golden-dump lib debug ubsan asan bench leaks test-nemo-langs fetch-lang-samples test-server test-samples cuda
+# Tarball di release: CLI + server + libreria statica + header + licenza/readme +
+# script di download modelli. Nome = versione git + os + arch; strip dei binari e
+# checksum SHA-256. Tutto in dist/ (gitignored). Uso: make dist
+DIST_OS   := $(shell uname -s | tr '[:upper:]' '[:lower:]')
+DIST_ARCH := $(shell uname -m)
+DIST_NAME := mynah-$(MYNAH_BUILD)-$(DIST_OS)-$(DIST_ARCH)
+DIST_DIR  := dist/$(DIST_NAME)
+dist: mynah mynah-server libmynah.a
+	@rm -rf $(DIST_DIR)
+	@mkdir -p $(DIST_DIR)/bin $(DIST_DIR)/lib $(DIST_DIR)/include $(DIST_DIR)/scripts
+	install -m 755 mynah mynah-server $(DIST_DIR)/bin/
+	install -m 644 libmynah.a $(DIST_DIR)/lib/
+	install -m 644 src/mynah.h $(DIST_DIR)/include/
+	install -m 644 LICENSE README.md $(DIST_DIR)/
+	install -m 755 scripts/download_model.sh $(DIST_DIR)/scripts/
+	@strip $(DIST_DIR)/bin/mynah $(DIST_DIR)/bin/mynah-server 2>/dev/null || true
+	cd dist && tar czf $(DIST_NAME).tar.gz $(DIST_NAME)
+	@rm -rf $(DIST_DIR)
+	@echo "" && echo "-> dist/$(DIST_NAME).tar.gz"
+	@cd dist && shasum -a 256 $(DIST_NAME).tar.gz 2>/dev/null || (cd dist && sha256sum $(DIST_NAME).tar.gz)
+
+.PHONY: all clean install dist test golden-dump lib shared example debug ubsan asan bench leaks test-nemo-langs fetch-lang-samples test-server test-samples cuda
