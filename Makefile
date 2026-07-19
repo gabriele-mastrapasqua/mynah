@@ -149,6 +149,9 @@ test-server: mynah-server
 	@sh tests/test_server.sh $(MODEL_DIR); rc=$$?; \
 	  if [ $$rc -eq 77 ]; then echo "SKIP test-server: modello assente"; \
 	  elif [ $$rc -ne 0 ]; then exit $$rc; fi
+	@sh tests/test_serve_repro.sh $(MODEL_DIR); rc=$$?; \
+	  if [ $$rc -eq 77 ]; then echo "SKIP serve-repro: modello assente"; \
+	  elif [ $$rc -ne 0 ]; then exit $$rc; fi
 
 # Suite multilingua: sample audio reali (Tatoeba, CC) per ogni lingua supportata,
 # verifica language detection + CER vs testo di riferimento.
