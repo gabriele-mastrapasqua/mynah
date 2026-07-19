@@ -50,12 +50,33 @@ for lowest RAM and the native SDOT/VNNI kernels use mynah's own
   110m to f32 and q8_0 GGUF and checks the f32 transcription is **identical**
   to the safetensors load, q8_0 matches the expected text.
 
+## Third-party GGUFs (parakeet.cpp ecosystem)
+
+Community GGUFs use their own tensor naming and carry the config in GGUF
+metadata. `tools/import_gguf.py` bridges them **without torch**: from the
+single .gguf it generates the whole model dir (mynah.json translated from the
+`stt.*` metadata, tokens.json from the embedded tokenizer, computed mel
+filters, model.gguf with tensors renamed to the runtime's HF-verbatim naming
+— quantized payloads copied verbatim).
+
+```sh
+curl -LO https://huggingface.co/handy-computer/parakeet-tdt_ctc-110m-gguf/resolve/main/parakeet-tdt_ctc-110m-Q4_K_M.gguf
+cd tools && uv run python import_gguf.py ../parakeet-tdt_ctc-110m-Q4_K_M.gguf --out ../models/110m-q4k
+./mynah transcribe -m models/110m-q4k -i audio.wav
+```
+
+Verified real file: **handy-computer/parakeet-tdt_ctc-110m-gguf Q4_K_M**
+(90 MB): 354 shared f32 tensors bit-exact vs our own `.nemo` conversion,
+e2e EN/timestamps/segmentation/Metal green, RTF 0.021. Known limitation of
+that file: the community quantizer drops the auxiliary CTC head →
+`--decoder ctc` is cleanly rejected. Per the incremental-support policy,
+other repos/architectures get enabled as they are tested on real files.
+
 ## Not (yet) supported
 
-Q5_K / Q6_K and reading third-party GGUFs (e.g. parakeet.cpp's, which carry
-their own metadata/naming) — planned as a separate interop milestone. Q4_K
-dequant is ported from the keyra project (validated there against real Q4_K
-files) and cross-checked here writer↔loader on the 110m.
+Q5_K / Q6_K (no verified real file needs them yet) and non-parakeet
+third-party architectures. Q4_K dequant is ported from the keyra project and
+now validated on the real community file above.
 The parser is hardened against hostile input (overflow-checked arithmetic,
 bounded strings/arrays/recursion, mmap range validation; origin: the keyra
 project's parser, reviewed and extended).

@@ -27,6 +27,7 @@ MODELS=(
   "canary-180m|nvidia/canary-180m-flash|nemo|0.8 GB|ASR en/de/es/fr + TRANSLATION, word timestamps"
   "canary-1b-flash|nvidia/canary-1b-flash|nemo|3.5 GB|ASR en/de/es/fr + TRANSLATION, word+segment timestamps"
   "canary-v2|nvidia/canary-1b-v2|nemo|3.9 GB|ASR 25 EU languages + en<->24 TRANSLATION, ITN"
+  "110m-gguf|handy-computer/parakeet-tdt_ctc-110m-gguf|gguf|90 MB|COMMUNITY Q4_K_M GGUF of the 110m — lightest download, no torch needed (verified; no CTC head)"
 )
 
 # HF-native port files (mode=hf). Only the ones marked * are required; the others
@@ -113,6 +114,8 @@ mkdir -p "$DEST"
 if [[ "$MODE" == hf ]]; then
   for f in "${HF_REQUIRED[@]}"; do fetch "$f" yes; done
   for f in "${HF_OPTIONAL[@]}"; do fetch "$f" no;  done
+elif [[ "$MODE" == gguf ]]; then
+  fetch "parakeet-tdt_ctc-110m-Q4_K_M.gguf" yes
 else
   fetch "$NAME.nemo" yes
 fi
@@ -121,6 +124,13 @@ echo ""
 echo "OK -> $DEST"
 echo ""
 echo "Next steps:"
+if [[ "$MODE" == gguf ]]; then
+  echo "  # 1. import (no torch! generates mynah.json/tokens/mel filters + renamed model.gguf)"
+  echo "  cd tools && uv sync && uv run python import_gguf.py ../$DEST/*.gguf --out ../$DEST && cd .."
+  echo "  # 2. transcribe"
+  echo "  ./mynah transcribe -m $DEST -i file.wav"
+  exit 0
+fi
 echo "  # 1. convert in place (one-time; Python via uv, offline tooling only)"
 echo "  cd tools && uv sync && uv run python convert_nemo.py ../$DEST && cd .."
 if [[ "$MODE" == nemo ]]; then
