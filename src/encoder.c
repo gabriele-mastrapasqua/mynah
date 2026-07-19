@@ -36,9 +36,7 @@ static void layer_norm_f(const float *x, const float *w, const float *b, float *
     }
 }
 
-static void silu_inplace(float *x, size_t n) {
-    for (size_t i = 0; i < n; i++) x[i] = x[i] * mynah_sigmoid(x[i]);
-}
+static void silu_inplace(float *x, size_t n) { mynah_silu(x, n); }
 
 /* x[T, n] += b (broadcast per riga); no-op se b == NULL (modelli senza bias) */
 static void add_bias_rows(float *x, const float *b, int T, int n) {

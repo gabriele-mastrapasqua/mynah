@@ -4,6 +4,8 @@
 #ifndef MYNAH_BACKEND_H
 #define MYNAH_BACKEND_H
 
+#include <stddef.h>
+
 enum { MYNAH_BACKEND_CPU = 0, MYNAH_BACKEND_METAL = 1, MYNAH_BACKEND_CUDA = 2 };
 
 /* "cpu" | "metal" | "cuda". Ritorna il backend EFFETTIVO dopo il resolve (fallback CPU
@@ -18,6 +20,7 @@ void mynah_gemm_wt(const float *x, const float *w, float *out, int T, int n, int
 
 /* FFN fusa: out[T,n2] = SiLU(x @ W1^T) @ W2^T. scratch: >= T*n1 float (usato
  * solo nel fallback CPU). Su Metal l'intermedio resta in GPU (un solo sync). */
+void mynah_silu(float *x, size_t n);   /* x = x*sigmoid(x), vettorizzata su Accelerate */
 void mynah_ffn_wt(const float *x, const float *w1, int n1, const float *w2, int n2,
                   float *out, int T, int k, float *scratch);
 

@@ -80,6 +80,32 @@ void mynah_gemm_wt(const float *x, const float *w, float *out, int T, int n, int
                 1.0f, x, k, w, k, 0.0f, out, n);
 }
 
+/* SiLU in-place. Su Accelerate: vvexpf (vForce) batcha l'exp — dal profilo
+ * 2026-07-19 expf scalare pesava ~10% dei sample. Il clamp a 87 evita inf
+ * (lezione -ffast-math: inf = UB, vedi mynah_sigmoid); exp(-x) con clamp
+ * non overflowa mai in f32. Fallback scalare identico a prima. */
+void mynah_silu(float *x, size_t n) {
+#ifdef MYNAH_BLAS_ACCELERATE
+    if (n >= 256) {
+        float *t = malloc(n * sizeof(float));
+        if (t) {
+            for (size_t i = 0; i < n; i++) {
+                const float v = -x[i];
+                t[i] = v > 87.0f ? 87.0f : v;
+            }
+            for (size_t off = 0; off < n; off += (size_t)1 << 30) {
+                const int chunk = (int)(n - off > (size_t)1 << 30 ? (size_t)1 << 30 : n - off);
+                vvexpf(t + off, t + off, &chunk);
+            }
+            for (size_t i = 0; i < n; i++) x[i] = x[i] / (1.0f + t[i]);
+            free(t);
+            return;
+        }
+    }
+#endif
+    for (size_t i = 0; i < n; i++) x[i] = x[i] * mynah_sigmoid(x[i]);
+}
+
 void mynah_ffn_wt(const float *x, const float *w1, int n1, const float *w2, int n2,
                   float *out, int T, int k, float *scratch) {
 #ifdef MYNAH_METAL
@@ -88,9 +114,7 @@ void mynah_ffn_wt(const float *x, const float *w1, int n1, const float *w2, int 
         return;
 #endif
     mynah_gemm_wt(x, w1, scratch, T, n1, k);
-    const size_t nmid = (size_t)T * (size_t)n1;
-    for (size_t i = 0; i < nmid; i++)
-        scratch[i] = scratch[i] * mynah_sigmoid(scratch[i]);
+    mynah_silu(scratch, (size_t)T * (size_t)n1);
     mynah_gemm_wt(scratch, w2, out, T, n2, n1);
 }
 
