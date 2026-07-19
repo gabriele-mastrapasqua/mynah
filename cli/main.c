@@ -190,8 +190,15 @@ static int cmd_quantize(int argc, char **argv) {
 
     char path[1024];
     snprintf(path, sizeof(path), "%s/model.safetensors", model_dir);
-    mynah_safetensors *st = mynah_st_open(path);
-    if (!st) return 1;
+    mynah_safetensors *st = mynah_st_open_quiet(path);
+    if (!st) {   /* container alternativo GGUF (stesso fallback di mynah_load) */
+        snprintf(path, sizeof(path), "%s/model.gguf", model_dir);
+        st = mynah_st_open_quiet(path);
+    }
+    if (!st) {
+        fprintf(stderr, "quantize: ne' model.safetensors ne' model.gguf in %s\n", model_dir);
+        return 1;
+    }
 
     mynah_stw *w = mynah_stw_new();
     void **to_free = calloc(2 * mynah_st_count(st), sizeof(void *));

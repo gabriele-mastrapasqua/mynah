@@ -44,4 +44,18 @@ case "$got" in
     *) echo "gguf e2e q8_0 FAIL: $got"; fail=1 ;;
 esac
 
+# mynah quantize a partire dai pesi GGUF (stessa API f32 -> deve funzionare):
+# scrive model.int8.safetensors nella dir tmp e ritrascrive col checkpoint
+rm "$TMP/model/model.gguf"
+ln -s "$TMP/f32.gguf" "$TMP/model/model.gguf"
+if ./mynah quantize -m "$TMP/model" --quant int8 >/dev/null 2>&1; then
+    got=$(./mynah transcribe -m "$TMP/model" -i "$WAV" --quant int8 2>/dev/null)
+    case "$got" in
+        *"speech recognition test"*) echo "gguf quantize-int8 OK: $got" ;;
+        *) echo "gguf quantize-int8 FAIL: $got"; fail=1 ;;
+    esac
+else
+    echo "gguf quantize-int8 FAIL: mynah quantize fallito"; fail=1
+fi
+
 exit $fail
