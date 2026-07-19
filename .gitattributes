@@ -1,0 +1,7 @@
+# reference/ holds code and configs extracted verbatim from upstream checkpoints
+# (HF transformers modeling files, tokenizers): vendored, not part of the runtime.
+# Without this GitHub counts them as project Python and mislabels the repo.
+reference/** linguist-vendored
+
+# Audio fixtures are binary data
+*.wav binary
