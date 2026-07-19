@@ -7,6 +7,8 @@
 [![CI](https://github.com/gabriele-mastrapasqua/mynah/actions/workflows/ci.yml/badge.svg)](https://github.com/gabriele-mastrapasqua/mynah/actions/workflows/ci.yml)
 [![Code Quality](https://github.com/gabriele-mastrapasqua/mynah/actions/workflows/codeql.yml/badge.svg)](https://github.com/gabriele-mastrapasqua/mynah/actions/workflows/codeql.yml)
 [![Memory Safety](https://github.com/gabriele-mastrapasqua/mynah/actions/workflows/safety.yml/badge.svg)](https://github.com/gabriele-mastrapasqua/mynah/actions/workflows/safety.yml)
+[![Models](https://img.shields.io/badge/models-10-blue)](docs/models.md)
+[![Languages](https://img.shields.io/badge/languages-40-brightgreen)](docs/nemotron-languages.md)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
 **A fast native C inference engine for speech recognition & translation** —
@@ -52,14 +54,15 @@ first-class citizen.
   (model-aware), weight-stationary batching, OpenAI-compatible REST + WebSocket
   server
 - **Python bindings** (ctypes, zero dependencies) on top of `libmynah`
-- Quality measured on **real audio** ([samples/](samples/README.md), FLEURS,
-  CC-BY): CER 0.00–0.07 across 11 languages, translations scored against
-  parallel references — `make test-samples`
+- Quality measured on **real audio**: CER 0.00–0.07 across 11 languages
+  ([hear it below](#hear-it--11-languages-one-sentence)), translations scored
+  against parallel references — `make test-samples`
 - Python only as offline tooling (weight conversion, reference oracle, eval)
 
-## Status
+## Supported models
 
-**v0.4-dev, feature-complete toward v1** — 10 working models:
+**v0.4-dev, feature-complete toward v1** — 10 working models
+(full catalog with verified configs: [docs/models.md](docs/models.md)):
 
 | Model | What it does | Status |
 |---|---|---|
@@ -71,8 +74,11 @@ first-class citizen.
 | [canary-180m-flash](https://huggingface.co/nvidia/canary-180m-flash) / [1b-flash](https://huggingface.co/nvidia/canary-1b-flash) | ASR en/de/es/fr + **translation** + word timestamps | ✅ |
 | [canary-1b-v2](https://huggingface.co/nvidia/canary-1b-v2) | ASR in **25 EU languages** + en↔24 translation, ITN | ✅ |
 
-RTF on Apple Silicon, ~65 s audio, warm (full matrix and methodology in
-[docs/benchmarks.md](docs/benchmarks.md)):
+## Performance — CPU vs Metal vs int8
+
+RTF on Apple Silicon, ~65 s audio, warm; **lower is faster** (0.05 ≈ 20× faster
+than realtime). Full matrix and methodology in
+[docs/benchmarks.md](docs/benchmarks.md).
 
 | model | f32 CPU | Metal | int8 |
 |---|---|---|---|
@@ -90,13 +96,52 @@ RAM: 110m 0.44 GB · 180m 0.71 · 0.6B ~2.4 · 1b-flash 3.3 · 1.1b 4.0 GB
 Every numeric stage is validated against a numpy reference oracle
 (`make test`: bit-exact mel, f32-tolerance encoder, streaming ≡ offline).
 
+## Hear it — 11 languages, one sentence
+
+The quality suite runs on **real committed audio** ([samples/](samples/README.md)):
+parallel [FLEURS](https://huggingface.co/datasets/google/fleurs) clips (CC-BY 4.0),
+the *same sentence* read by native speakers in 11 languages. Click a clip to
+listen; the text is the reference transcription — mynah's output matches it
+with **CER 0.00–0.07** (`make test-samples`).
+
+| | clip | reference transcription |
+|---|---|---|
+| 🇮🇹 it | [▶ fleurs_1521](samples/it/fleurs_1521.wav) | Il satellite nello spazio riceve il segnale e poi lo rimanda indietro quasi all'istante. |
+| 🇺🇸 en | [▶ fleurs_1521](samples/en/fleurs_1521.wav) | The satellite in space gets the call and then reflects it back down, almost instantly. |
+| 🇩🇪 de | [▶ fleurs_1521](samples/de/fleurs_1521.wav) | Der Satellit im Weltraum empfängt den Anruf und reflektiert ihn dann fast sofort zurück nach unten. |
+| 🇪🇸 es | [▶ fleurs_1521](samples/es/fleurs_1521.wav) | El satélite en el espacio recibe la llamada y, luego, la refleja de vuelta casi de forma instantánea. |
+| 🇫🇷 fr | [▶ fleurs_1521](samples/fr/fleurs_1521.wav) | Le satellite reçoit l'appel dans l'espace puis le renvoie sur Terre, presque instantanément. |
+| 🇵🇹 pt | [▶ fleurs_1521](samples/pt/fleurs_1521.wav) | O satélite no espaço recebe a chamada e depois a redireciona de volta, quase instantaneamente. |
+| 🇳🇱 nl | [▶ fleurs_1521](samples/nl/fleurs_1521.wav) | Zodra de ruimtesatelliet de oproep ontvangt, wordt deze meteen teruggezonden. |
+| 🇵🇱 pl | [▶ fleurs_1521](samples/pl/fleurs_1521.wav) | Połączenie trafia do satelity w przestrzeni kosmicznej, po czym niemal natychmiast odbija go z powrotem. |
+| 🇷🇺 ru | [▶ fleurs_1521](samples/ru/fleurs_1521.wav) | Спутник в космосе принимает звонок и практически мгновенно отражает его обратно вниз. |
+| 🇺🇦 uk | [▶ fleurs_1521](samples/uk/fleurs_1521.wav) | Супутник у космосі отримує виклик і потім майже одразу відображає його назад. |
+| 🇯🇵 ja | [▶ fleurs_1521](samples/ja/fleurs_1521.wav) | 宇宙にある人工衛星は通話を受信して、ほぼ瞬時にそれを反映します。 |
+
+Because the sentences are parallel, the English clip doubles as the reference
+for scoring Canary's **speech translation** (e.g. it→en at the top of this page).
+Longer clips (~2–5 min) exercise segmentation, timestamps and streaming.
+
+## Languages
+
+| engine | ASR | translation |
+|---|---|---|
+| Nemotron 3.5 (streaming) | **40 locales** in 3 tiers (19 transcription-ready — it-IT FLEURS WER 4.25%), auto language detection | — |
+| Parakeet tdt-0.6b-v3 | **25 EU languages**, PnC + ITN | — |
+| canary-1b-v2 | 25 EU languages, ITN | **en ↔ 24 languages** |
+| canary-flash (180m/1b) | en, de, es, fr | en ↔ de/es/fr |
+| Parakeet EN family | English | — |
+
+Full locale tables with quality tiers and prompt ids:
+[docs/nemotron-languages.md](docs/nemotron-languages.md).
+
 ## Quickstart
 
 ```sh
 # 1. build (macOS: Accelerate; Linux: apt install libopenblas-dev)
 make
 
-# 2. download a model (~2.6 GB) and convert it in place
+# 2. pick a model from the interactive menu (or --model <alias> to script it)
 scripts/download_model.sh
 cd tools && uv sync && uv run python convert_nemo.py ../models/nemotron-3.5-asr-streaming-0.6b && cd ..
 
@@ -210,6 +255,22 @@ make test-server  # REST + concurrency + WebSocket + translations
 make bench        # RTF on the fixtures   make leaks / make ubsan / make asan
 make golden-dump  # regenerate reference dumps (requires tools/ + model)
 ```
+
+## Documentation
+
+| doc | contents |
+|---|---|
+| [docs/models.md](docs/models.md) | supported + candidate model catalog, verified configs & licenses |
+| [docs/benchmarks.md](docs/benchmarks.md) | full RTF/RAM matrix, CPU vs Metal vs int8, methodology |
+| [docs/streaming.md](docs/streaming.md) | cache-aware streaming, latency presets, WebSocket protocol |
+| [docs/quantization.md](docs/quantization.md) | int8/int4 checkpoint format and SDOT/VNNI kernels |
+| [docs/backends.md](docs/backends.md) | CPU SIMD dispatch, Metal, CUDA |
+| [docs/server.md](docs/server.md) | REST + WebSocket server, OpenAI compatibility |
+| [docs/api.md](docs/api.md) | C API reference (libmynah) |
+| [docs/nemotron-languages.md](docs/nemotron-languages.md) | the 40 Nemotron locales with quality tiers |
+| [docs/nemotron-arch.md](docs/nemotron-arch.md) · [parakeet-tdt-arch.md](docs/parakeet-tdt-arch.md) · [canary-arch.md](docs/canary-arch.md) | verified model architectures |
+| [docs/architecture-notes.md](docs/architecture-notes.md) | design decisions & implementation traps |
+| [docs/prior-art.md](docs/prior-art.md) | the landscape: parakeet.cpp, sherpa-onnx, onnx-asr… |
 
 ## License
 
