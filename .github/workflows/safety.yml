@@ -1,4 +1,7 @@
-# Memory safety: ASan+UBSan build AND full test execution with a real model.
+# Memory safety: ASan+UBSan build AND full test execution with a real model
+# (without a model the tests exit 77/skip and the sanitizers would cover almost
+# nothing). The model comes from the same cross-workflow cache as ci.yml via
+# .github/actions/prepare-model — HF is only contacted on a cache miss.
 # Linux only: ASan on macOS is extremely slow (locally: make leaks + make ubsan).
 name: Memory Safety
 
@@ -22,29 +25,10 @@ jobs:
       - name: Install dependencies
         run: sudo apt-get update && sudo apt-get install -y libopenblas-dev
 
-      - name: Cache converted model + goldens
-        id: model-cache
-        uses: actions/cache@v4
+      - uses: ./.github/actions/prepare-model
         with:
-          path: |
-            models/${{ env.MODEL }}
-            tests/golden/parakeet110_en
-          key: ${{ env.MODEL }}-v1-${{ hashFiles('tools/convert_nemo.py', 'tools/oracle/**') }}
-
-      - name: Setup uv
-        if: steps.model-cache.outputs.cache-hit != 'true'
-        uses: astral-sh/setup-uv@v5
-
-      - name: Download and convert the model, golden dump
-        if: steps.model-cache.outputs.cache-hit != 'true'
-        run: |
-          mkdir -p models/$MODEL
-          curl -fL --retry 3 -o models/$MODEL/$MODEL.nemo "$MODEL_URL"
-          cd tools && uv sync --extra oracle
-          uv run python convert_nemo.py ../models/$MODEL
-          uv run python -m oracle.transcribe ../models/$MODEL \
-            ../tests/audio/test_en.wav --dump-dir ../tests/golden/parakeet110_en
-          cd .. && rm models/$MODEL/$MODEL.nemo
+          model: ${{ env.MODEL }}
+          model-url: ${{ env.MODEL_URL }}
 
       - name: ASan+UBSan (build AND test execution)
         run: make asan

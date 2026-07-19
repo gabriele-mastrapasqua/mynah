@@ -1,9 +1,11 @@
 # Mynah CI: build matrix + FUNCTIONAL tests with a real model (lesson from
 # qwen-tts: build-only CI protects nothing). The test model is
-# parakeet-tdt_ctc-110m (114M, CC-BY-4.0, RTF ~0.03): the runner downloads the
-# .nemo from HF, converts it with the official tooling (CPU torch) and caches
-# the converted artifacts — no weights hosted by us. Nemotron/v3 and the big
-# models remain local-only tests (exit 77 = SKIP).
+# parakeet-tdt_ctc-110m (114M, CC-BY-4.0, RTF ~0.03): converted artifacts are
+# cached (actions/cache, key on converter+oracle hash) and HF is only contacted
+# on a cache miss — the prepare-model job warms the cache ONCE, so the 3-OS
+# matrix never races to download. Nemotron/v3 and the big models remain
+# local-only tests (exit 77 = SKIP). Download/convert logic lives in
+# .github/actions/prepare-model (shared with safety.yml).
 name: CI
 
 on:
@@ -16,8 +18,20 @@ env:
   MODEL_URL: https://huggingface.co/nvidia/parakeet-tdt_ctc-110m/resolve/main/parakeet-tdt_ctc-110m.nemo
 
 jobs:
+  prepare-model:
+    name: Prepare model (warm shared cache)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/prepare-model
+        with:
+          model: ${{ env.MODEL }}
+          model-url: ${{ env.MODEL_URL }}
+
   build-test:
     name: Build & Test
+    needs: prepare-model
     strategy:
       fail-fast: false
       matrix:
@@ -46,28 +60,14 @@ jobs:
           MYNAH_CAPS=scalar tests/test_qmat
           MYNAH_CAPS=avx2   tests/test_qmat   # downgrades with a note if unsupported
 
-      - name: Cache converted model + goldens
-        id: model-cache
-        uses: actions/cache@v4
+      - name: Restore converted model (cache warmed by prepare-model)
+        uses: ./.github/actions/prepare-model
         with:
-          path: |
-            models/${{ env.MODEL }}
-            tests/golden/parakeet110_en
-          key: ${{ env.MODEL }}-v1-${{ hashFiles('tools/convert_nemo.py', 'tools/oracle/**') }}
+          model: ${{ env.MODEL }}
+          model-url: ${{ env.MODEL_URL }}
 
-      - name: Setup uv                # also needed by test-samples (Python eval)
+      - name: Setup uv                # needed by test-samples (Python eval)
         uses: astral-sh/setup-uv@v5
-
-      - name: Download and convert the model (.nemo -> mynah), golden dump
-        if: steps.model-cache.outputs.cache-hit != 'true'
-        run: |
-          mkdir -p models/$MODEL
-          curl -fL --retry 3 -o models/$MODEL/$MODEL.nemo "$MODEL_URL"
-          cd tools && uv sync --extra oracle
-          uv run python convert_nemo.py ../models/$MODEL
-          uv run python -m oracle.transcribe ../models/$MODEL \
-            ../tests/audio/test_en.wav --dump-dir ../tests/golden/parakeet110_en
-          cd .. && rm models/$MODEL/$MODEL.nemo   # the cache keeps only the converted model
 
       - name: Int8 checkpoint (exercises the quantize path)
         run: ./mynah quantize -m models/${{ env.MODEL }} --quant int8
