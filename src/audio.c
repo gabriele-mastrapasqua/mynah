@@ -57,10 +57,15 @@ float *mynah_wav_parse(const unsigned char *data, size_t len, size_t *n_samples,
     float *out = malloc(frames * sizeof(float));
     if (!out) return NULL;
 
-    const int16_t *s = (const int16_t *)pcm;
+    /* lettura per byte (LE): un chunk data a offset dispari renderebbe il cast
+     * a int16_t* disallineato (UB tecnico, ultima voce dell'audit 2026-07-18) */
+    const uint8_t *s = pcm;
     for (size_t i = 0; i < frames; i++) {
         int32_t acc = 0;
-        for (int c = 0; c < channels; c++) acc += s[i * (size_t)channels + (size_t)c];
+        for (int c = 0; c < channels; c++) {
+            const uint8_t *p = s + 2 * (i * (size_t)channels + (size_t)c);
+            acc += (int16_t)(p[0] | (p[1] << 8));
+        }
         out[i] = (float)acc / (float)channels / 32768.0f;
     }
     *n_samples = frames;
