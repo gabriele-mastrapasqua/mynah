@@ -21,16 +21,20 @@ code path, per repo rule.
 | | |
 |---|---|
 | GGUF versions | v2 and v3 (v1 has a different, u32-based layout: rejected) |
-| ggml tensor types | F32, F16, BF16, Q8_0, Q4_0 — anything else fails with a clear error |
+| ggml tensor types | F32, F16, BF16, Q8_0, Q4_0, **Q4_K** — anything else fails with a clear error |
 | model config | **always from `mynah.json`** (config-driven rule): the GGUF KV metadata is not trusted for hyperparameters |
 | lookup order | `model.int8/int4.safetensors` (with `--quant`) → `model.safetensors` → `model.gguf` |
 
-`export_gguf.py --dtype q8_0|q4_0` quantizes only ≥2-D matrices whose last dim
-is a multiple of 32; 1-D tensors (bias, norms, BatchNorm running stats) stay
-f32 — quantizing `running_var` corrupts `1/sqrt(var)` (found the hard way:
-the model output degenerated to garbage until 1-D tensors were exempted).
+`export_gguf.py --dtype q8_0|q4_0|q4_k` quantizes only ≥2-D matrices whose last
+dim is a multiple of 32 (256 for q4_k, else per-tensor fallback to q8_0); 1-D
+tensors (bias, norms, BatchNorm running stats) stay f32 — quantizing
+`running_var` corrupts `1/sqrt(var)` (found the hard way: the model output
+degenerated to garbage until 1-D tensors were exempted). The q4_k writer uses
+a simple non-iterative quantizer (ggml's search is finer): it exists to
+validate the C dequant layout per the oracle rule, not to produce the best
+possible int4 files.
 
-File sizes for parakeet-tdt_ctc-110m: f32 459 MB · q8_0 164 MB · q4_0 114 MB.
+File sizes for parakeet-tdt_ctc-110m: f32 459 MB · q8_0 164 MB · q4_k 117 · q4_0 114 MB.
 Note: GGUF quantized types are dequantized to f32 **at load** (RAM = f32 size);
 for lowest RAM and the native SDOT/VNNI kernels use mynah's own
 `mynah quantize` int8/int4 checkpoints ([quantization.md](quantization.md)).
@@ -48,8 +52,10 @@ for lowest RAM and the native SDOT/VNNI kernels use mynah's own
 
 ## Not (yet) supported
 
-Q4_K / Q5_K / Q6_K and reading third-party GGUFs (e.g. parakeet.cpp's, which
-carry their own metadata/naming) — planned as a separate interop milestone.
+Q5_K / Q6_K and reading third-party GGUFs (e.g. parakeet.cpp's, which carry
+their own metadata/naming) — planned as a separate interop milestone. Q4_K
+dequant is ported from the keyra project (validated there against real Q4_K
+files) and cross-checked here writer↔loader on the 110m.
 The parser is hardened against hostile input (overflow-checked arithmetic,
 bounded strings/arrays/recursion, mmap range validation; origin: the keyra
 project's parser, reviewed and extended).

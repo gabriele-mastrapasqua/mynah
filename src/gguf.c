@@ -16,7 +16,8 @@ enum {
 };
 
 /* Tipi tensore ggml (solo quelli che il runtime accetta; il resto -> errore). */
-enum { GGML_F32 = 0, GGML_F16 = 1, GGML_Q4_0 = 2, GGML_Q8_0 = 8, GGML_BF16 = 30 };
+enum { GGML_F32 = 0, GGML_F16 = 1, GGML_Q4_0 = 2, GGML_Q8_0 = 8,
+       GGML_Q4_K = 12, GGML_BF16 = 30 };
 
 struct mynah_gguf {
     int fd;
@@ -145,6 +146,7 @@ static int type_geometry(uint32_t type, uint64_t *block_elems, uint64_t *block_b
     case GGML_F16:  case GGML_BF16: *block_elems = 1; *block_bytes = 2; return 0;
     case GGML_Q8_0: *block_elems = 32; *block_bytes = 34; return 0;
     case GGML_Q4_0: *block_elems = 32; *block_bytes = 18; return 0;
+    case GGML_Q4_K: *block_elems = 256; *block_bytes = 144; return 0;
     default: return -1;
     }
 }
@@ -172,6 +174,19 @@ static float f16_to_f32(uint16_t v) {
 }
 
 static uint16_t ld_u16(const unsigned char *p) { return (uint16_t)p[0] | ((uint16_t)p[1] << 8); }
+
+/* Q4_K: decodifica dei 8 scale/min a 6 bit impacchettati in 12 byte
+ * (layout ggml; port da keyra/gguf_quant.c, validato contro file reali di là). */
+static void q4k_scale_min(const unsigned char *scales, int idx,
+                          unsigned char *sc, unsigned char *mn) {
+    if (idx < 4) {
+        *sc = scales[idx] & 63u;
+        *mn = scales[idx + 4] & 63u;
+    } else {
+        *sc = (unsigned char)((scales[idx + 4] & 0x0fu) | ((scales[idx - 4] >> 6) << 4));
+        *mn = (unsigned char)((scales[idx + 4] >> 4) | ((scales[idx] >> 6) << 4));
+    }
+}
 
 /* Dequant ggml -> f32. I blocchi sono sequenziali sul tensore row-major
  * (la dim più veloce ne[0] è multiplo di 32: verificato prima). */
@@ -202,6 +217,29 @@ static void dequant(uint32_t type, const unsigned char *src, size_t n_elems, flo
             for (int i = 0; i < 16; i++) {
                 dst[b * 32 + i]      = d * (float)((int)(q[i] & 0x0f) - 8);
                 dst[b * 32 + i + 16] = d * (float)((int)(q[i] >> 4) - 8);
+            }
+        }
+        break;
+    case GGML_Q4_K:  /* super-blocco 144B: d,dmin f16 + 12B scale/min + 128B nibble
+                      * x = d*sc*q - dmin*m su 8 sotto-blocchi da 32 */
+        for (size_t b = 0; b < n_elems / 256; b++) {
+            const unsigned char *blk = src + b * 144;
+            const float d = f16_to_f32(ld_u16(blk));
+            const float dmin = f16_to_f32(ld_u16(blk + 2));
+            const unsigned char *scales = blk + 4;
+            const unsigned char *q = blk + 16;
+            float *out = dst + b * 256;
+            for (int base = 0, si = 0; base < 256; base += 64, si += 2) {
+                unsigned char sc0, mn0, sc1, mn1;
+                q4k_scale_min(scales, si, &sc0, &mn0);
+                q4k_scale_min(scales, si + 1, &sc1, &mn1);
+                const float d0 = d * sc0, m0 = dmin * mn0;
+                const float d1 = d * sc1, m1 = dmin * mn1;
+                for (int i = 0; i < 32; i++) {
+                    out[base + i]      = d0 * (float)(q[i] & 0x0f) - m0;
+                    out[base + i + 32] = d1 * (float)(q[i] >> 4) - m1;
+                }
+                q += 32;
             }
         }
         break;

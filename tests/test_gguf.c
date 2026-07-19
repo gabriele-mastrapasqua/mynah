@@ -89,21 +89,23 @@ static float src_val(int i) { return (float)(i - 32) * 0.03125f; } /* [-1, 1] */
 int main(void) {
     char path[64], junk[64];
 
-    /* ---- file valido: f32 4x8 + f16/bf16/q8_0/q4_0 da 64 elementi ---- */
-    enum { N = 64 };
+    /* ---- file valido: f32 4x8 + f16/bf16/q8_0/q4_0 da 64 elementi + q4_k 256 ---- */
+    enum { N = 64, NK = 256 };
     float vals[N];
     for (int i = 0; i < N; i++) vals[i] = src_val(i);
 
     buf b = {0};
-    hdr(&b, 3, 5);
+    hdr(&b, 3, 6);
     const uint64_t ne_f32[2] = {8, 4};    /* ggml: ne[0]=8 veloce -> mynah [4][8] */
     const uint64_t ne_v[1] = {N};
-    /* payload: f32 (128B) | f16 (128B) | bf16 (128B) | q8_0 (68B, pad) | q4_0 */
+    const uint64_t ne_k[1] = {NK};
+    /* payload: f32 (128B) | f16 (128B) | bf16 (128B) | q8_0 (68B, pad) | q4_0 | q4_k */
     tinfo(&b, "t.f32", 2, ne_f32, 0, 0);
     tinfo(&b, "t.f16", 1, ne_v, 1, 128);
     tinfo(&b, "t.bf16", 1, ne_v, 30, 256);
     tinfo(&b, "t.q8", 1, ne_v, 8, 384);
     tinfo(&b, "t.q4", 1, ne_v, 2, 480);   /* 384+68 -> pad a 480 */
+    tinfo(&b, "t.q4k", 1, ne_k, 12, 544); /* 480+36 -> pad a 544, 1 super-blocco */
     pad_to(&b, 32);
 
     for (int i = 0; i < 32; i++) put(&b, &vals[i], 4);          /* t.f32: 4x8 = 32 elem */
@@ -142,11 +144,42 @@ int main(void) {
         }
     }
 
+    /* q4_k a offset 544: 1 super-blocco con sc/min/q noti; l'atteso si calcola
+     * dalla formula di spec x = d*sc*q - dmin*m (valida il layout: pack dei
+     * 6-bit e ordine nibble i|i+32 per gruppo da 64) */
+    static const float KD = 0.5f, KDMIN = 0.25f;
+    unsigned char ksc[8], kmn[8], kq[NK];
+    float expect_k[NK];
+    for (int j = 0; j < 8; j++) { ksc[j] = (unsigned char)(j + 1); kmn[j] = (unsigned char)(8 - j); }
+    for (int i = 0; i < NK; i++) kq[i] = (unsigned char)((i * 7) % 16);
+    for (int i = 0; i < NK; i++) {
+        int j = i / 32;
+        expect_k[i] = KD * (float)ksc[j] * (float)kq[i] - KDMIN * (float)kmn[j];
+    }
+    pad_to(&b, 32);
+    {
+        uint16_t dh = f32_to_f16(KD), dminh = f32_to_f16(KDMIN);
+        put(&b, &dh, 2);
+        put(&b, &dminh, 2);
+        unsigned char scales[12];
+        for (int j = 0; j < 4; j++) {                     /* pack 6-bit ggml */
+            scales[j]     = (unsigned char)(ksc[j] | ((ksc[j + 4] >> 4) << 6));
+            scales[j + 4] = (unsigned char)(kmn[j] | ((kmn[j + 4] >> 4) << 6));
+            scales[j + 8] = (unsigned char)((ksc[j + 4] & 0x0f) | ((kmn[j + 4] & 0x0f) << 4));
+        }
+        put(&b, scales, 12);
+        for (int base = 0; base < NK; base += 64)          /* nibble i | i+32 */
+            for (int i = 0; i < 32; i++) {
+                unsigned char p = (unsigned char)(kq[base + i] | (kq[base + i + 32] << 4));
+                put(&b, &p, 1);
+            }
+    }
+
     CHECK(write_tmp(&b, path) != NULL, "fixture scritto");
     mynah_safetensors *st = mynah_st_open(path);
     CHECK(st != NULL, "GGUF valido aperto (via mynah_st_open)");
     if (st) {
-        CHECK(mynah_st_count(st) == 5, "count == 5");
+        CHECK(mynah_st_count(st) == 6, "count == 6");
         const mynah_tensor *f32 = mynah_st_get(st, "t.f32");
         CHECK(f32 && f32->n_dims == 2 && f32->shape[0] == 4 && f32->shape[1] == 8,
               "dims ggml invertite -> [4][8]");
@@ -170,6 +203,18 @@ int main(void) {
                      deq[k].name, worst, deq[k].tol);
             CHECK(worst <= deq[k].tol, msg);
         }
+        const mynah_tensor *tqk = mynah_st_get(st, "t.q4k");
+        double worst_k = 1e9;
+        if (tqk && tqk->n_elems == NK) {
+            worst_k = 0;
+            for (int i = 0; i < NK; i++) {
+                double e = fabs((double)((const float *)tqk->data)[i] - (double)expect_k[i]);
+                if (e > worst_k) worst_k = e;
+            }
+        }
+        char kmsg[128];
+        snprintf(kmsg, sizeof(kmsg), "dequant t.q4k vs formula spec (max err %.2e)", worst_k);
+        CHECK(worst_k <= 1e-6, kmsg);   /* d/dmin esatti in f16: atteso 0 */
         mynah_st_close(st);
     }
     unlink(path);
@@ -206,10 +251,10 @@ int main(void) {
     put_u32(&bad[5].f, 4);
     put_u32(&bad[5].f, 33);
 
-    bad[6].what = "tipo ggml non supportato (Q4_K: milestone interop)";
+    bad[6].what = "tipo ggml non supportato (Q6_K: milestone interop)";
     hdr(&bad[6].f, 3, 1);
-    { const uint64_t ne[1] = {256}; tinfo(&bad[6].f, "t", 1, ne, 12, 0); pad_to(&bad[6].f, 32);
-      static const unsigned char blk[144] = {0}; put(&bad[6].f, blk, 144); }
+    { const uint64_t ne[1] = {256}; tinfo(&bad[6].f, "t", 1, ne, 14, 0); pad_to(&bad[6].f, 32);
+      static const unsigned char blk[210] = {0}; put(&bad[6].f, blk, 210); }
 
     for (size_t k = 0; k < sizeof(bad) / sizeof(bad[0]); k++) {
         CHECK(write_tmp(&bad[k].f, junk) != NULL, "fixture malformato scritto");

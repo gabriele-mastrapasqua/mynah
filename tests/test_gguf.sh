@@ -14,7 +14,8 @@ TMP=$(mktemp -d /tmp/mynah_gguf.XXXXXX) || exit 1
 trap 'rm -rf "$TMP"' EXIT
 
 (cd tools && uv run python export_gguf.py "$ABS_MODEL" --out "$TMP/f32.gguf" >/dev/null && \
-             uv run python export_gguf.py "$ABS_MODEL" --dtype q8_0 --out "$TMP/q8.gguf" >/dev/null) || exit 1
+             uv run python export_gguf.py "$ABS_MODEL" --dtype q8_0 --out "$TMP/q8.gguf" >/dev/null && \
+             uv run python export_gguf.py "$ABS_MODEL" --dtype q4_k --out "$TMP/q4k.gguf" >/dev/null) || exit 1
 
 mkdir "$TMP/model"
 for f in "$ABS_MODEL"/*; do
@@ -36,13 +37,16 @@ else
     echo "gguf e2e f32  FAIL:"; echo "  safetensors: $ref"; echo "  gguf:        $got"; fail=1
 fi
 
-rm "$TMP/model/model.gguf"
-ln -s "$TMP/q8.gguf" "$TMP/model/model.gguf"
-got=$(./mynah transcribe -m "$TMP/model" -i "$WAV" 2>/dev/null)
-case "$got" in
-    *"speech recognition test"*) echo "gguf e2e q8_0 OK: $got" ;;
-    *) echo "gguf e2e q8_0 FAIL: $got"; fail=1 ;;
-esac
+for q in q8:q8_0 q4k:q4_k; do
+    file="${q%%:*}"; name="${q##*:}"
+    rm "$TMP/model/model.gguf"
+    ln -s "$TMP/$file.gguf" "$TMP/model/model.gguf"
+    got=$(./mynah transcribe -m "$TMP/model" -i "$WAV" 2>/dev/null)
+    case "$got" in
+        *"speech recognition test"*) echo "gguf e2e $name OK: $got" ;;
+        *) echo "gguf e2e $name FAIL: $got"; fail=1 ;;
+    esac
+done
 
 # mynah quantize a partire dai pesi GGUF (stessa API f32 -> deve funzionare):
 # scrive model.int8.safetensors nella dir tmp e ritrascrive col checkpoint

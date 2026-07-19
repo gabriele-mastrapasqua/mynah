@@ -21,7 +21,7 @@ import numpy as np
 from safetensors.numpy import load_file
 
 ALIGN = 32
-GGML = {"f32": 0, "f16": 1, "q4_0": 2, "q8_0": 8}
+GGML = {"f32": 0, "f16": 1, "q4_0": 2, "q8_0": 8, "q4_k": 12}
 
 
 def gguf_string(s: str) -> bytes:
@@ -59,18 +59,59 @@ def quantize_q4_0(x: np.ndarray) -> bytes:
     return bytes(out)
 
 
+def quantize_q4_k(x: np.ndarray) -> bytes:
+    """Super-blocchi da 256 (8 sotto-blocchi da 32): x = d*sc*q - dmin*m.
+    Quantizzatore semplice non-iterativo (ggml usa una ricerca più fine): basta
+    per validare il layout del dequant C con la regola oracle."""
+    blocks = x.reshape(-1, 8, 32).astype(np.float64)
+    lo = np.minimum(blocks.min(axis=2), 0.0)              # m_j >= 0
+    hi = np.maximum(blocks.max(axis=2), 0.0)
+    scale = (hi - lo) / 15.0                              # per sotto-blocco
+    mins = -lo
+    d = scale.max(axis=1) / 63.0                          # globali del super-blocco
+    dmin = mins.max(axis=1) / 63.0
+    d16 = d.astype(np.float16).astype(np.float64)         # arrotonda come su file
+    dmin16 = dmin.astype(np.float16).astype(np.float64)
+    sc6 = np.where(d16[:, None] > 0, np.round(scale / np.where(d16[:, None] > 0, d16[:, None], 1)), 0)
+    mn6 = np.where(dmin16[:, None] > 0, np.round(mins / np.where(dmin16[:, None] > 0, dmin16[:, None], 1)), 0)
+    sc6 = np.clip(sc6, 0, 63).astype(np.uint8)
+    mn6 = np.clip(mn6, 0, 63).astype(np.uint8)
+    eff_d = d16[:, None] * sc6                            # scala/min effettivi
+    eff_m = dmin16[:, None] * mn6
+    q = np.where(eff_d[:, :, None] > 0,
+                 np.round((blocks + eff_m[:, :, None]) / np.where(eff_d[:, :, None] > 0, eff_d[:, :, None], 1)), 0)
+    q = np.clip(q, 0, 15).astype(np.uint8)
+    out = bytearray()
+    for b in range(blocks.shape[0]):
+        scales = bytearray(12)
+        for j in range(4):                                # layout ggml dei 6-bit
+            scales[j] = sc6[b, j] | ((sc6[b, j + 4] >> 4) << 6)
+            scales[j + 4] = mn6[b, j] | ((mn6[b, j + 4] >> 4) << 6)
+            scales[j + 8] = (sc6[b, j + 4] & 0x0F) | ((mn6[b, j + 4] & 0x0F) << 4)
+        qs = bytearray()
+        for grp in range(4):                              # 4 gruppi da 64: i | i+32
+            g = q[b, 2 * grp : 2 * grp + 2].reshape(64)
+            qs += (g[:32] | (g[32:] << 4)).astype(np.uint8).tobytes()
+        out += np.float16(d16[b]).tobytes() + np.float16(dmin16[b]).tobytes() + scales + qs
+    return bytes(out)
+
+
 def encode_tensor(x: np.ndarray, dtype: str) -> tuple[int, bytes]:
     x = np.ascontiguousarray(x, dtype=np.float32)
     if dtype != "f32" and (x.ndim < 2 or x.shape[-1] % 32 != 0):
         # solo le matrici si quantizzano: bias/norm/running-stats 1-D restano f32
         # (stile llama.cpp; quantizzare running_var rompe 1/sqrt(var) del BatchNorm)
         dtype = "f32"
+    if dtype == "q4_k" and x.shape[-1] % 256 != 0:
+        dtype = "q8_0"                      # fallback K-quant (come llama.cpp)
     if dtype == "f32":
         return GGML["f32"], x.tobytes()
     if dtype == "f16":
         return GGML["f16"], x.astype(np.float16).tobytes()
     if dtype == "q8_0":
         return GGML["q8_0"], quantize_q8_0(x)
+    if dtype == "q4_k":
+        return GGML["q4_k"], quantize_q4_k(x)
     return GGML["q4_0"], quantize_q4_0(x)
 
 
