@@ -106,22 +106,22 @@ Every numeric stage is validated against a numpy reference oracle
 The quality suite runs on **real committed audio** ([samples/](samples/README.md)):
 parallel [FLEURS](https://huggingface.co/datasets/google/fleurs) clips (CC-BY 4.0),
 the *same sentence* read by native speakers in 11 languages. Click a clip to
-listen; the text is the reference transcription — mynah's output matches it
-with **CER 0.00–0.07** (`make test-samples`).
+download the WAV (release asset); the text is the reference transcription —
+mynah's output matches it with **CER 0.00–0.07** (`make test-samples`).
 
 | | clip | reference transcription |
 |---|---|---|
-| 🇮🇹 it | [▶ fleurs_1521](samples/it/fleurs_1521.wav) | Il satellite nello spazio riceve il segnale e poi lo rimanda indietro quasi all'istante. |
-| 🇺🇸 en | [▶ fleurs_1521](samples/en/fleurs_1521.wav) | The satellite in space gets the call and then reflects it back down, almost instantly. |
-| 🇩🇪 de | [▶ fleurs_1521](samples/de/fleurs_1521.wav) | Der Satellit im Weltraum empfängt den Anruf und reflektiert ihn dann fast sofort zurück nach unten. |
-| 🇪🇸 es | [▶ fleurs_1521](samples/es/fleurs_1521.wav) | El satélite en el espacio recibe la llamada y, luego, la refleja de vuelta casi de forma instantánea. |
-| 🇫🇷 fr | [▶ fleurs_1521](samples/fr/fleurs_1521.wav) | Le satellite reçoit l'appel dans l'espace puis le renvoie sur Terre, presque instantanément. |
-| 🇵🇹 pt | [▶ fleurs_1521](samples/pt/fleurs_1521.wav) | O satélite no espaço recebe a chamada e depois a redireciona de volta, quase instantaneamente. |
-| 🇳🇱 nl | [▶ fleurs_1521](samples/nl/fleurs_1521.wav) | Zodra de ruimtesatelliet de oproep ontvangt, wordt deze meteen teruggezonden. |
-| 🇵🇱 pl | [▶ fleurs_1521](samples/pl/fleurs_1521.wav) | Połączenie trafia do satelity w przestrzeni kosmicznej, po czym niemal natychmiast odbija go z powrotem. |
-| 🇷🇺 ru | [▶ fleurs_1521](samples/ru/fleurs_1521.wav) | Спутник в космосе принимает звонок и практически мгновенно отражает его обратно вниз. |
-| 🇺🇦 uk | [▶ fleurs_1521](samples/uk/fleurs_1521.wav) | Супутник у космосі отримує виклик і потім майже одразу відображає його назад. |
-| 🇯🇵 ja | [▶ fleurs_1521](samples/ja/fleurs_1521.wav) | 宇宙にある人工衛星は通話を受信して、ほぼ瞬時にそれを反映します。 |
+| 🇮🇹 it | [⬇ fleurs_1521](https://github.com/gabriele-mastrapasqua/mynah/releases/download/v0.1-samples/it_fleurs_1521.wav) | Il satellite nello spazio riceve il segnale e poi lo rimanda indietro quasi all'istante. |
+| 🇺🇸 en | [⬇ fleurs_1521](https://github.com/gabriele-mastrapasqua/mynah/releases/download/v0.1-samples/en_fleurs_1521.wav) | The satellite in space gets the call and then reflects it back down, almost instantly. |
+| 🇩🇪 de | [⬇ fleurs_1521](https://github.com/gabriele-mastrapasqua/mynah/releases/download/v0.1-samples/de_fleurs_1521.wav) | Der Satellit im Weltraum empfängt den Anruf und reflektiert ihn dann fast sofort zurück nach unten. |
+| 🇪🇸 es | [⬇ fleurs_1521](https://github.com/gabriele-mastrapasqua/mynah/releases/download/v0.1-samples/es_fleurs_1521.wav) | El satélite en el espacio recibe la llamada y, luego, la refleja de vuelta casi de forma instantánea. |
+| 🇫🇷 fr | [⬇ fleurs_1521](https://github.com/gabriele-mastrapasqua/mynah/releases/download/v0.1-samples/fr_fleurs_1521.wav) | Le satellite reçoit l'appel dans l'espace puis le renvoie sur Terre, presque instantanément. |
+| 🇵🇹 pt | [⬇ fleurs_1521](https://github.com/gabriele-mastrapasqua/mynah/releases/download/v0.1-samples/pt_fleurs_1521.wav) | O satélite no espaço recebe a chamada e depois a redireciona de volta, quase instantaneamente. |
+| 🇳🇱 nl | [⬇ fleurs_1521](https://github.com/gabriele-mastrapasqua/mynah/releases/download/v0.1-samples/nl_fleurs_1521.wav) | Zodra de ruimtesatelliet de oproep ontvangt, wordt deze meteen teruggezonden. |
+| 🇵🇱 pl | [⬇ fleurs_1521](https://github.com/gabriele-mastrapasqua/mynah/releases/download/v0.1-samples/pl_fleurs_1521.wav) | Połączenie trafia do satelity w przestrzeni kosmicznej, po czym niemal natychmiast odbija go z powrotem. |
+| 🇷🇺 ru | [⬇ fleurs_1521](https://github.com/gabriele-mastrapasqua/mynah/releases/download/v0.1-samples/ru_fleurs_1521.wav) | Спутник в космосе принимает звонок и практически мгновенно отражает его обратно вниз. |
+| 🇺🇦 uk | [⬇ fleurs_1521](https://github.com/gabriele-mastrapasqua/mynah/releases/download/v0.1-samples/uk_fleurs_1521.wav) | Супутник у космосі отримує виклик і потім майже одразу відображає його назад. |
+| 🇯🇵 ja | [⬇ fleurs_1521](https://github.com/gabriele-mastrapasqua/mynah/releases/download/v0.1-samples/ja_fleurs_1521.wav) | 宇宙にある人工衛星は通話を受信して、ほぼ瞬時にそれを反映します。 |
 
 Because the sentences are parallel, the English clip doubles as the reference
 for scoring Canary's **speech translation** (e.g. it→en at the top of this page).
