@@ -1,5 +1,6 @@
 #include "stwrite.h"
 
+#include <stdarg.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -40,28 +41,53 @@ int mynah_stw_add(mynah_stw *w, const char *name, const char *dtype,
     return 0;
 }
 
+/* Append printf-style in *buf a partire da *len, facendo crescere *cap quando
+ * serve. Il valore di ritorno di vsnprintf viene SEMPRE confrontato con lo spazio
+ * residuo PRIMA di avanzare *len: niente troncamento silenzioso e niente
+ * aritmetica (cap - len) che possa andare in underflow. Ritorna 0, -1 su OOM. */
+static int stw_appendf(char **buf, size_t *cap, size_t *len, const char *fmt, ...) {
+    for (;;) {
+        va_list ap;
+        va_start(ap, fmt);
+        int need = vsnprintf(*buf + *len, *cap - *len, fmt, ap);
+        va_end(ap);
+        if (need < 0) return -1;
+        if ((size_t)need < *cap - *len) { *len += (size_t)need; return 0; }
+        /* troncato: raddoppia finché entra (need + NUL) e riprova */
+        size_t ncap = *cap ? *cap : 256;
+        while (ncap <= *len + (size_t)need) ncap *= 2;
+        char *nb = realloc(*buf, ncap);
+        if (!nb) return -1;
+        *buf = nb;
+        *cap = ncap;
+    }
+}
+
 int mynah_stw_write(mynah_stw *w, const char *path) {
     /* header JSON costruito a mano: nomi controllati (tensori HF), niente escaping
-     * esotico da gestire */
+     * esotico da gestire. Il buffer cresce da solo via stw_appendf, quindi la
+     * capacità iniziale è solo una stima. */
     size_t hcap = 256 + w->n * 256;
     char *hdr = malloc(hcap);
     if (!hdr) return -1;
     size_t hl = 0;
-    hdr[hl++] = '{';
-    for (size_t i = 0; i < w->n; i++) {
+    int err = stw_appendf(&hdr, &hcap, &hl, "{");
+    for (size_t i = 0; i < w->n && !err; i++) {
         const stw_entry *e = &w->entries[i];
-        hl += (size_t)snprintf(hdr + hl, hcap - hl,
-                               "%s\"%s\":{\"dtype\":\"%s\",\"shape\":[", i ? "," : "",
-                               e->name, e->dtype);
-        for (int d = 0; d < e->n_dims; d++)
-            hl += (size_t)snprintf(hdr + hl, hcap - hl, "%s%lld", d ? "," : "",
-                                   (long long)e->shape[d]);
-        hl += (size_t)snprintf(hdr + hl, hcap - hl, "],\"data_offsets\":[%zu,%zu]}",
-                               e->offset, e->offset + e->bytes);
+        err = stw_appendf(&hdr, &hcap, &hl,
+                          "%s\"%s\":{\"dtype\":\"%s\",\"shape\":[", i ? "," : "",
+                          e->name, e->dtype);
+        for (int d = 0; d < e->n_dims && !err; d++)
+            err = stw_appendf(&hdr, &hcap, &hl, "%s%lld", d ? "," : "",
+                              (long long)e->shape[d]);
+        if (!err)
+            err = stw_appendf(&hdr, &hcap, &hl, "],\"data_offsets\":[%zu,%zu]}",
+                              e->offset, e->offset + e->bytes);
     }
-    hdr[hl++] = '}';
+    if (!err) err = stw_appendf(&hdr, &hcap, &hl, "}");
     /* pad a multipli di 8 con spazi (convenzione safetensors) */
-    while (hl % 8 != 0) hdr[hl++] = ' ';
+    while (!err && hl % 8 != 0) err = stw_appendf(&hdr, &hcap, &hl, " ");
+    if (err) { free(hdr); return -1; }
 
     FILE *f = fopen(path, "wb");
     if (!f) { free(hdr); return -1; }
