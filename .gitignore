@@ -37,6 +37,7 @@ tests/golden/
 tests/audio/langs/
 libmynah.a
 tests/test_qmat
+tests/test_gguf
 tests/test_features
 tests/test_subsampling
 tests/test_encoder
