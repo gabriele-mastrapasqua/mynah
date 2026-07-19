@@ -272,6 +272,7 @@ make golden-dump  # regenerate reference dumps (requires tools/ + model)
 | [docs/api.md](docs/api.md) | C API reference (libmynah) |
 | [docs/nemotron-languages.md](docs/nemotron-languages.md) | the 40 Nemotron locales with quality tiers |
 | [docs/nemotron-arch.md](docs/nemotron-arch.md) · [parakeet-tdt-arch.md](docs/parakeet-tdt-arch.md) · [canary-arch.md](docs/canary-arch.md) | verified model architectures |
+| [docs/parakeet-en-family.md](docs/parakeet-en-family.md) · [canary-usage.md](docs/canary-usage.md) | per-family usage, features and limits |
 | [docs/architecture-notes.md](docs/architecture-notes.md) | design decisions & implementation traps |
 | [docs/prior-art.md](docs/prior-art.md) | the landscape: parakeet.cpp, sherpa-onnx, onnx-asr… |
 
