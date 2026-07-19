@@ -28,6 +28,7 @@ MODELS=(
   "canary-1b-flash|nvidia/canary-1b-flash|nemo|3.5 GB|ASR en/de/es/fr + TRANSLATION, word+segment timestamps"
   "canary-v2|nvidia/canary-1b-v2|nemo|3.9 GB|ASR 25 EU languages + en<->24 TRANSLATION, ITN"
   "110m-gguf|handy-computer/parakeet-tdt_ctc-110m-gguf|gguf|90 MB|COMMUNITY Q4_K_M GGUF of the 110m — lightest download, no torch needed (verified; no CTC head)"
+  "v3-gguf|handy-computer/parakeet-tdt-0.6b-v3-gguf|gguf|485 MB|COMMUNITY Q4_K_M GGUF of the tdt-v3 — 25 EU langs, no torch (verified; dequant to F32 at load, RAM ~= full model)"
 )
 
 # HF-native port files (mode=hf). Only the ones marked * are required; the others
@@ -85,7 +86,7 @@ if [[ -z "$ENTRY" ]]; then
 fi
 
 IFS='|' read -r KEY REPO_ID MODE SIZE DESC <<<"$ENTRY"
-NAME="${REPO_ID#nvidia/}"
+NAME="${REPO_ID##*/}"   # basename del repo (vale per nvidia/* e per i gguf community)
 DEST="${DEST:-models/$NAME}"
 BASE="https://huggingface.co/$REPO_ID/resolve/main"
 
@@ -115,7 +116,8 @@ if [[ "$MODE" == hf ]]; then
   for f in "${HF_REQUIRED[@]}"; do fetch "$f" yes; done
   for f in "${HF_OPTIONAL[@]}"; do fetch "$f" no;  done
 elif [[ "$MODE" == gguf ]]; then
-  fetch "parakeet-tdt_ctc-110m-Q4_K_M.gguf" yes
+  # naming handy-computer: <basename-senza-suffisso-gguf>-Q4_K_M.gguf
+  fetch "${NAME%-gguf}-Q4_K_M.gguf" yes
 else
   fetch "$NAME.nemo" yes
 fi
