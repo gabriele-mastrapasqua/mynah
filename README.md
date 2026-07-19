@@ -54,8 +54,11 @@ first-class citizen.
   (model-aware), weight-stationary batching, OpenAI-compatible REST + WebSocket
   server
 - **Two weight containers**: safetensors (default, zero-copy mmap) or **GGUF**
-  (F32/F16/BF16/Q8_0/Q4_0, `tools/export_gguf.py`) — same code path after load
-- **Python bindings** (ctypes, zero dependencies) on top of `libmynah`
+  (F32/F16/BF16/Q8_0/Q4_0, `tools/export_gguf.py`) — same code path after load;
+  can also **import third-party community GGUFs** without torch
+  (`tools/import_gguf.py`, Parakeet/TDT — *WIP*)
+- **Lightweight bindings**: Python (ctypes) and **Node** (koffi) over `libmynah` —
+  thin FFI wrappers, no build step committed to the repo
 - Quality measured on **real audio**: CER 0.00–0.07 across 11 languages
   ([hear it below](#hear-it--11-languages-one-sentence)), translations scored
   against parallel references — `make test-samples`
@@ -200,17 +203,24 @@ curl -F file=@audio_de.wav -F language=de http://localhost:8090/v1/audio/transla
 weight-stationary micro-batching across concurrent requests.
 Details: [docs/server.md](docs/server.md).
 
-## Python bindings
+## Bindings (Python · Node)
+
+Thin FFI wrappers over `libmynah` (`make shared` first) — no build step in the repo:
 
 ```python
-# make shared && python3 ...
+# Python — pure ctypes, zero dependencies: bindings/python/mynah.py
 from mynah import Mynah
 m = Mynah("models/parakeet-tdt-0.6b-v3")
 text, words = m.transcribe("audio.wav", timestamps=True)
 Mynah("models/canary-1b-v2").transcribe("it.wav", lang="it>en")   # translation
 ```
 
-Pure ctypes, zero dependencies: [bindings/python/](bindings/python/mynah.py).
+```js
+// Node — koffi FFI (npm i koffi): bindings/node/mynah.js
+const { Mynah } = require("./mynah");
+const m = new Mynah("models/parakeet-tdt-0.6b-v3");
+const { text, words } = m.transcribe("audio.wav", { timestamps: true });
+```
 
 ## C API (libmynah)
 
@@ -237,7 +247,7 @@ Reference: [docs/api.md](docs/api.md) · streaming: [docs/streaming.md](docs/str
 src/        C runtime (libmynah) — decoders behind a vtable (engine.h)
 cli/        `mynah` CLI
 server/     `mynah-server` REST + WebSocket
-bindings/   Python (ctypes over libmynah)
+bindings/   Python (ctypes) & Node (koffi) over libmynah
 tools/      Python tooling (uv): weight converter, numpy oracle, eval
 tests/      per-stage parity vs oracle + e2e (make test; skips without models)
 samples/    real CC-BY audio (FLEURS, 11 languages) for the quality suite
