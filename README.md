@@ -53,6 +53,8 @@ first-class citizen.
 - **Per-word timestamps**, automatic silence-based segmentation of long files
   (model-aware), weight-stationary batching, OpenAI-compatible REST + WebSocket
   server
+- **Two weight containers**: safetensors (default, zero-copy mmap) or **GGUF**
+  (F32/F16/BF16/Q8_0/Q4_0, `tools/export_gguf.py`) — same code path after load
 - **Python bindings** (ctypes, zero dependencies) on top of `libmynah`
 - Quality measured on **real audio**: CER 0.00–0.07 across 11 languages
   ([hear it below](#hear-it--11-languages-one-sentence)), translations scored
@@ -264,6 +266,7 @@ make golden-dump  # regenerate reference dumps (requires tools/ + model)
 | [docs/benchmarks.md](docs/benchmarks.md) | full RTF/RAM matrix, CPU vs Metal vs int8, methodology |
 | [docs/streaming.md](docs/streaming.md) | cache-aware streaming, latency presets, WebSocket protocol |
 | [docs/quantization.md](docs/quantization.md) | int8/int4 checkpoint format and SDOT/VNNI kernels |
+| [docs/gguf.md](docs/gguf.md) | GGUF weight container (export, supported types, lookup order) |
 | [docs/backends.md](docs/backends.md) | CPU SIMD dispatch, Metal, CUDA |
 | [docs/server.md](docs/server.md) | REST + WebSocket server, OpenAI compatibility |
 | [docs/api.md](docs/api.md) | C API reference (libmynah) |

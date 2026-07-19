@@ -47,7 +47,7 @@ build/src/metal_mps.o: src/metal_mps.m $(HDR)
 	@mkdir -p $(@D)
 	$(CC) $(CFLAGS) -fobjc-arc -c $< -o $@
 
-TESTS := tests/test_qmat tests/test_features tests/test_subsampling tests/test_encoder tests/test_streaming tests/test_batch
+TESTS := tests/test_qmat tests/test_gguf tests/test_features tests/test_subsampling tests/test_encoder tests/test_streaming tests/test_batch
 
 tests/%: build/tests/%.o build/tests/npy.o build/tests/testcfg.o $(OBJ)
 	$(CC) $(CFLAGS) -o $@ $^ $(LDFLAGS)
@@ -57,7 +57,7 @@ tests/%: build/tests/%.o build/tests/npy.o build/tests/testcfg.o $(OBJ)
 PARITY_BOTH := tests/test_features tests/test_subsampling tests/test_encoder tests/test_batch
 test: $(TESTS) mynah examples/minimal
 	@for t in $(TESTS); do \
-	  if [ $$t = tests/test_qmat ]; then $$t; rc=$$?; \
+	  if [ $$t = tests/test_qmat ] || [ $$t = tests/test_gguf ]; then $$t; rc=$$?; \
 	  else $$t $(MODEL_DIR) tests/audio/test_it.wav tests/golden/test_it; rc=$$?; fi; \
 	  if [ $$rc -eq 77 ]; then echo "SKIP $$t: modello o golden assenti (make golden-dump)"; \
 	  elif [ $$rc -ne 0 ]; then exit $$rc; fi; \
@@ -78,6 +78,9 @@ test: $(TESTS) mynah examples/minimal
 	  if [ $$rc -eq 77 ]; then echo "SKIP e2e $$m: non scaricato (HF-native: scripts/download_model.sh + convert_nemo.py; .nemo: curl dal repo HF + convert_nemo.py — vedi docs/models.md)"; \
 	  elif [ $$rc -ne 0 ]; then exit $$rc; fi; \
 	done
+	@sh tests/test_gguf.sh $(PARAKEET110_DIR); rc=$$?; \
+	  if [ $$rc -eq 77 ]; then echo "SKIP gguf parity: 110m convertito o uv assenti"; \
+	  elif [ $$rc -ne 0 ]; then exit $$rc; fi
 
 golden-dump:
 	cd tools && uv run python -m oracle.transcribe ../$(MODEL_DIR) ../tests/audio/test_it.wav \

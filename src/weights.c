@@ -9,6 +9,7 @@
 #include <unistd.h>
 
 #include "../vendor/cJSON.h"
+#include "gguf.h"
 
 struct mynah_safetensors {
     void *map;
@@ -16,6 +17,7 @@ struct mynah_safetensors {
     cJSON *header;         /* mantiene vive le stringhe dei nomi */
     mynah_tensor *tensors;
     size_t n_tensors;
+    mynah_gguf *gguf;      /* container alternativo: se set, tensors punta lì */
 };
 
 static int dtype_of(const char *s, mynah_dtype *out) {
@@ -41,6 +43,19 @@ mynah_safetensors *mynah_st_open(const char *path) {
     if (fd < 0) { fprintf(stderr, "weights: impossibile aprire %s\n", path); return NULL; }
     struct stat sb;
     if (fstat(fd, &sb) != 0 || sb.st_size < 8) { close(fd); return NULL; }
+
+    /* container GGUF? (magic "GGUF"): stessa API, i consumer non cambiano */
+    char magic[4] = {0};
+    if (pread(fd, magic, 4, 0) == 4 && memcmp(magic, "GGUF", 4) == 0) {
+        close(fd);
+        mynah_gguf *g = mynah_gguf_open(path);
+        if (!g) return NULL;
+        mynah_safetensors *st = calloc(1, sizeof(*st));
+        if (!st) { mynah_gguf_close(g); return NULL; }
+        st->gguf = g;
+        st->tensors = (mynah_tensor *)mynah_gguf_tensors(g, &st->n_tensors);
+        return st;
+    }
 
     void *map = mmap(NULL, (size_t)sb.st_size, PROT_READ, MAP_PRIVATE, fd, 0);
     close(fd);
@@ -108,6 +123,11 @@ mynah_safetensors *mynah_st_open(const char *path) {
 
 void mynah_st_close(mynah_safetensors *st) {
     if (!st) return;
+    if (st->gguf) {           /* i tensori appartengono al handle GGUF */
+        mynah_gguf_close(st->gguf);
+        free(st);
+        return;
+    }
     if (st->map) munmap(st->map, st->map_len);
     cJSON_Delete(st->header);
     free(st->tensors);

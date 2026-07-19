@@ -168,7 +168,17 @@ mynah_model *mynah_load_quant(const char *model_dir, int quant) {
     }
     if (!m->weights) {
         snprintf(path, sizeof(path), "%s/%s", model_dir, wfile);
-        m->weights = mynah_st_open(path);
+        m->weights = mynah_st_open_quiet(path);
+        if (!m->weights) {   /* container alternativo GGUF (tools/export_gguf.py) */
+            snprintf(path, sizeof(path), "%s/model.gguf", model_dir);
+            m->weights = mynah_st_open_quiet(path);
+            if (m->weights)
+                fprintf(stderr, "mynah: pesi dal container GGUF %s\n", path);
+        }
+        if (!m->weights) {   /* riapre il path primario per il messaggio d'errore */
+            snprintf(path, sizeof(path), "%s/%s", model_dir, wfile);
+            m->weights = mynah_st_open(path);
+        }
     }
     snprintf(path, sizeof(path), "%s/mel_filters.safetensors", model_dir);
     m->mel_filters = mynah_st_open(path);

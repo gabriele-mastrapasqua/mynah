@@ -1,0 +1,340 @@
+#include "gguf.h"
+
+#include <fcntl.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <sys/mman.h>
+#include <sys/stat.h>
+#include <unistd.h>
+
+/* Tipi di valore dei metadata GGUF (KV store nell'header). */
+enum {
+    GGUF_U8 = 0, GGUF_I8 = 1, GGUF_U16 = 2, GGUF_I16 = 3, GGUF_U32 = 4,
+    GGUF_I32 = 5, GGUF_F32 = 6, GGUF_BOOL = 7, GGUF_STRING = 8, GGUF_ARRAY = 9,
+    GGUF_U64 = 10, GGUF_I64 = 11, GGUF_F64 = 12
+};
+
+/* Tipi tensore ggml (solo quelli che il runtime accetta; il resto -> errore). */
+enum { GGML_F32 = 0, GGML_F16 = 1, GGML_Q4_0 = 2, GGML_Q8_0 = 8, GGML_BF16 = 30 };
+
+struct mynah_gguf {
+    int fd;
+    uint64_t size;
+    uint64_t data_base;
+    uint64_t alignment;
+    unsigned char *map;
+    mynah_tensor *tensors;
+    char **names;          /* proprietà nostra (in safetensors puntano nel JSON) */
+    float **dequant;       /* buffer f32 dei tensori non-F32 (NULL se zero-copy) */
+    uint32_t *ggml_type;
+    size_t count;
+};
+
+/* Aritmetica con controllo overflow: un header ostile non deve mandarci in UB. */
+static int add_u64(uint64_t a, uint64_t b, uint64_t *out) {
+    if (b > UINT64_MAX - a) return -1;
+    *out = a + b;
+    return 0;
+}
+static int mul_u64(uint64_t a, uint64_t b, uint64_t *out) {
+    if (a != 0 && b > UINT64_MAX / a) return -1;
+    *out = a * b;
+    return 0;
+}
+
+typedef struct { int fd; uint64_t size; uint64_t pos; } reader;
+
+static int rd_bytes(reader *r, void *dst, uint64_t n) {
+    uint64_t end;
+    if (add_u64(r->pos, n, &end) != 0 || end > r->size) return -1;
+    unsigned char *out = dst;
+    while (n != 0) {
+        size_t chunk = n > (1u << 20) ? (1u << 20) : (size_t)n;
+        ssize_t got = pread(r->fd, out, chunk, (off_t)r->pos);
+        if (got <= 0) return -1;
+        r->pos += (uint64_t)got;
+        out += got;
+        n -= (uint64_t)got;
+    }
+    return 0;
+}
+
+/* letture little-endian esplicite: indipendenti dall'endianness dell'host */
+static int rd_u32(reader *r, uint32_t *v) {
+    unsigned char b[4];
+    if (rd_bytes(r, b, 4) != 0) return -1;
+    *v = (uint32_t)b[0] | ((uint32_t)b[1] << 8) | ((uint32_t)b[2] << 16) | ((uint32_t)b[3] << 24);
+    return 0;
+}
+static int rd_u64(reader *r, uint64_t *v) {
+    unsigned char b[8];
+    if (rd_bytes(r, b, 8) != 0) return -1;
+    *v = 0;
+    for (int i = 7; i >= 0; i--) *v = (*v << 8) | b[i];
+    return 0;
+}
+
+static int rd_string(reader *r, char **out) {
+    uint64_t len;
+    if (rd_u64(r, &len) != 0 || len > (1u << 20) || len > r->size - r->pos) return -1;
+    char *s = malloc((size_t)len + 1);
+    if (!s) return -1;
+    if (rd_bytes(r, s, len) != 0) { free(s); return -1; }
+    s[len] = '\0';
+    *out = s;
+    return 0;
+}
+
+static int skip_value(reader *r, uint32_t type, unsigned depth) {
+    if (depth > 32) return -1;
+    uint64_t n = 0;
+    switch (type) {
+    case GGUF_U8: case GGUF_I8: case GGUF_BOOL: n = 1; break;
+    case GGUF_U16: case GGUF_I16: n = 2; break;
+    case GGUF_U32: case GGUF_I32: case GGUF_F32: n = 4; break;
+    case GGUF_U64: case GGUF_I64: case GGUF_F64: n = 8; break;
+    case GGUF_STRING: {
+        uint64_t len;
+        if (rd_u64(r, &len) != 0 || len > r->size - r->pos) return -1;
+        n = len;
+        break;
+    }
+    case GGUF_ARRAY: {
+        uint32_t elem;
+        uint64_t cnt;
+        if (rd_u32(r, &elem) != 0 || rd_u64(r, &cnt) != 0 || cnt > 100000000u) return -1;
+        for (uint64_t i = 0; i < cnt; i++)
+            if (skip_value(r, elem, depth + 1) != 0) return -1;
+        return 0;
+    }
+    default: return -1;
+    }
+    if (n > r->size - r->pos) return -1;
+    r->pos += n;
+    return 0;
+}
+
+/* Dei metadata serve solo general.alignment: la config del modello NON viene
+ * dal GGUF ma da mynah.json (i KV extra vengono saltati, non sono un errore). */
+static int rd_metadata(mynah_gguf *g, reader *r, uint64_t count) {
+    if (count > 100000000u) return -1;
+    for (uint64_t i = 0; i < count; i++) {
+        char *key = NULL;
+        uint32_t type;
+        if (rd_string(r, &key) != 0 || rd_u32(r, &type) != 0) { free(key); return -1; }
+        int rc = 0;
+        if (strcmp(key, "general.alignment") == 0 && type == GGUF_U32) {
+            uint32_t a;
+            rc = rd_u32(r, &a);
+            g->alignment = a;
+        } else if (strcmp(key, "general.alignment") == 0 && type == GGUF_U64) {
+            rc = rd_u64(r, &g->alignment);
+        } else {
+            rc = skip_value(r, type, 0);
+        }
+        free(key);
+        if (rc != 0) return -1;
+    }
+    return 0;
+}
+
+static int type_geometry(uint32_t type, uint64_t *block_elems, uint64_t *block_bytes) {
+    switch (type) {
+    case GGML_F32:  *block_elems = 1;  *block_bytes = 4;  return 0;
+    case GGML_F16:  case GGML_BF16: *block_elems = 1; *block_bytes = 2; return 0;
+    case GGML_Q8_0: *block_elems = 32; *block_bytes = 34; return 0;
+    case GGML_Q4_0: *block_elems = 32; *block_bytes = 18; return 0;
+    default: return -1;
+    }
+}
+
+static float f16_to_f32(uint16_t v) {
+    uint32_t sign = (uint32_t)(v & 0x8000u) << 16;
+    int e = (v >> 10) & 0x1f;
+    uint32_t frac = v & 0x03ffu;
+    uint32_t bits;
+    if (e == 0) {
+        if (frac == 0) bits = sign;
+        else { /* subnormale: normalizza */
+            e = 1;
+            while ((frac & 0x0400u) == 0) { frac <<= 1; e--; }
+            bits = sign | ((uint32_t)(e + 112) << 23) | ((frac & 0x03ffu) << 13);
+        }
+    } else if (e == 31) {
+        bits = sign | 0x7f800000u | (frac << 13);
+    } else {
+        bits = sign | ((uint32_t)(e + 112) << 23) | (frac << 13);
+    }
+    float out;
+    memcpy(&out, &bits, sizeof(out));
+    return out;
+}
+
+static uint16_t ld_u16(const unsigned char *p) { return (uint16_t)p[0] | ((uint16_t)p[1] << 8); }
+
+/* Dequant ggml -> f32. I blocchi sono sequenziali sul tensore row-major
+ * (la dim più veloce ne[0] è multiplo di 32: verificato prima). */
+static void dequant(uint32_t type, const unsigned char *src, size_t n_elems, float *dst) {
+    switch (type) {
+    case GGML_F16:
+        for (size_t i = 0; i < n_elems; i++) dst[i] = f16_to_f32(ld_u16(src + 2 * i));
+        break;
+    case GGML_BF16:
+        for (size_t i = 0; i < n_elems; i++) {
+            uint32_t bits = (uint32_t)ld_u16(src + 2 * i) << 16;
+            memcpy(&dst[i], &bits, 4);
+        }
+        break;
+    case GGML_Q8_0:  /* blocco 34B: d f16 + 32 int8 */
+        for (size_t b = 0; b < n_elems / 32; b++) {
+            const unsigned char *blk = src + b * 34;
+            const float d = f16_to_f32(ld_u16(blk));
+            const signed char *q = (const signed char *)(blk + 2);
+            for (int i = 0; i < 32; i++) dst[b * 32 + i] = d * (float)q[i];
+        }
+        break;
+    case GGML_Q4_0:  /* blocco 18B: d f16 + 16B nibble (j e j+16 impacchettati) */
+        for (size_t b = 0; b < n_elems / 32; b++) {
+            const unsigned char *blk = src + b * 18;
+            const float d = f16_to_f32(ld_u16(blk));
+            const unsigned char *q = blk + 2;
+            for (int i = 0; i < 16; i++) {
+                dst[b * 32 + i]      = d * (float)((int)(q[i] & 0x0f) - 8);
+                dst[b * 32 + i + 16] = d * (float)((int)(q[i] >> 4) - 8);
+            }
+        }
+        break;
+    }
+}
+
+static uint64_t align_up(uint64_t v, uint64_t a, int *valid) {
+    /* alignment: potenza di 2, ragionevole (spec: default 32) */
+    if (a == 0 || a > (1u << 20) || (a & (a - 1)) != 0 || v > UINT64_MAX - a + 1) {
+        *valid = 0;
+        return 0;
+    }
+    *valid = 1;
+    return (v + a - 1) & ~(a - 1);
+}
+
+mynah_gguf *mynah_gguf_open(const char *path) {
+    int fd = open(path, O_RDONLY);
+    if (fd < 0) { fprintf(stderr, "gguf: impossibile aprire %s\n", path); return NULL; }
+    struct stat sb;
+    if (fstat(fd, &sb) != 0 || sb.st_size < 24) { close(fd); return NULL; }
+
+    mynah_gguf *g = calloc(1, sizeof(*g));
+    if (!g) { close(fd); return NULL; }
+    g->fd = fd;
+    g->size = (uint64_t)sb.st_size;
+    g->alignment = 32;
+
+    reader r = {fd, g->size, 0};
+    uint32_t magic, version;
+    uint64_t n_tensors, n_meta;
+    if (rd_u32(&r, &magic) != 0 || magic != 0x46554747u /* "GGUF" LE */ ||
+        rd_u32(&r, &version) != 0 || version < 2 || version > 3 ||  /* v1: layout u32, non supportato */
+        rd_u64(&r, &n_tensors) != 0 || rd_u64(&r, &n_meta) != 0 ||
+        n_tensors > 1000000u || rd_metadata(g, &r, n_meta) != 0) {
+        fprintf(stderr, "gguf: header non valido in %s\n", path);
+        goto fail;
+    }
+
+    g->count = (size_t)n_tensors;
+    g->tensors = calloc(g->count ? g->count : 1, sizeof(*g->tensors));
+    g->names = calloc(g->count ? g->count : 1, sizeof(*g->names));
+    g->dequant = calloc(g->count ? g->count : 1, sizeof(*g->dequant));
+    g->ggml_type = calloc(g->count ? g->count : 1, sizeof(*g->ggml_type));
+    if (!g->tensors || !g->names || !g->dequant || !g->ggml_type) goto fail;
+
+    /* tensor info: nome, dims (convenzione ggml: ne[0] = la più veloce ->
+     * invertite rispetto a safetensors row-major), tipo, offset relativo */
+    uint64_t *offsets = calloc(g->count ? g->count : 1, sizeof(*offsets));
+    if (!offsets) goto fail;
+    for (size_t i = 0; i < g->count; i++) {
+        mynah_tensor *t = &g->tensors[i];
+        uint32_t rank, type;
+        uint64_t ne[8];
+        if (rd_string(&r, &g->names[i]) != 0 || rd_u32(&r, &rank) != 0 || rank > 8) goto fail_off;
+        for (uint32_t d = 0; d < rank; d++)
+            if (rd_u64(&r, &ne[d]) != 0) goto fail_off;
+        if (rd_u32(&r, &type) != 0 || rd_u64(&r, &offsets[i]) != 0) goto fail_off;
+
+        uint64_t be, bb, elems = 1;
+        for (uint32_t d = 0; d < rank; d++)
+            if (ne[d] == 0 || mul_u64(elems, ne[d], &elems) != 0) goto fail_off;
+        if (type_geometry(type, &be, &bb) != 0 || elems % be != 0 ||
+            (be > 1 && rank > 0 && ne[0] % be != 0)) { /* i blocchi non attraversano le righe */
+            fprintf(stderr, "gguf: tensore '%s' con tipo ggml %u non supportato\n",
+                    g->names[i], type);
+            goto fail_off;
+        }
+        t->name = g->names[i];
+        t->dtype = MYNAH_DT_F32;                /* dopo il load è sempre f32 */
+        t->n_dims = (int)rank;
+        for (uint32_t d = 0; d < rank; d++) t->shape[d] = (int64_t)ne[rank - 1 - d];
+        t->n_elems = (size_t)elems;
+        g->ggml_type[i] = type;
+        (void)bb;   /* i byte reali si validano dopo il mmap, col range del file */
+    }
+
+    int valid;
+    g->data_base = align_up(r.pos, g->alignment, &valid);
+    if (!valid || g->data_base > g->size) goto fail_off;
+
+    g->map = mmap(NULL, (size_t)g->size, PROT_READ, MAP_PRIVATE, fd, 0);
+    if (g->map == MAP_FAILED) { g->map = NULL; goto fail_off; }
+
+    for (size_t i = 0; i < g->count; i++) {
+        mynah_tensor *t = &g->tensors[i];
+        uint64_t be, bb, bytes, abs_off, end;
+        type_geometry(g->ggml_type[i], &be, &bb);
+        if (mul_u64(t->n_elems / be, bb, &bytes) != 0 ||
+            add_u64(g->data_base, offsets[i], &abs_off) != 0 ||
+            add_u64(abs_off, bytes, &end) != 0 || end > g->size ||
+            offsets[i] % g->alignment != 0) {
+            fprintf(stderr, "gguf: payload del tensore '%s' fuori dal file\n", t->name);
+            goto fail_off;
+        }
+        const unsigned char *src = g->map + abs_off;
+        if (g->ggml_type[i] == GGML_F32) {
+            t->data = src;                       /* zero-copy dal mmap */
+        } else {                                 /* dequant a f32 al load */
+            if (t->n_elems > SIZE_MAX / sizeof(float)) goto fail_off;
+            g->dequant[i] = malloc(t->n_elems * sizeof(float));
+            if (!g->dequant[i]) goto fail_off;
+            dequant(g->ggml_type[i], src, t->n_elems, g->dequant[i]);
+            t->data = g->dequant[i];
+        }
+    }
+    free(offsets);
+    return g;
+
+fail_off:
+    free(offsets);
+fail:
+    fprintf(stderr, "gguf: load di %s fallito\n", path);
+    mynah_gguf_close(g);
+    return NULL;
+}
+
+void mynah_gguf_close(mynah_gguf *g) {
+    if (!g) return;
+    for (size_t i = 0; i < g->count; i++) {
+        if (g->names) free(g->names[i]);
+        if (g->dequant) free(g->dequant[i]);
+    }
+    free(g->names);
+    free(g->dequant);
+    free(g->ggml_type);
+    free(g->tensors);
+    if (g->map) munmap(g->map, (size_t)g->size);
+    if (g->fd >= 0) close(g->fd);
+    free(g);
+}
+
+const mynah_tensor *mynah_gguf_tensors(const mynah_gguf *g, size_t *count) {
+    if (count) *count = g ? g->count : 0;
+    return g ? g->tensors : NULL;
+}
