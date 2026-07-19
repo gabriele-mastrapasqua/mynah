@@ -99,6 +99,13 @@ void mynah_words_free(mynah_word *words, int n_words);
  * (2.5 GB) vengono letti una volta per layer invece di N. Lunghezze variabili,
  * nessun padding. texts[i] riceve il testo (malloc, caller free; NULL su errore
  * del singolo item); langs_out[i] (>= 16 byte l'uno) opzionale. 0 = ok. */
+/* Come mynah_transcribe_batch, in piu' words[b]/n_words[b] per item (array di
+ * `batch` slot forniti dal chiamante; ogni words[b] va liberato con
+ * mynah_words_free). words == NULL = solo testo. */
+int mynah_transcribe_batch_ts(mynah_model *m, const float *const *samples,
+                              const size_t *n_samples, int batch, const char *const *langs,
+                              int lookahead, char **texts, char (*langs_out)[16],
+                              mynah_word **words, int *n_words);
 int mynah_transcribe_batch(mynah_model *m, const float *const *samples,
                            const size_t *n_samples, int batch, const char *const *langs,
                            int lookahead, char **texts, char (*langs_out)[16]);

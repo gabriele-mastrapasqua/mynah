@@ -32,6 +32,9 @@ check transcribe-multipart \
 check transcribe-verbose \
     "curl -s -F file=@tests/audio/test_en.wav -F language=auto -F response_format=verbose_json http://localhost:$PORT/v1/audio/transcriptions" \
     '"language":"en-US"'
+check verbose-words-batch \
+    "curl -s -F file=@tests/audio/test_en.wav -F language=auto -F response_format=verbose_json http://localhost:$PORT/v1/audio/transcriptions" \
+    '"words":[{"word"'
 check transcribe-raw-body \
     "curl -s -X POST --data-binary @tests/audio/test_it.wav -H 'Content-Type: audio/wav' http://localhost:$PORT/v1/audio/transcriptions" \
     "riconoscimento vocale"

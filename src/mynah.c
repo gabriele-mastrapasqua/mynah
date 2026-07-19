@@ -386,6 +386,8 @@ typedef struct {
     int *valids, *t_encs;
     char **texts;
     char (*langs_out)[16];
+    mynah_word **words;    /* per-item, NULL = niente timestamp */
+    int *n_words;
 } batch_ctx;
 
 static void batch_feat_worker(void *ctx, int b) {
@@ -404,13 +406,22 @@ static void batch_decode_worker(void *ctx, int b) {
     const mynah_engine *eng = m->engine;
     if (eng->raw_encoder && m->ctc.d_in != m->enc.d_out)
         eng = m->engine_dflt;
+    /* words nel batch SOLO per gli engine frame-based (RNNT/TDT/CTC): i frame
+     * di emissione sono un side-channel che non cambia i token. Per gli AED
+     * want_ts cambia il PROMPT (modalità <|N|>) e quindi il testo: nel batch
+     * — dove convivono richieste json e verbose — resterebbe non deterministico,
+     * quindi niente words AED qui (il percorso non-batch li ha, su richiesta). */
+    const int want_ts = c->words != NULL && !m->is_aed;
     int *tokens = NULL, *frames = NULL;
     const int n_tok = eng->decode(m, c->encs[b], c->t_encs[b],
-                                  c->langs ? c->langs[b] : NULL, 0,
+                                  c->langs ? c->langs[b] : NULL, want_ts,
                                   &tokens, &frames);
     if (n_tok >= 0)
         c->texts[b] = mynah_detokenize(&m->tok, tokens, n_tok,
                                        c->langs_out ? c->langs_out[b] : NULL);
+    if (n_tok >= 0 && c->texts[b] && c->words && frames)
+        mynah_detokenize_words(&m->tok, tokens, frames, n_tok, m->frame_sec,
+                               &c->words[b], &c->n_words[b]);
     free(tokens);
     free(frames);
 }
@@ -418,6 +429,14 @@ static void batch_decode_worker(void *ctx, int b) {
 int mynah_transcribe_batch(mynah_model *m, const float *const *samples,
                            const size_t *n_samples, int batch, const char *const *langs,
                            int lookahead, char **texts, char (*langs_out)[16]) {
+    return mynah_transcribe_batch_ts(m, samples, n_samples, batch, langs, lookahead,
+                                     texts, langs_out, NULL, NULL);
+}
+
+int mynah_transcribe_batch_ts(mynah_model *m, const float *const *samples,
+                              const size_t *n_samples, int batch, const char *const *langs,
+                              int lookahead, char **texts, char (*langs_out)[16],
+                              mynah_word **words, int *n_words) {
     const int right = lookahead >= 0 ? lookahead : m->default_right;
     int rc = -1;
 
@@ -430,10 +449,12 @@ int mynah_transcribe_batch(mynah_model *m, const float *const *samples,
 
     batch_ctx c = {.m = m, .samples = samples, .n_samples = n_samples, .langs = langs,
                    .feats = feats, .encs = encs, .valids = valids, .t_encs = t_encs,
-                   .texts = texts, .langs_out = langs_out};
+                   .texts = texts, .langs_out = langs_out,
+                   .words = words, .n_words = n_words};
 
     for (int b = 0; b < batch; b++) {
         texts[b] = NULL;
+        if (words) { words[b] = NULL; n_words[b] = 0; }
         prompts[b] = resolve_prompt(m, langs ? langs[b] : NULL);
         if (prompts[b] == -2) goto done;
     }

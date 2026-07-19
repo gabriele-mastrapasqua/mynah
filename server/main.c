@@ -49,6 +49,8 @@ typedef struct trx_job {
     int lookahead;
     char *text;                 /* risultato (malloc) */
     char lang_out[16];
+    mynah_word *words;          /* timestamp per parola (malloc, può essere NULL) */
+    int n_words;
     int done;
     pthread_mutex_t mu;
     pthread_cond_t cv;
@@ -103,6 +105,8 @@ static void *batch_worker(void *arg) {
         const char *langs[64];
         char *texts[64];
         char louts[64][16];
+        mynah_word *wordsv[64];
+        int nwordsv[64];
         int lookahead = jobs[0]->lookahead;   /* batch omogeneo sul primo */
         for (int b = 0; b < B; b++) {
             samples[b] = jobs[b]->samples;
@@ -110,11 +114,16 @@ static void *batch_worker(void *arg) {
             langs[b] = jobs[b]->lang;
             texts[b] = NULL;
         }
-        mynah_transcribe_batch(g_model, samples, ns, B, langs, lookahead, texts, louts);
+        /* words sempre estratte: costo trascurabile vs inferenza, e il batch
+         * può mischiare richieste json e verbose_json */
+        mynah_transcribe_batch_ts(g_model, samples, ns, B, langs, lookahead,
+                                  texts, louts, wordsv, nwordsv);
 
         for (int b = 0; b < B; b++) {
             pthread_mutex_lock(&jobs[b]->mu);
             jobs[b]->text = texts[b];
+            jobs[b]->words = wordsv[b];
+            jobs[b]->n_words = nwordsv[b];
             memcpy(jobs[b]->lang_out, louts[b], sizeof(jobs[b]->lang_out));
             jobs[b]->done = 1;
             pthread_cond_signal(&jobs[b]->cv);
@@ -312,7 +321,7 @@ static void handle_transcribe(int fd, const char *headers, const uint8_t *body,
     char *text;
     mynah_word *words = NULL;
     int n_words = 0;
-    const int want_words = strcmp(f.response_format, "verbose_json") == 0 && g_max_batch <= 1;
+    const int want_words = strcmp(f.response_format, "verbose_json") == 0;
     if (g_max_batch > 1) {
         trx_job j = {.samples = samples, .n_samples = n_samples, .lookahead = f.lookahead};
         snprintf(j.lang, sizeof(j.lang), "%s", f.language);
@@ -321,6 +330,12 @@ static void handle_transcribe(int fd, const char *headers, const uint8_t *body,
         batch_submit_and_wait(&j);
         text = j.text;
         memcpy(lang_out, j.lang_out, sizeof(lang_out));
+        if (want_words) {
+            words = j.words;
+            n_words = j.n_words;
+        } else {
+            mynah_words_free(j.words, j.n_words);
+        }
         pthread_mutex_destroy(&j.mu);
         pthread_cond_destroy(&j.cv);
     } else {
@@ -341,7 +356,7 @@ static void handle_transcribe(int fd, const char *headers, const uint8_t *body,
                                               ? "translate" : "transcribe");
             cJSON_AddStringToObject(j, "language", lang_out[0] ? lang_out : src_lang);
             cJSON_AddNumberToObject(j, "duration", duration);
-            if (words) {   /* percorso non-batch: timestamp per parola */
+            if (words) {   /* timestamp per parola (anche dal batch scheduler) */
                 cJSON *jw = cJSON_AddArrayToObject(j, "words");
                 for (int i = 0; i < n_words; i++) {
                     cJSON *w = cJSON_CreateObject();
