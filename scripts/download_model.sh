@@ -1,27 +1,132 @@
 #!/usr/bin/env bash
-# Scarica un modello dal repo HuggingFace nel layout locale models/<nome>/.
-# Non interattivo (lezione qwen-tts). Default: il target v1.
+# Download a supported model from HuggingFace into models/<name>/.
 #
-# Uso: scripts/download_model.sh [repo_id] [dest_dir]
+# Interactive when run with no arguments (pick from the supported-model menu);
+# scriptable with --model for CI / automation.
+#
+# Usage:
+#   scripts/download_model.sh                      # interactive menu
+#   scripts/download_model.sh --model nemotron     # by alias (or full name, or menu number)
+#   scripts/download_model.sh --model canary-v2 --dir my-dir
+#   scripts/download_model.sh --list
+#
+# After downloading, the script prints the convert (and optional quantize) commands.
+# Note: mynah reads its own converted format (safetensors mmap), not GGUF —
+# quantized int8/int4 checkpoints are produced locally with `mynah quantize`.
 set -euo pipefail
 
-REPO_ID="${1:-nvidia/nemotron-3.5-asr-streaming-0.6b}"
-NAME="$(basename "$REPO_ID")"
-DEST="${2:-models/$NAME}"
+# key | HF repo id | mode (hf = native port, nemo = .nemo archive) | ~download | description
+MODELS=(
+  "nemotron|nvidia/nemotron-3.5-asr-streaming-0.6b|hf|2.6 GB|cache-aware STREAMING + offline, 40 languages, LID  (v1 target)"
+  "tdt-v3|nvidia/parakeet-tdt-0.6b-v3|hf|2.4 GB|offline TDT, 25 EU languages, PnC+ITN, timestamps"
+  "110m|nvidia/parakeet-tdt_ctc-110m|nemo|0.5 GB|hybrid TDT+CTC 114M, EN — the fastest (CI model)"
+  "rnnt-0.6b|nvidia/parakeet-rnnt-0.6b|hf|2.4 GB|offline RNNT, EN"
+  "ctc-0.6b|nvidia/parakeet-ctc-0.6b|hf|2.4 GB|offline CTC, EN"
+  "rnnt-1.1b|nvidia/parakeet-rnnt-1.1b|hf|4.3 GB|offline RNNT 42 layers, EN"
+  "ctc-1.1b|nvidia/parakeet-ctc-1.1b|hf|4.3 GB|offline CTC 42 layers, EN"
+  "canary-180m|nvidia/canary-180m-flash|nemo|0.8 GB|ASR en/de/es/fr + TRANSLATION, word timestamps"
+  "canary-1b-flash|nvidia/canary-1b-flash|nemo|3.5 GB|ASR en/de/es/fr + TRANSLATION, word+segment timestamps"
+  "canary-v2|nvidia/canary-1b-v2|nemo|3.9 GB|ASR 25 EU languages + en<->24 TRANSLATION, ITN"
+)
+
+# HF-native port files (mode=hf). Only the ones marked * are required; the others
+# vary across repos and are skipped with a note if absent.
+HF_REQUIRED=(config.json tokenizer.json model.safetensors)
+HF_OPTIONAL=(generation_config.json processor_config.json preprocessor_config.json tokenizer_config.json)
+
+CHOICE=""
+DEST=""
+
+usage() {
+  sed -n '2,15p' "$0" | sed 's/^# \{0,1\}//'
+}
+
+list_models() {
+  local i=1 key repo mode size desc
+  printf "  %-3s %-16s %-38s %-7s %s\n" "#" "alias" "model" "size" "capabilities"
+  for entry in "${MODELS[@]}"; do
+    IFS='|' read -r key repo mode size desc <<<"$entry"
+    printf "  %-3s %-16s %-38s %-7s %s\n" "$i)" "$key" "${repo#nvidia/}" "$size" "$desc"
+    i=$((i+1))
+  done
+}
+
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --model) CHOICE="$2"; shift 2 ;;
+    --dir)   DEST="$2";   shift 2 ;;
+    --list)  list_models; exit 0 ;;
+    -h|--help) usage; exit 0 ;;
+    *) echo "Unknown option: $1"; usage; exit 1 ;;
+  esac
+done
+
+if [[ -z "$CHOICE" ]]; then
+  echo "Mynah — supported models (see docs/models.md):"
+  echo ""
+  list_models
+  echo ""
+  read -r -p "Model to download [1-${#MODELS[@]} or alias]: " CHOICE
+fi
+
+# resolve CHOICE -> menu entry (by number, alias, or repo/model name)
+ENTRY=""
+i=1
+for entry in "${MODELS[@]}"; do
+  IFS='|' read -r key repo _ _ _ <<<"$entry"
+  if [[ "$CHOICE" == "$i" || "$CHOICE" == "$key" || "$CHOICE" == "$repo" || "$CHOICE" == "${repo#nvidia/}" ]]; then
+    ENTRY="$entry"; break
+  fi
+  i=$((i+1))
+done
+if [[ -z "$ENTRY" ]]; then
+  echo "Unknown model: '$CHOICE'"; echo ""; list_models; exit 1
+fi
+
+IFS='|' read -r KEY REPO_ID MODE SIZE DESC <<<"$ENTRY"
+NAME="${REPO_ID#nvidia/}"
+DEST="${DEST:-models/$NAME}"
 BASE="https://huggingface.co/$REPO_ID/resolve/main"
 
-# File del porting HF-native (per Nemotron/Parakeet recenti). Il .nemo (2x più grande,
-# stesso contenuto) NON serve al runtime: config e tokenizer sono già estratti in reference/.
-FILES=(config.json generation_config.json processor_config.json tokenizer_config.json tokenizer.json model.safetensors)
-
-mkdir -p "$DEST"
-for f in "${FILES[@]}"; do
+fetch() { # fetch <remote-file> <required:yes|no>
+  local f="$1" required="$2"
   if [[ -f "$DEST/$f" ]]; then
-    echo "skip  $f (già presente)"
-    continue
+    echo "skip  $f (already present)"
+    return 0
   fi
   echo "fetch $f"
-  curl -fL --retry 3 --progress-bar "$BASE/$f" -o "$DEST/$f.part"
-  mv "$DEST/$f.part" "$DEST/$f"
-done
-echo "OK → $DEST"
+  if curl -fL --retry 3 --progress-bar "$BASE/$f" -o "$DEST/$f.part"; then
+    mv "$DEST/$f.part" "$DEST/$f"
+  else
+    rm -f "$DEST/$f.part"
+    if [[ "$required" == yes ]]; then
+      echo "ERROR: required file $f not found in $REPO_ID" >&2; exit 1
+    fi
+    echo "note: $f not in the repo, skipped (optional)"
+  fi
+}
+
+echo ""
+echo "Downloading $REPO_ID (~$SIZE) -> $DEST"
+mkdir -p "$DEST"
+
+if [[ "$MODE" == hf ]]; then
+  for f in "${HF_REQUIRED[@]}"; do fetch "$f" yes; done
+  for f in "${HF_OPTIONAL[@]}"; do fetch "$f" no;  done
+else
+  fetch "$NAME.nemo" yes
+fi
+
+echo ""
+echo "OK -> $DEST"
+echo ""
+echo "Next steps:"
+echo "  # 1. convert in place (one-time; Python via uv, offline tooling only)"
+echo "  cd tools && uv sync && uv run python convert_nemo.py ../$DEST && cd .."
+if [[ "$MODE" == nemo ]]; then
+  echo "  #    (the .nemo archive can be deleted after conversion)"
+fi
+echo "  # 2. optional: pre-quantized int8/int4 checkpoint (~1/3 RAM, instant load)"
+echo "  ./mynah quantize -m $DEST --quant int8"
+echo "  # 3. transcribe"
+echo "  ./mynah transcribe -m $DEST -i file.wav --lang auto"
