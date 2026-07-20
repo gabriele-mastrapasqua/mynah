@@ -93,6 +93,10 @@ jobs:
       - name: Build (make cuda)
         run: make cuda
       - name: Smoke test (CPU fallback, no GPU)
+        # test binaries must link with the same variant flags as `make cuda`:
+        # backend.o was compiled with -DMYNAH_CUDA and needs cuda_gemm.o+cublas
         run: |
           ./mynah --version
-          make tests/test_qmat && tests/test_qmat
+          make EXTRA_CFLAGS="-DMYNAH_CUDA" OBJ_EXTRA="build/src/cuda_gemm.o" \
+               EXTRA_LDFLAGS="-lcublas -lcudart" tests/test_qmat
+          tests/test_qmat
