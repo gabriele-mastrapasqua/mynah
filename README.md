@@ -80,24 +80,31 @@ first-class citizen.
 | [canary-180m-flash](https://huggingface.co/nvidia/canary-180m-flash) / [1b-flash](https://huggingface.co/nvidia/canary-1b-flash) | ASR en/de/es/fr + **translation** + word timestamps | ✅ |
 | [canary-1b-v2](https://huggingface.co/nvidia/canary-1b-v2) | ASR in **25 EU languages** + en↔24 translation, ITN | ✅ |
 
-## Performance — CPU vs Metal vs int8
+## Performance — one runtime, four backends
 
-RTF on Apple Silicon, ~65 s audio, warm; **lower is faster** (0.05 ≈ 20× faster
-than realtime). Full matrix and methodology in
+Warm RTF on ~60 s audio, f32; **lower is faster** (0.05 ≈ 20× faster than
+realtime). Full matrix, int8/int4 numbers and methodology in
 [docs/benchmarks.md](docs/benchmarks.md).
 
-| model | f32 CPU | Metal | int8 |
-|---|---|---|---|
-| parakeet-tdt_ctc-110m | 0.015 | **0.010** | 0.015 |
-| canary-180m-flash (AED, +translation) | 0.060 | 0.054 | **0.030** |
-| parakeet-tdt-0.6b-v3 | 0.047 | **0.030** | 0.046 |
-| nemotron-3.5-asr-streaming-0.6b | 0.055 | **0.040** | 0.054 |
-| parakeet-rnnt/ctc-0.6b | 0.05/0.04 | 0.028/0.022 | ≈f32 |
-| parakeet-rnnt/ctc-1.1b | 0.07/0.06 | 0.041/0.033 | ≈f32 |
-| canary-1b-flash (AED, +translation) | 0.143 | **0.081** | ~0.07 |
+| model | Apple M1 CPU (NEON) | Apple M1 Metal | EPYC 22c (x86 AVX2) | A100 (CUDA) |
+|---|---|---|---|---|
+| parakeet-tdt_ctc-110m | 0.015 | 0.010 | 0.015 | 0.011 |
+| parakeet-ctc-0.6b | 0.042 | **0.022** | 0.040 | **0.022** |
+| parakeet-tdt-0.6b-v3 | 0.047 | 0.030 | 0.065 | **0.028** |
+| nemotron-3.5-asr-streaming-0.6b¹ | 0.055 | 0.040 | 0.059 | **0.022** |
+| parakeet-rnnt-1.1b | 0.068 | **0.041** | 0.066 | **0.038** |
+| canary-1b-flash (AED, +translation) | 0.143 | **0.081** | 0.113 | 0.063 |
+
+¹ A100/EPYC measured after the banded-attention fix (2026-07-20); the M1
+columns predate it and will improve on re-measure.
+M1: 16 GB, ~65 s file (2026-07-18) · x86/CUDA: Ubuntu 24.04, 60 s LibriSpeech
+(2026-07-20, TF32 tensor-core default — transcripts identical to CPU on
+every model). Parallel requests on the A100 via the batch API: 110m ~94×,
+nemotron ~46× realtime aggregate (`make bench-throughput`).
 
 RAM: 110m 0.44 GB · 180m 0.71 · 0.6B ~2.4 · 1b-flash 3.3 · 1.1b 4.0 GB
-(int8: ~⅓). Nemotron streaming: ~26 ms of compute per 80 ms chunk (9 ms int4).
+(int8: ~⅓; on M1 int8 halves Canary's AED decode and triples Nemotron
+streaming). Nemotron streaming: ~26 ms of compute per 80 ms chunk (9 ms int4).
 
 Every numeric stage is validated against a numpy reference oracle
 (`make test`: bit-exact mel, f32-tolerance encoder, streaming ≡ offline).
