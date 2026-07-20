@@ -109,7 +109,13 @@ void mynah_parallel_for(int n, void (*fn)(void *ctx, int i), void *ctx) {
 
     pf_state st = {.fn = fn, .ctx = ctx, .n = n};
     atomic_init(&st.next, 0);
-    blas_set_threads(1);
+    /* quota BLAS per worker: con 2 soli job ogni cblas concorrente può usare
+     * metà dei core (misurato su EPYC 22c, batch 2×60 s nemotron: 15.7→33.3×
+     * realtime aggregato); da 3 worker in su le chiamate OpenBLAS concorrenti
+     * si azzuffano sul lock interno e la quota >1 PEGGIORA (B=8: 34→11×) →
+     * mono-thread. */
+    const int active = n < nth ? n : nth;
+    blas_set_threads(active <= 2 ? nth / active : 1);
     if (g_workers == 0 || pthread_mutex_trylock(&g_pool_mu) != 0) {
         pf_run(&st);              /* pool assente o occupato: inline */
         blas_set_threads(nth);
