@@ -126,7 +126,8 @@ static int rd_metadata(mynah_gguf *g, reader *r, uint64_t count) {
         if (rd_string(r, &key) != 0 || rd_u32(r, &type) != 0) { free(key); return -1; }
         int rc = 0;
         if (strcmp(key, "general.alignment") == 0 && type == GGUF_U32) {
-            uint32_t a;
+            uint32_t a = 0;   /* su errore di lettura rc abortisce, ma non
+                                 copiamo comunque spazzatura nell'alignment */
             rc = rd_u32(r, &a);
             g->alignment = a;
         } else if (strcmp(key, "general.alignment") == 0 && type == GGUF_U64) {
@@ -327,8 +328,10 @@ mynah_gguf *mynah_gguf_open(const char *path) {
     for (size_t i = 0; i < g->count; i++) {
         mynah_tensor *t = &g->tensors[i];
         uint64_t be, bb, bytes, abs_off, end;
-        type_geometry(g->ggml_type[i], &be, &bb);
-        if (mul_u64(t->n_elems / be, bb, &bytes) != 0 ||
+        /* tipo ggml ignoto: senza il check si divideva per un `be` mai
+         * scritto (UB) — beccato da GCC 13 sulla prima build Linux */
+        if (type_geometry(g->ggml_type[i], &be, &bb) != 0 ||
+            mul_u64(t->n_elems / be, bb, &bytes) != 0 ||
             add_u64(g->data_base, offsets[i], &abs_off) != 0 ||
             add_u64(abs_off, bytes, &end) != 0 || end > g->size ||
             offsets[i] % g->alignment != 0) {
