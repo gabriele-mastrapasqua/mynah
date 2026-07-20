@@ -31,6 +31,10 @@ tools/.venv/
 !tests/audio/*.wav
 !samples/**/*.wav
 
+# fixture lunghi dei bench (10 MB, LibriSpeech): rigenerabili con
+# scripts/make_long_fixtures.sh — non committare
+tests/audio/long_*.wav
+
 # golden dumps: derivati da modello+wav, rigenerabili con make golden-dump
 tests/golden/
 
@@ -44,6 +48,7 @@ tests/test_subsampling
 tests/test_encoder
 tests/test_streaming
 tests/test_batch
+tests/bench_throughput
 examples/minimal
 *.dSYM/
 libmynah.dylib
