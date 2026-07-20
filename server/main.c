@@ -99,6 +99,8 @@ static void *batch_worker(void *arg) {
         if (!bq_head) bq_tail = NULL;
         bq_len -= B;
         pthread_mutex_unlock(&bq_mu);
+        if (B == 0) continue;   /* mai col wait su bq_head, ma rende il bound
+                                   provabile (GCC 13 maybe-uninitialized) */
 
         const float *samples[64];
         size_t ns[64];
@@ -144,7 +146,7 @@ static void q_push(int fd) {
     if (q_len == QUEUE_CAP) {   /* pieno: rifiuta subito */
         pthread_mutex_unlock(&q_mu);
         const char *msg = "HTTP/1.1 503 Service Unavailable\r\nContent-Length: 0\r\n\r\n";
-        write(fd, msg, strlen(msg));
+        if (write(fd, msg, strlen(msg)) < 0) { /* best-effort: chiudiamo comunque */ }
         close(fd);
         return;
     }
