@@ -50,6 +50,68 @@ Key takeaways:
 - int8 checkpoints on disk: 110m 0.15 GB · canary-180m 0.22 GB · 0.6b ~0.8 GB ·
   canary-1b 0.98 GB · 1.1b ~1.2 GB — zero-copy load ~instant.
 
+## Linux x86 + CUDA — EPYC 7642 (22 vcpu, AVX2) / A100-SXM4-40GB — 2026-07-20
+
+First hardware validation of `make cuda` (Ubuntu 24.04, CUDA 12.8, OpenBLAS).
+**All 10 supported models + the 2 community GGUFs: e2e green, CPU and CUDA
+transcripts byte-identical.** Same protocol as above (`mynah bench`, f32,
+2 warm-ups + 5 runs short / 1 + 3 long); long audio = LibriSpeech dev-clean
+(CC-BY 4.0) concatenated to 60 s and 300 s, 16 kHz mono — not committed,
+regenerate with `scripts/make_long_fixtures.sh`.
+Raw TSVs in [bench/](bench/). CUDA backend = big-GEMM offload to cuBLAS
+(T≥24), the rest stays on CPU.
+
+### RTF (median, warm) — CPU (22-core AVX2) vs CUDA
+
+| model | 5 s cpu | 5 s cuda | 60 s cpu | 60 s cuda | 300 s cpu | 300 s cuda |
+|---|---|---|---|---|---|---|
+| parakeet-tdt_ctc-110m | 0.016 | 0.011 | 0.015 | 0.011 | 0.015 | 0.011 |
+| 110m **GGUF Q4** | 0.017 | 0.011 | 0.015 | 0.011 | — | — |
+| parakeet-tdt-0.6b-v3 | 0.045 | 0.025 | 0.065 | 0.028 | 0.044 | 0.024 |
+| tdt-v3 **GGUF Q4** | 0.047 | 0.026 | 0.067 | 0.031 | — | — |
+| nemotron-3.5-0.6b¹ | 0.051 | 0.030 | 0.059 | 0.023 | 0.054 | **0.028** |
+| parakeet-rnnt-0.6b | 0.049 | 0.026 | 0.043 | 0.023 | 0.042 | 0.024 |
+| parakeet-ctc-0.6b | 0.047 | 0.026 | 0.040 | 0.022 | 0.040 | 0.023 |
+| parakeet-rnnt-1.1b | 0.080 | 0.057 | 0.066 | 0.038 | 0.066 | 0.038 |
+| parakeet-ctc-1.1b | 0.084 | 0.050 | 0.071 | 0.037 | 0.066 | 0.037 |
+| canary-180m-flash | 0.060 | 0.051 | 0.046 | 0.044 | 0.045 | 0.043 |
+| canary-1b-flash | 0.103 | 0.072 | 0.113 | 0.063 | 0.090 | 0.067 |
+| canary-1b-v2 | 0.130 | 0.115 | 0.111 | 0.084 | 0.135 | 0.096 |
+
+¹ after the banded-attention fix (below); measured that day: pre-fix 300 s was
+0.083 cpu / **0.052** cuda.
+
+### Throughput — `tests/bench_throughput` (batch API, same 60 s wav ×B)
+
+| | B=1 | B=4 | B=16 | B=64 |
+|---|---|---|---|---|
+| nemotron cuda | 45× | 24× | 42× | **46×** |
+| nemotron cpu | 16× | 14× | 28× | — |
+| 110m cuda (4.3 s wav) | 87× | 85× | 86× | **94×** |
+| 110m cpu (4.3 s wav) | 51× | 36× | 61× | — |
+
+Aggregate ×realtime (B·audio/wall). CUDA batch is **flat**: the backend is
+single-stream with a global mutex, so B=1 already saturates it — multi-stream
+is future work. The B=2–4 dip is the segment-parallel attention outrunning
+the mono-thread BLAS (see the nested-OpenBLAS note below).
+
+### Two bugs found (and fixed) by these benchmarks
+
+- **Banded windowed attention** (`encoder.c`): the offline path computed full
+  T×T (and T×(2T−1) rel-pos) GEMMs even for windowed models that only read
+  ~60 columns per row. On nemotron at 300 s (T=3750) that wasted ~2 TFLOP and
+  ~170 MB/layer: RTF cuda 0.052→0.028, cpu 0.083→0.054. Parity vs oracle,
+  streaming and batch outputs unchanged.
+- **Nested OpenBLAS** (`threads.c`): on Linux OpenBLAS defaults to all cores;
+  called from `mynah_parallel_for` workers it oversubscribes catastrophically
+  (batch 4×60 s: **257 s → 10 s** after pinning BLAS to 1 thread inside
+  parallel regions — weak-symbol pattern from qwen-tts, `OPENBLAS_NUM_THREADS`
+  still wins). macOS/Accelerate is unaffected.
+
+Known issue (TODO): `mynah_transcribe_batch` skips long-file segmentation, so
+full-attention models drift slightly vs the single path on >30 s items (caught
+by the `bench_throughput` consistency check; windowed nemotron is identical).
+
 ## Streaming (Nemotron, cache-aware)
 
 ~26 ms of compute per 80 ms chunk (f32), ~9 ms with int4+SDOT — realtime with

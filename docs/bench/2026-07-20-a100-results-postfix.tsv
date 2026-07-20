@@ -1,0 +1,7 @@
+model	backend	audio_s	rtf_min	rtf_median	ram_gb
+nemotron-postfix	cpu	5.2	0.051	0.051	2.54
+nemotron-postfix	cpu	60	0.059	0.059	2.79
+nemotron-postfix	cpu	300	0.054	0.054	3.80
+nemotron-postfix	cuda	5.2	0.030	0.030	2.77
+nemotron-postfix	cuda	60	0.023	0.023	3.03
+nemotron-postfix	cuda	300	0.028	0.028	4.09
