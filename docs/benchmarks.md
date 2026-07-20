@@ -69,7 +69,7 @@ Raw TSVs in [bench/](bench/). CUDA backend = big-GEMM offload to cuBLAS
 | 110m **GGUF Q4** | 0.017 | 0.011 | 0.015 | 0.011 | — | — |
 | parakeet-tdt-0.6b-v3 | 0.045 | 0.025 | 0.065 | 0.028 | 0.044 | 0.024 |
 | tdt-v3 **GGUF Q4** | 0.047 | 0.026 | 0.067 | 0.031 | — | — |
-| nemotron-3.5-0.6b¹ | 0.051 | 0.030 | 0.059 | 0.023 | 0.054 | **0.028** |
+| nemotron-3.5-0.6b¹ | 0.051 | 0.028 | 0.059 | 0.022 | 0.054 | **0.028** |
 | parakeet-rnnt-0.6b | 0.049 | 0.026 | 0.043 | 0.023 | 0.042 | 0.024 |
 | parakeet-ctc-0.6b | 0.047 | 0.026 | 0.040 | 0.022 | 0.040 | 0.023 |
 | parakeet-rnnt-1.1b | 0.080 | 0.057 | 0.066 | 0.038 | 0.066 | 0.038 |
@@ -78,8 +78,12 @@ Raw TSVs in [bench/](bench/). CUDA backend = big-GEMM offload to cuBLAS
 | canary-1b-flash | 0.103 | 0.072 | 0.113 | 0.063 | 0.090 | 0.067 |
 | canary-1b-v2 | 0.130 | 0.115 | 0.111 | 0.084 | 0.135 | 0.096 |
 
-¹ after the banded-attention fix (below); measured that day: pre-fix 300 s was
-0.083 cpu / **0.052** cuda.
+¹ after the banded-attention fix (below) and with the TF32 default (v2a),
+re-measured last; pre-fix 300 s was 0.083 cpu / **0.052** cuda.
+All other CUDA columns were measured with strict f32 **before** TF32 became
+the default: expect them ~4–8% better on the GEMM-heavy models (the server
+was returned before a full TF32 re-sweep — worth redoing on the next GPU
+rental together with the M1 local-disk pass).
 
 ### Throughput — `tests/bench_throughput` (batch API, same 60 s wav ×B)
 
