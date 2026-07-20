@@ -297,7 +297,7 @@ static void stream_stage(const float *x, int C_in, int T, int F, int first, int 
     const int rp = last ? 1 : 0;  /* ultimo chunk: right-pad causale come offline */
     const int Tp = T + lp + rp;
     float *xp = malloc((size_t)C_in * (size_t)Tp * (size_t)F * sizeof(float));
-    if (!xp) { *To_ = 0; return; }
+    if (!xp) { *To_ = 0; *Fo_ = 0; return; }
     for (int c = 0; c < C_in; c++) {
         float *dst = xp + (size_t)c * (size_t)Tp * (size_t)F;
         memset(dst, 0, (size_t)(lp - 1) * (size_t)F * sizeof(float));
