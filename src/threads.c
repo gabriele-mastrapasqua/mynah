@@ -78,6 +78,26 @@ static void pool_init(void) {
     }
 }
 
+/* Dentro una parallel_for i core appartengono ai worker: se ogni worker chiama
+ * cblas con l'OpenBLAS multi-thread si va in oversubscription catastrofica
+ * (misurato su EPYC 22 core: batch 4×60 s = 257 s invece di ~10 s). BLAS
+ * mono-thread per la durata della regione, ripristino all'uscita. Accelerate
+ * (macOS) gestisce il nesting via GCD e non ne ha bisogno. Weak symbol come in
+ * qwen-tts (qwen_tts_kernels.c): risolto solo se linkato contro OpenBLAS;
+ * OPENBLAS_NUM_THREADS esplicito nell'ambiente vince sempre. */
+#if defined(__GNUC__) && !defined(__APPLE__)
+extern void openblas_set_num_threads(int) __attribute__((weak));
+#endif
+
+static void blas_set_threads(int n) {
+#if defined(__GNUC__) && !defined(__APPLE__)
+    if (getenv("OPENBLAS_NUM_THREADS")) return;   /* scelta esplicita dell'utente */
+    if (openblas_set_num_threads) openblas_set_num_threads(n > 0 ? n : 1);
+#else
+    (void)n;
+#endif
+}
+
 void mynah_parallel_for(int n, void (*fn)(void *ctx, int i), void *ctx) {
     if (n <= 0) return;
     const int nth = mynah_num_threads();
@@ -89,8 +109,10 @@ void mynah_parallel_for(int n, void (*fn)(void *ctx, int i), void *ctx) {
 
     pf_state st = {.fn = fn, .ctx = ctx, .n = n};
     atomic_init(&st.next, 0);
+    blas_set_threads(1);
     if (g_workers == 0 || pthread_mutex_trylock(&g_pool_mu) != 0) {
         pf_run(&st);              /* pool assente o occupato: inline */
+        blas_set_threads(nth);
         return;
     }
     pthread_mutex_lock(&g_job_mu);
@@ -104,4 +126,5 @@ void mynah_parallel_for(int n, void (*fn)(void *ctx, int i), void *ctx) {
     while (g_pending > 0) pthread_cond_wait(&g_done_cv, &g_job_mu);
     pthread_mutex_unlock(&g_job_mu);
     pthread_mutex_unlock(&g_pool_mu);
+    blas_set_threads(nth);
 }
