@@ -106,6 +106,17 @@ latency/throughput tradeoff). Adaptive per-request BLAS sizing in
 mynah-server is future work; for parallel throughput today, the batch API
 is the fast path.
 
+### CUDA v2a — GEMM precision (same day)
+
+TF32 tensor-core math is now the **default** on CUDA: 300 s transcript
+byte-identical to CPU on nemotron, all e2e green, ~4–8% RTF
+(`MYNAH_CUDA_TF32=0` restores strict f32). Resident **bf16** weights via
+cublasGemmEx are available with `MYNAH_CUDA_BF16=1`: half the VRAM and half
+the PCIe on activations, but perf-neutral today (the host-side f32→bf16
+conversion offsets the transfer saving) and with minor wording differences
+on 300 s audio — it stays opt-in until the resident-activation encoder
+(v2b in TODO) makes weight bandwidth the bottleneck.
+
 ### Two bugs found (and fixed) by these benchmarks
 
 - **Banded windowed attention** (`encoder.c`): the offline path computed full
