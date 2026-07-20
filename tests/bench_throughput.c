@@ -3,9 +3,16 @@
  * (mynah_transcribe_batch). Pensato per stimare quante richieste parallele
  * regge un backend GPU (make cuda / metal), ma gira anche su cpu.
  * Verifica anche che ogni item del batch produca il testo del run B=1.
+ *
+ * Con --threads il bench simula invece N RICHIESTE CONCORRENTI stile server:
+ * N pthread sullo stesso modello condiviso, ognuno trascrive il wav R volte
+ * (scala N = 1,2,4,...,max). Con CUDA misura il guadagno dei contesti
+ * per-thread (stream indipendenti) rispetto al vecchio mutex globale.
+ *
  * Uso: bench_throughput <model_dir> <wav> [--lang l] [--backend cpu|metal|cuda]
- *                       [--max-batch N] [--runs R]
+ *                       [--max-batch N] [--runs R] [--threads N]
  * Exit: 0 ok, 1 mismatch testi, 2 uso errato, 77 modello/wav assenti. */
+#include <pthread.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -21,14 +28,36 @@ static double now_sec(void) {
     return (double)ts.tv_sec + (double)ts.tv_nsec * 1e-9;
 }
 
+/* --------------------------- modalità --threads (richieste concorrenti) */
+typedef struct {
+    mynah_model *m;
+    const float *samples;
+    size_t ns;
+    const char *lang;
+    const char *ref;
+    int reps;
+    int mismatch;
+} thr_arg;
+
+static void *thr_worker(void *p) {
+    thr_arg *a = (thr_arg *)p;
+    for (int r = 0; r < a->reps; r++) {
+        char *t = mynah_transcribe(a->m, a->samples, a->ns, a->lang, -1, NULL);
+        if (!t || strcmp(t, a->ref) != 0) a->mismatch = 1;
+        free(t);
+    }
+    return NULL;
+}
+
 int main(int argc, char **argv) {
     const char *model_dir = NULL, *wav = NULL, *lang = "auto";
-    int max_batch = 32, runs = 2;
+    int max_batch = 32, runs = 2, max_threads = 0;
     for (int i = 1; i < argc; i++) {
         if (strcmp(argv[i], "--lang") == 0 && i + 1 < argc) lang = argv[++i];
         else if (strcmp(argv[i], "--backend") == 0 && i + 1 < argc) mynah_set_backend(argv[++i]);
         else if (strcmp(argv[i], "--max-batch") == 0 && i + 1 < argc) max_batch = atoi(argv[++i]);
         else if (strcmp(argv[i], "--runs") == 0 && i + 1 < argc) runs = atoi(argv[++i]);
+        else if (strcmp(argv[i], "--threads") == 0 && i + 1 < argc) max_threads = atoi(argv[++i]);
         else if (!model_dir) model_dir = argv[i];
         else if (!wav) wav = argv[i];
         else { fprintf(stderr, "argomento ignoto: %s\n", argv[i]); return 2; }
@@ -60,6 +89,32 @@ int main(int argc, char **argv) {
     /* riferimento B=1 (e warm-up: pesi su device, buffer allocati) */
     char *ref = mynah_transcribe(m, samples, ns, lang, -1, NULL);
     if (!ref) { free(samples); mynah_free(m); return 1; }
+
+    if (max_threads > 0) {
+        /* N richieste concorrenti stile server, ognuna `runs` trascrizioni */
+        printf("# %s | %s %.1fs | lang=%s | reps/thread=%d (concurrent transcribe)\n",
+               model_dir, wav, dur, lang, runs);
+        printf("%8s %10s %12s %14s\n", "threads", "wall-s", "s-req", "xRT-aggr");
+        int rc = 0;
+        pthread_t tids[256];
+        thr_arg targs[256];
+        if (max_threads > 256) max_threads = 256;
+        for (int N = 1; N <= max_threads && rc == 0; N *= 2) {
+            for (int i = 0; i < N; i++)
+                targs[i] = (thr_arg){m, samples, ns, lang, ref, runs, 0};
+            double t0 = now_sec();
+            for (int i = 0; i < N; i++) pthread_create(&tids[i], NULL, thr_worker, &targs[i]);
+            for (int i = 0; i < N; i++) pthread_join(tids[i], NULL);
+            double dt = now_sec() - t0;
+            for (int i = 0; i < N; i++)
+                if (targs[i].mismatch) { fprintf(stderr, "MISMATCH threads=%d\n", N); rc = 1; }
+            const double reqs = (double)N * (double)runs;
+            printf("%8d %10.3f %12.3f %14.1f\n", N, dt, dt / reqs, reqs * dur / dt);
+            fflush(stdout);
+        }
+        free(ref); free(samples); mynah_free(m);
+        return rc;
+    }
 
     const float **sv = malloc((size_t)max_batch * sizeof *sv);
     size_t *nv = malloc((size_t)max_batch * sizeof *nv);
