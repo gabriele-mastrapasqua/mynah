@@ -77,3 +77,22 @@ jobs:
 
       - name: Quality on real audio (samples/ FLEURS, CER with the 110m)
         run: make test-samples
+
+  # Compile-only CUDA build: no GPU on the runner, but it catches build/link
+  # regressions in the nvcc path (e.g. the MYNAH_BUILD quoting bug found on the
+  # first real A100 build, 2026-07-20). The runtime falls back to CPU without a
+  # device, so the kernel self-test still runs.
+  build-cuda:
+    name: Build CUDA (compile-only)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install dependencies
+        run: sudo apt-get update && sudo apt-get install -y libopenblas-dev nvidia-cuda-toolkit
+      - name: Build (make cuda)
+        run: make cuda
+      - name: Smoke test (CPU fallback, no GPU)
+        run: |
+          ./mynah --version
+          make tests/test_qmat && tests/test_qmat
