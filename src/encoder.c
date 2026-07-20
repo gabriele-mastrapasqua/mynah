@@ -211,6 +211,107 @@ void mynah_pos_emb(const mynah_encoder *enc, int T, float *pe) {
 }
 
 /* ------------------------------------------------------------- attention */
+/* Attention windowed (left >= 0) a BLOCCHI di righe: le GEMM ac/bd/ctx toccano
+ * solo la banda di chiavi visibile dal blocco invece dell'intera T×T — il costo
+ * torna lineare in T. Trovato sul primo bench A100 (300 s: RTF cuda 0.052 vs
+ * 0.028 a 60 s, +1.3 GB RAM): a T=3750 le GEMM full sprecavano ~2 TFLOP e
+ * ~170 MB/layer per usare ~60 colonne per riga. Stessa matematica del path
+ * full: bd_shifted[t,j] = bd[t, T-1+j-t], softmax solo su [j0,j1). */
+static void attention_banded(const mynah_encoder *enc, const mynah_enc_layer *L,
+                             float *q, float *k, float *v, const float *pe,
+                             float *ctx, int T, int left, int right) {
+    const int d = enc->d_model, H = enc->n_heads, dk = enc->d_head, P = 2 * T - 1;
+    const float scaling = 1.0f / sqrtf((float)dk);
+    const int chunk = right + 1, lc = left / chunk;
+    const int B = 128 / chunk > 0 ? 128 / chunk : 1;   /* chunk di query per blocco */
+    const int Rb_max = B * chunk;
+    const int Wb_max = (lc + B) * chunk;
+    const int pW_max = Wb_max + Rb_max - 1;
+
+    /* rk serve solo nella banda |j-t| < finestra+blocco intorno a p = T-1 */
+    int pu0 = T - (lc + B + 1) * chunk, pu1 = T + (B + 1) * chunk;
+    if (pu0 < 0) pu0 = 0;
+    if (pu1 > P) pu1 = P;
+    const int pu = pu1 - pu0;
+
+    float *rk = malloc((size_t)pu * (size_t)d * sizeof(float));
+    float *scb = malloc((size_t)Rb_max * (size_t)Wb_max * sizeof(float));
+    float *bdb = malloc((size_t)Rb_max * (size_t)pW_max * sizeof(float));
+    float *qb = malloc((size_t)Rb_max * (size_t)dk * sizeof(float));
+    float *cb = malloc((size_t)Rb_max * (size_t)dk * sizeof(float));
+    if (!rk || !scb || !bdb || !qb || !cb) { free(rk); free(scb); free(bdb); free(qb); free(cb); return; }
+    matmul_wt(pe + (size_t)pu0 * (size_t)d, L->relk_w, rk, pu, d, d);
+
+    const int n_chunks = (T + chunk - 1) / chunk;
+    for (int h = 0; h < H; h++) {
+        const size_t ho = (size_t)h * (size_t)dk;
+        for (int tc0 = 0; tc0 < n_chunks; tc0 += B) {
+            const int t0 = tc0 * chunk;
+            int t1 = (tc0 + B) * chunk;
+            if (t1 > T) t1 = T;
+            const int Rb = t1 - t0;
+            int c0 = (tc0 - lc) * chunk;
+            if (c0 < 0) c0 = 0;
+            int c1 = (tc0 + B) * chunk;
+            if (c1 > T) c1 = T;
+            const int Wb = c1 - c0;
+            const int p0 = T - 1 + c0 - (t1 - 1);
+            const int pW = Wb + Rb - 1;
+
+            /* bd_block[r, pl] = (q[t0+r]+bias_v) . rk[p0+pl] */
+            for (int r = 0; r < Rb; r++)
+                for (int i = 0; i < dk; i++)
+                    qb[(size_t)r * (size_t)dk + (size_t)i] =
+                        q[(size_t)(t0 + r) * (size_t)d + ho + (size_t)i] + L->bias_v[ho + (size_t)i];
+            cblas_sgemm(CblasRowMajor, CblasNoTrans, CblasTrans, Rb, pW, dk,
+                        1.0f, qb, dk, rk + (size_t)(p0 - pu0) * (size_t)d + ho, d, 0.0f, bdb, pW);
+
+            /* ac_block[r, jl] = (q[t0+r]+bias_u) . k[c0+jl] */
+            for (int r = 0; r < Rb; r++)
+                for (int i = 0; i < dk; i++)
+                    qb[(size_t)r * (size_t)dk + (size_t)i] =
+                        q[(size_t)(t0 + r) * (size_t)d + ho + (size_t)i] + L->bias_u[ho + (size_t)i];
+            cblas_sgemm(CblasRowMajor, CblasNoTrans, CblasTrans, Rb, Wb, dk,
+                        1.0f, qb, dk, k + (size_t)c0 * (size_t)d + ho, d, 0.0f, scb, Wb);
+
+            for (int r = 0; r < Rb; r++) {
+                const int t = t0 + r;
+                const int tc = t / chunk;
+                int j0 = (tc - lc) * chunk;
+                if (j0 < c0) j0 = c0;
+                int j1 = (tc + 1) * chunk;
+                if (j1 > c1) j1 = c1;
+                float *srow = scb + (size_t)r * (size_t)Wb;
+                const float *brow = bdb + (size_t)r * (size_t)pW;
+
+                float maxv = -3.0e38f;
+                for (int j = j0; j < j1; j++) {
+                    const int jl = j - c0;
+                    srow[jl] = (srow[jl] + brow[T - 1 + j - t - p0]) * scaling;
+                    if (srow[jl] > maxv) maxv = srow[jl];
+                }
+                float sum = 0.0f;
+                for (int j = j0; j < j1; j++) {
+                    srow[j - c0] = expf(srow[j - c0] - maxv);
+                    sum += srow[j - c0];
+                }
+                const float inv = 1.0f / sum;
+                for (int jl = 0; jl < j0 - c0; jl++) srow[jl] = 0.0f;
+                for (int j = j0; j < j1; j++) srow[j - c0] *= inv;
+                for (int jl = j1 - c0; jl < Wb; jl++) srow[jl] = 0.0f;
+            }
+
+            /* ctx_block = scores_block @ v[c0:c1] (strided per head) */
+            cblas_sgemm(CblasRowMajor, CblasNoTrans, CblasNoTrans, Rb, dk, Wb,
+                        1.0f, scb, Wb, v + (size_t)c0 * (size_t)d + ho, d, 0.0f, cb, dk);
+            for (int r = 0; r < Rb; r++)
+                memcpy(ctx + (size_t)(t0 + r) * (size_t)d + ho,
+                       cb + (size_t)r * (size_t)dk, (size_t)dk * sizeof(float));
+        }
+    }
+    free(rk); free(scb); free(bdb); free(qb); free(cb);
+}
+
 static void attention(const mynah_encoder *enc, const mynah_enc_layer *L, const float *x,
                       float *out, int T, const float *pe, int left, int right) {
     const int d = enc->d_model, H = enc->n_heads, dk = enc->d_head, P = 2 * T - 1;
@@ -220,17 +321,28 @@ static void attention(const mynah_encoder *enc, const mynah_enc_layer *L, const 
     float *q = malloc(3 * (size_t)T * (size_t)d * sizeof(float));
     float *k = q + (size_t)T * (size_t)d;
     float *v = k + (size_t)T * (size_t)d;
-    float *rk = malloc((size_t)P * (size_t)d * sizeof(float));
-    float *scores = malloc((size_t)T * (size_t)T * sizeof(float));
-    float *bd = malloc((size_t)T * (size_t)P * sizeof(float));
-    float *qb = malloc((size_t)T * (size_t)d * sizeof(float));
-    float *ctx = malloc((size_t)T * (size_t)d * sizeof(float));
-    if (!q || !rk || !scores || !bd || !qb || !ctx) { free(q); free(rk); free(scores); free(bd); free(qb); free(ctx); return; }
+    float *ctx0 = malloc((size_t)T * (size_t)d * sizeof(float));
+    if (!q || !ctx0) { free(q); free(ctx0); return; }
 
     mynah_qmat_qkv(&L->q_w, &L->k_w, &L->v_w, x, q, k, v, T);
     add_bias_rows(q, L->q_b, T, d);
     add_bias_rows(k, L->k_b, T, d);
     add_bias_rows(v, L->v_b, T, d);
+
+    if (left >= 0) {
+        attention_banded(enc, L, q, k, v, pe, ctx0, T, left, right);
+        mynah_qmat_mul(&L->o_w, ctx0, out, T);
+        add_bias_rows(out, L->o_b, T, d);
+        free(q); free(ctx0);
+        return;
+    }
+    float *ctx = ctx0;
+
+    float *rk = malloc((size_t)P * (size_t)d * sizeof(float));
+    float *scores = malloc((size_t)T * (size_t)T * sizeof(float));
+    float *bd = malloc((size_t)T * (size_t)P * sizeof(float));
+    float *qb = malloc((size_t)T * (size_t)d * sizeof(float));
+    if (!rk || !scores || !bd || !qb) { free(q); free(rk); free(scores); free(bd); free(qb); free(ctx); return; }
     matmul_wt(pe, L->relk_w, rk, P, d, d);
 
     for (int h = 0; h < H; h++) {
