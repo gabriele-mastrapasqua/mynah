@@ -15,7 +15,18 @@ else
   LDFLAGS += -lopenblas -lm -lpthread
   BLAS_DEF := MYNAH_BLAS_OPENBLAS
   CFLAGS  += -DMYNAH_BLAS_OPENBLAS
+  # fail early with a clear hint instead of "cblas.h: No such file or directory"
+  ifeq ($(filter clean,$(MAKECMDGOALS)),)
+    ifeq ($(shell printf '\043include <cblas.h>\n' | $(CC) -E -xc - >/dev/null 2>&1 && echo ok),)
+      $(error OpenBLAS headers not found. Install them first: `sudo apt install libopenblas-dev` (Debian/Ubuntu) or `sudo dnf install openblas-devel` (Fedora))
+    endif
+  endif
 endif
+
+# hook per le build varianti ricorsive (cuda): si sommano ai flag calcolati dal
+# Makefile invece di sovrascrivere CFLAGS (che perderebbe il quoting di MYNAH_BUILD)
+CFLAGS  += $(EXTRA_CFLAGS)
+LDFLAGS += $(EXTRA_LDFLAGS)
 
 SRC := $(wildcard src/*.c) vendor/cJSON.c
 OBJ := $(SRC:%.c=build/%.o) $(OBJ_EXTRA)
@@ -112,13 +123,13 @@ example: examples/minimal
 examples/minimal: examples/minimal.c libmynah.a
 	$(CC) $(CFLAGS) -o $@ examples/minimal.c libmynah.a $(LDFLAGS)
 
-# CUDA (Linux, richiede nvcc): GEMM grandi su GPU. NON validato su hardware:
-# compilare e lanciare `make test` sulla macchina CUDA prima di fidarsi.
+# CUDA (Linux, richiede nvcc): GEMM grandi su GPU via cuBLAS. Validato su
+# A100 (2026-07-20): output identico a CPU su tutti i modelli, RTF in docs/benchmarks.md.
 NVCC ?= nvcc
 cuda:
-	$(MAKE) clean && $(MAKE) CFLAGS="$(CFLAGS) -DMYNAH_CUDA" \
+	$(MAKE) clean && $(MAKE) EXTRA_CFLAGS="-DMYNAH_CUDA" \
 	  OBJ_EXTRA="build/src/cuda_gemm.o" \
-	  LDFLAGS="$(LDFLAGS) -lcublas -lcudart -L/usr/local/cuda/lib64"
+	  EXTRA_LDFLAGS="-lcublas -lcudart -L/usr/local/cuda/lib64"
 
 build/src/cuda_gemm.o: src/cuda_gemm.cu
 	@mkdir -p $(@D)
@@ -143,6 +154,13 @@ asan:
 # bench riproducibile: RTF warm + picco RAM per ogni modello presente
 bench: mynah
 	@sh tests/bench.sh
+
+# Throughput batch (richieste parallele simulate via mynah_transcribe_batch):
+# quante volte il realtime regge il backend al crescere del batch. Pensato per
+# GPU (make cuda; --backend cuda) ma gira anche su cpu/metal.
+#   tests/bench_throughput models/<m> tests/audio/long_60s.wav --backend cuda --max-batch 64
+bench-throughput: tests/bench_throughput
+	@echo "uso: tests/bench_throughput <model_dir> <wav> [--backend cuda] [--max-batch N] [--runs R]"
 
 # Test end-to-end del server (REST + concorrenza + WebSocket)
 test-server: mynah-server

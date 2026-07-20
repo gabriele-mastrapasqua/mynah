@@ -44,7 +44,8 @@ first-class citizen.
   with canary-1b-v2, en↔de/es/fr with the flash models) — CLI `--target-lang`,
   server `/v1/audio/translations`
 - **CPU-first** — warm offline RTF 0.015–0.06 on Apple Silicon (long audio);
-  optional **Metal** backend (−25…45%) and CUDA (pending validation); int8/int4
+  optional **Metal** backend (−25…45%) and **CUDA** (validated on A100: up to 2.9×
+  vs a 22-core EPYC, identical transcripts); int8/int4
   with native SDOT/VNNI kernels
 - **Cache-aware streaming** (Nemotron): runtime-selectable 80 ms–1.12 s latency,
   emitted text is never retracted, **byte-identical to the offline path**
@@ -143,7 +144,8 @@ Full locale tables with quality tiers and prompt ids:
 ## Quickstart
 
 ```sh
-# 1. build (macOS: Accelerate; Linux: apt install libopenblas-dev)
+# 1. build (macOS: Accelerate, zero deps; Linux: needs OpenBLAS first)
+#    Linux: sudo apt install libopenblas-dev   (Fedora: sudo dnf install openblas-devel)
 make
 
 # 2. pick a model from the interactive menu (or --model <alias> to script it)

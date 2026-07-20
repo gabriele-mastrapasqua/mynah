@@ -2,9 +2,9 @@
  * WEIGHT CACHE RESIDENTE (ogni pointer di peso caricato sul device UNA volta,
  * cache per-chiave-pointer), buffer I/O device riusabili, handle cuBLAS proprio.
  *
- * ⚠️ CROSS-COMPILED, NON ANCORA VALIDATO SU HARDWARE (stesso approccio del VNNI
- * di qwen-tts): compilare con `make cuda` su Linux+CUDA e validare con
- * `make test` prima di fidarsi. Fallback CPU automatico su ogni errore.
+ * Validato su hardware 2026-07-20 (A100-SXM4-40GB, CUDA 12.8, Ubuntu 24.04):
+ * trascrizioni identiche a CPU su tutti i 10 modelli supportati, e2e verdi,
+ * RTF in docs/benchmarks.md. Fallback CPU automatico su ogni errore.
  */
 #ifdef MYNAH_CUDA
 
