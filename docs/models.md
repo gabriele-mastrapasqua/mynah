@@ -10,13 +10,19 @@
 | nemotron-3.5-asr-streaming-0.6b | nemotron-streaming | cache-aware streaming + offline, 40 languages, LID |
 | parakeet-tdt-0.6b-v3 | parakeet-tdt | 25 EU languages, ITN, accurate timestamps |
 | parakeet-tdt_ctc-110m | parakeet-tdt (+ctc) | EN; CI model; `--decoder ctc` |
-| parakeet-rnnt-0.6b / ctc-0.6b | parakeet-rnnt/ctc | EN, lowercase |
-| parakeet-rnnt-1.1b / ctc-1.1b | parakeet-rnnt/ctc | EN, 42L — converted with no changes |
+| parakeet-rnnt-0.6b / ctc-0.6b | parakeet-rnnt/ctc | EN, lowercase — import from `.nemo`¹ |
+| parakeet-rnnt-1.1b / ctc-1.1b | parakeet-rnnt/ctc | EN, 42L — import from `.nemo`¹ |
 | canary-180m-flash / 1b-flash | canary-aed | ASR en/de/es/fr + **translation** + word-ts |
 | canary-1b-v2 | canary-aed | ASR **25 EU languages** (it!) + translation en↔24, ITN; no word-ts (external aligner, TODO) |
 
 All with: int8/int4 (`mynah quantize`), Metal, batch, long-file segmentation,
 REST/WS server. Measured RTFs in [benchmarks.md](benchmarks.md).
+
+¹ The classic rnnt/ctc Parakeets ship an HF-native `model.safetensors` too, but
+`convert_nemo.py` has HF builders only for `nemotron3_5_asr` and `parakeet_tdt`:
+these four convert via the `.nemo` archive (torch, `uv sync --extra oracle`).
+`download_model.sh` fetches the right format per model (found the hard way on the
+first clean-server run, 2026-07-20 — the menu wrongly listed them as `hf`).
 
 Traits shared by almost the whole family (from the verified `config.json` files):
 - **FastConformer encoder**: depthwise-separable conv subsampling **8×**, d_model **1024**,
