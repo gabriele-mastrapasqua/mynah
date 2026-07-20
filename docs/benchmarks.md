@@ -90,10 +90,21 @@ Raw TSVs in [bench/](bench/). CUDA backend = big-GEMM offload to cuBLAS
 | 110m cuda (4.3 s wav) | 87× | 85× | 86× | **94×** |
 | 110m cpu (4.3 s wav) | 51× | 36× | 61× | — |
 
-Aggregate ×realtime (B·audio/wall). CUDA batch is **flat**: the backend is
-single-stream with a global mutex, so B=1 already saturates it — multi-stream
-is future work. The B=2–4 dip is the segment-parallel attention outrunning
-the mono-thread BLAS (see the nested-OpenBLAS note below).
+Aggregate ×realtime (B·audio/wall). Same-day follow-ups already in tree:
+per-thread CUDA contexts (TLS handle/stream/buffers, shared weight cache)
+replaced the global mutex, and the per-worker BLAS quota fixed the B=2 dip
+(15.7→**30.8×**; B=8 unchanged at ~33×).
+
+### Concurrent requests (server-style) — `bench_throughput --threads N`
+
+N pthreads, each transcribing the 60 s wav on the shared model (nemotron,
+CUDA): 1×=35, 2×=24.6 aggregate — but **N≥4 collapses** (1.9×): N callers ×
+22-thread OpenBLAS thrash on the CPU-side attention. The knob is pinning
+BLAS for the whole process: with `OPENBLAS_NUM_THREADS=3` → N=4 24.5×,
+N=8 19.6×, no collapse (single-request latency drops to 17× — the usual
+latency/throughput tradeoff). Adaptive per-request BLAS sizing in
+mynah-server is future work; for parallel throughput today, the batch API
+is the fast path.
 
 ### Two bugs found (and fixed) by these benchmarks
 
